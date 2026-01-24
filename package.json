@@ -3,9 +3,9 @@
   "version": "1.0.0",
   "description": "Local voice chat",
   "scripts": {
-    "start:server": "cd ./backend && npm run start",
-    "start:client": "",
-    "start:host": "npm run start:server"
+    "start:server": "cd ./backend && npm run start && cd ..",
+    "start:client": "cd ./frontend && npm run preview && cd ..",
+    "start:host": "concurrently --names \"backend,frontend\" \"run start:server\" \"npm run start:client\""
   },
   "repository": {
     "type": "git",
@@ -16,5 +16,8 @@
   "bugs": {
     "url": "https://github.com/KulkovaAnna/cozy-voice-chat/issues"
   },
-  "homepage": "https://github.com/KulkovaAnna/cozy-voice-chat#readme"
+  "homepage": "https://github.com/KulkovaAnna/cozy-voice-chat#readme",
+  "devDependencies": {
+    "concurrently": "^9.2.1"
+  }
 }
