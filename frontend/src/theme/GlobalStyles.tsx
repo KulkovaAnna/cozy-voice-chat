@@ -2,7 +2,7 @@ import { Global, css } from "@emotion/react";
 import { useTheme } from "@emotion/react";
 
 export const GlobalStyles = () => {
-  const theme = useTheme(); // Получаем текущую тему
+  const theme = useTheme();
 
   return (
     <Global
@@ -22,7 +22,6 @@ export const GlobalStyles = () => {
           font-size: ${theme.typography.fontSize.md};
         }
 
-        /* Динамический фон на основе темы */
         body {
           background-color: ${theme.colors.background.default};
           color: ${theme.colors.text.primary};
@@ -44,7 +43,6 @@ export const GlobalStyles = () => {
             : theme.colors.background.default};
         }
 
-        /* Кастомный скроллбар в зависимости от темы */
         ::-webkit-scrollbar {
           width: 10px;
         }
@@ -62,13 +60,11 @@ export const GlobalStyles = () => {
           background: ${theme.colors.primary.dark};
         }
 
-        /* Выделение текста */
         ::selection {
           background-color: ${theme.colors.primary.light};
           color: ${theme.colors.primary.contrast};
         }
 
-        /* Для семантических тегов */
         main {
           background-color: ${theme.colors.background.paper};
           border-radius: ${theme.borderRadius.medium};

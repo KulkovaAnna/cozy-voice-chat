@@ -7,8 +7,6 @@ import AppContent from "./AppContent";
 function ThemedApp() {
   const [isDarkMode, setIsDarkMode] = React.useState(false);
   const currentTheme = isDarkMode ? darkTheme : lightTheme;
-
-  // Обязательно добавляем имя темы для условных стилей
   const themeWithName = {
     ...currentTheme,
     name: isDarkMode ? "dark" : "light",

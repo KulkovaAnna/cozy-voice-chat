@@ -1,11 +1,9 @@
-import "./AppContent.css";
 import { Button } from "./components/Button";
 import { Input } from "./components/Input/Input.styled";
 import { Card } from "./components/Card";
 import { Header } from "./components/Header";
-import { IconButton } from "./components/IconButton";
-import { Icons } from "./components/IconButton/constants";
 import { Column } from "./components/Column";
+import { MainContainer } from "./AppContent.styled";
 
 interface AppContentProps {
   isDarkMode: boolean;
@@ -15,14 +13,8 @@ interface AppContentProps {
 const AppContent = ({ isDarkMode, toggleTheme }: AppContentProps) => {
   return (
     <>
-      <Header>
-        <h1>Cozy Voice Chat</h1>
-        <IconButton
-          icon={isDarkMode ? Icons.lightTheme : Icons.darkTheme}
-          onClick={toggleTheme}
-        />
-      </Header>
-      <div className={"mainContainer"}>
+      <Header isDarkMode={isDarkMode} toggleTheme={toggleTheme} />
+      <MainContainer>
         <Card>
           <Column align="center">
             <Input placeholder="Код комнаты" />
@@ -32,7 +24,7 @@ const AppContent = ({ isDarkMode, toggleTheme }: AppContentProps) => {
             <Button>Создать</Button>
           </Column>
         </Card>
-      </div>
+      </MainContainer>
     </>
   );
 };

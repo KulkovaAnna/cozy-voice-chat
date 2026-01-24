@@ -1,4 +1,3 @@
-// Определяем основной интерфейс темы
 export interface AppTheme {
   name: string;
   colors: {
@@ -92,7 +91,7 @@ export interface AppTheme {
   };
 }
 
-// Создаем светлую тему (основную)
+// Светлая тема
 export const lightTheme: AppTheme = {
   name: "light",
   colors: {
@@ -134,12 +133,12 @@ export const lightTheme: AppTheme = {
     fontFamily:
       "'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif",
     fontSize: {
-      xs: "0.75rem", // 12px
-      sm: "0.875rem", // 14px
-      md: "1rem", // 16px
-      lg: "1.125rem", // 18px
-      xl: "1.25rem", // 20px
-      xxl: "1.5rem", // 24px
+      xs: "0.75rem",
+      sm: "0.875rem",
+      md: "1rem",
+      lg: "1.125rem",
+      xl: "1.25rem",
+      xxl: "1.5rem",
     },
     fontWeight: {
       light: 300,
@@ -149,7 +148,7 @@ export const lightTheme: AppTheme = {
     },
   },
   spacing: {
-    unit: 8, // Базовый множитель (8px)
+    unit: 8,
     layout: {
       small: "16px",
       medium: "24px",
@@ -184,7 +183,7 @@ export const lightTheme: AppTheme = {
   },
 };
 
-// Создаем темную тему
+// Темная тема
 export const darkTheme: AppTheme = {
   ...lightTheme,
   name: "dark",
@@ -215,5 +214,4 @@ export const darkTheme: AppTheme = {
   },
 };
 
-// Тип для использования в компонентах
 export type Theme = AppTheme;
