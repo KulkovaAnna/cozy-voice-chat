@@ -3,12 +3,12 @@ import { createRoot } from "react-dom/client";
 import "./index.css";
 import { ThemeProvider } from "@emotion/react";
 import { lightTheme } from "./theme";
-import ThemedApp from "./ThemedApp.tsx";
+import App from "./App.tsx";
 
 createRoot(document.getElementById("root")!).render(
   <StrictMode>
     <ThemeProvider theme={lightTheme}>
-      <ThemedApp />
+      <App />
     </ThemeProvider>
   </StrictMode>,
 );

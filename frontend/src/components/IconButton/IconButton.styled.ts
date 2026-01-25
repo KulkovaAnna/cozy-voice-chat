@@ -2,7 +2,7 @@ import styled from "@emotion/styled";
 
 export const IconButton = styled.button(({ theme }) => ({
   color: theme.colors.primary.contrast,
-  backgroundColor: theme?.colors.secondary.main,
+  backgroundColor: theme?.colors.primary.main,
   border: "none",
   borderRadius: "4px",
   padding: "8px",
@@ -12,6 +12,6 @@ export const IconButton = styled.button(({ theme }) => ({
   fontSize: "1rem",
   "&:hover": {
     cursor: "pointer",
-    backgroundColor: theme.colors.secondary.dark,
+    backgroundColor: theme.colors.primary.dark,
   },
 }));

@@ -10,9 +10,16 @@ export const Header = styled.div(({ theme }) => ({
   backgroundColor: theme.colors.background.card,
   justifyContent: "space-between",
   gap: "2rem",
-  padding: "8px",
+  padding: "0.5rem 1rem",
   width: "100%",
   boxSizing: "border-box",
   boxShadow: `0px 2px 16px ${theme.colors.primary.main},
   0px 4px 16px ${theme.colors.secondary.main}`,
+}));
+
+export const RightPanel = styled.div(() => ({
+  display: "flex",
+  flexFlow: "row",
+  width: "fit-content",
+  gap: "1rem",
 }));
