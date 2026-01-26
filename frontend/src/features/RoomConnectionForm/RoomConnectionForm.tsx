@@ -9,7 +9,7 @@ import { useNavigate } from "react-router";
 export const RoomConnectionForm = () => {
   const { userName } = useAuth();
   const { register, handleSubmit } = useForm();
-  let navigate = useNavigate();
+  const navigate = useNavigate();
 
   return (
     userName && (

@@ -1,25 +1,22 @@
-import { useNavigate, useParams } from "react-router";
+import { Link, useParams } from "react-router";
 import { Button } from "../../components/Button";
-import { Form } from "../../components/Form";
+import { Card } from "../../components/Card";
 import { Column } from "../../components/Column";
 
 export const Room = () => {
-  let navigate = useNavigate();
-  let params = useParams();
+  const params = useParams();
   return (
     <>
-      <Form
-        onSubmit={() => {
-          navigate("/");
-        }}
-      >
+      <Card>
         <Column>
           <h1>Комната {params.roomId}</h1>
-          <Button isPrimary type="submit">
-            На главную
-          </Button>
+          <Link to={"/"}>
+            <Button isPrimary type="submit">
+              На главную
+            </Button>
+          </Link>
         </Column>
-      </Form>
+      </Card>
     </>
   );
 };
