@@ -2,7 +2,7 @@ import React from "react";
 import { ThemeProvider } from "@emotion/react";
 import { lightTheme, darkTheme } from "./theme";
 import { GlobalStyles } from "./theme/GlobalStyles";
-import StartPage from "./pages/StartPage/StartPage";
+import { Root } from "./pages/Root";
 import { AuthProvider } from "./providers/AuthProvider";
 
 function App() {
@@ -17,7 +17,7 @@ function App() {
     <ThemeProvider theme={themeWithName}>
       <AuthProvider>
         <GlobalStyles />
-        <StartPage
+        <Root
           isDarkMode={isDarkMode}
           toggleTheme={() => setIsDarkMode((prev) => !prev)}
         />
