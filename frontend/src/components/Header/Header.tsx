@@ -1,6 +1,7 @@
 import { IconButton } from "../IconButton";
 import { Icons } from "../IconButton/constants";
 import * as Styled from "./Header.styled";
+import { EditableNickname } from "../EditableNickname";
 
 interface HeaderProps {
   isDarkMode: boolean;
@@ -11,10 +12,13 @@ export const Header = ({ isDarkMode, toggleTheme }: HeaderProps) => {
   return (
     <Styled.Header>
       <h1>Cozy Voice Chat</h1>
-      <IconButton
-        icon={isDarkMode ? Icons.lightTheme : Icons.darkTheme}
-        onClick={toggleTheme}
-      />
+      <Styled.RightPanel>
+        <EditableNickname />
+        <IconButton
+          icon={isDarkMode ? Icons.lightTheme : Icons.darkTheme}
+          onClick={toggleTheme}
+        />
+      </Styled.RightPanel>
     </Styled.Header>
   );
 };

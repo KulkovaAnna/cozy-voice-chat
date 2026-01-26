@@ -1,6 +1,6 @@
 import styled from "@emotion/styled";
 
-export const Card = styled.div(({ theme }) => ({
+export const Form = styled.form(({ theme }) => ({
   display: "flex",
   flexFlow: "row",
   color: theme.colors.primary.contrast,

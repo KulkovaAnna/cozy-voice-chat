@@ -2,9 +2,10 @@ import React from "react";
 import { ThemeProvider } from "@emotion/react";
 import { lightTheme, darkTheme } from "./theme";
 import { GlobalStyles } from "./theme/GlobalStyles";
-import AppContent from "./AppContent";
+import StartPage from "./pages/StartPage/StartPage";
+import { AuthProvider } from "./providers/AuthProvider";
 
-function ThemedApp() {
+function App() {
   const [isDarkMode, setIsDarkMode] = React.useState(false);
   const currentTheme = isDarkMode ? darkTheme : lightTheme;
   const themeWithName = {
@@ -14,13 +15,15 @@ function ThemedApp() {
 
   return (
     <ThemeProvider theme={themeWithName}>
-      <GlobalStyles />
-      <AppContent
-        isDarkMode={isDarkMode}
-        toggleTheme={() => setIsDarkMode(!isDarkMode)}
-      />
+      <AuthProvider>
+        <GlobalStyles />
+        <StartPage
+          isDarkMode={isDarkMode}
+          toggleTheme={() => setIsDarkMode((prev) => !prev)}
+        />
+      </AuthProvider>
     </ThemeProvider>
   );
 }
 
-export default ThemedApp;
+export default App;
