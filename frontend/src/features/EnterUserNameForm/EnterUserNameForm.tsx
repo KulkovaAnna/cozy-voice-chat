@@ -17,7 +17,6 @@ export const EnterUserNameForm = () => {
       <Form
         onSubmit={handleSubmit((data) => {
           setUserName(data.userName);
-          console.log(data);
         })}
       >
         <Column align="center">

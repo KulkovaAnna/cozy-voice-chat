@@ -19,7 +19,7 @@ function App() {
         <GlobalStyles />
         <StartPage
           isDarkMode={isDarkMode}
-          toggleTheme={() => setIsDarkMode(!isDarkMode)}
+          toggleTheme={() => setIsDarkMode((prev) => !prev)}
         />
       </AuthProvider>
     </ThemeProvider>

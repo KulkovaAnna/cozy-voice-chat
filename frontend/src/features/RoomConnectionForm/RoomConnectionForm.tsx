@@ -11,8 +11,8 @@ export const RoomConnectionForm = () => {
   return (
     userName && (
       <Form
-        onSubmit={handleSubmit((data) => {
-          console.log(data);
+        onSubmit={handleSubmit(() => {
+          //TODO: Логика присоединения
         })}
       >
         <Column align="center">

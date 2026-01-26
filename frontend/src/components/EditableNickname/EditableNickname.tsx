@@ -1,14 +1,9 @@
-import {
-  useContext,
-  useEffect,
-  useState,
-  type InputHTMLAttributes,
-} from "react";
+import { useEffect, useState, type InputHTMLAttributes } from "react";
 import * as Styled from "./EditableNickname.styled";
 import { IconButton } from "../IconButton";
 import { Icons } from "../IconButton/constants";
-import { AuthContext } from "../../providers/AuthProvider/AuthContext";
 import { useForm } from "react-hook-form";
+import { useAuth } from "../../providers/AuthProvider";
 
 interface EditableNicknameProps extends InputHTMLAttributes<HTMLInputElement> {}
 
@@ -17,7 +12,7 @@ interface IForm {
 }
 
 export const EditableNickname = ({ ...props }: EditableNicknameProps) => {
-  const { userName, setUserName } = useContext(AuthContext);
+  const { userName, setUserName } = useAuth();
   const [isEdit, setIsEdit] = useState(false);
 
   const { register, handleSubmit, setValue } = useForm<IForm>({

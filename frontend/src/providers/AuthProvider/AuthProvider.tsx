@@ -1,11 +1,9 @@
-import { useState, type PropsWithChildren } from "react";
+import { type PropsWithChildren } from "react";
 import { AuthContext } from "./AuthContext";
+import useLocalStorage from "../../hooks/useLocalStorage";
 
 export function AuthProvider(props: PropsWithChildren) {
-  const [userName, setUserName] = useState<string>(
-    localStorage.getItem("userName") || "",
-  );
-
+  const [userName, setUserName] = useLocalStorage("userName", "");
   return (
     <AuthContext value={{ userName, setUserName }}>
       {props.children}
