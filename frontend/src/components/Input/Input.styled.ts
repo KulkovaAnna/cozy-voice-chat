@@ -19,4 +19,9 @@ export const Input = styled.input(({ theme }) => ({
   "&:focus": {
     borderColor: theme.colors.primary.main,
   },
+  "&:is(:-internal-autofill-selected, :-webkit-autofill, :autofill)": {
+    WebkitTextFillColor: theme.colors.primary.contrast,
+    WebkitBoxShadow: `0 0 0 1000px ${theme?.colors.background.darker} inset !important`,
+    borderColor: theme.colors.primary.dark,
+  },
 }));
