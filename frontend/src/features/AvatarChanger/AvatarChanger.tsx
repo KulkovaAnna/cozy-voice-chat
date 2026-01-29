@@ -18,9 +18,9 @@ export const AvatarChanger = () => {
   };
 
   return (
-    <Styled.Row onSubmit={handleSubmit(submit)}>
+    <Styled.FormRow onSubmit={handleSubmit(submit)}>
       <Input placeholder="Новый URL аватара..." {...register("avatar")} />
       <IconButton icon={Icons.save} type="submit" />
-    </Styled.Row>
+    </Styled.FormRow>
   );
 };

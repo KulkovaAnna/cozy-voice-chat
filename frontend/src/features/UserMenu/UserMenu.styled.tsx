@@ -1,7 +1,7 @@
 import styled from "@emotion/styled";
 import { Card } from "../../components/Card";
 
-export const UserMenu = styled(Card)(({}) => ({
+export const UserMenu = styled(Card)({
   flexFlow: "column",
   justifyContent: "flex-start",
   alignItems: "center",
@@ -11,4 +11,9 @@ export const UserMenu = styled(Card)(({}) => ({
   top: "100%",
   right: 0,
   margin: "1rem",
-}));
+});
+
+export const Label = styled.div({
+  width: "100%",
+  maxWidth: "200px",
+});
