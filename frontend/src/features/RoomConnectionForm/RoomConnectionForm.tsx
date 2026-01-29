@@ -16,7 +16,9 @@ export const RoomConnectionForm = () => {
   const { createRoom, roomId, joinToRoom, roomJoined, setRoomId } =
     useChatNetwork();
 
-  const { userName } = useAuth();
+  const {
+    user: { userName, avatar },
+  } = useAuth();
   const { register, handleSubmit } = useForm<FormData>();
   const navigate = useNavigate();
 
@@ -28,7 +30,7 @@ export const RoomConnectionForm = () => {
     if (roomId) {
       joinToRoom({
         userName,
-        something: "Random stuff",
+        avatar,
       });
     }
   }, [roomId]);

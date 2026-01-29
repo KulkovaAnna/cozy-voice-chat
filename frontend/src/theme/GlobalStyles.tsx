@@ -34,7 +34,7 @@ export const GlobalStyles = () => {
         #root {
           min-height: 100vh;
           margin: 0 auto;
-          padding: 4rem;
+          padding: 4rem 0;
           text-align: center;
           background: ${theme.name === "dark"
             ? `linear-gradient(135deg, 

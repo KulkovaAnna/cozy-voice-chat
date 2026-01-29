@@ -18,7 +18,7 @@ export const Room = () => {
   }, [roomId]);
 
   const userCards = userList?.map((profile) => (
-    <UserCard key={profile.id} userName={profile.name} isSpeaking={false} />
+    <UserCard key={profile.id} user={profile} isSpeaking={false} />
   ));
 
   return (
