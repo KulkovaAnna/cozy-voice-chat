@@ -1,10 +1,11 @@
-const { RateLimiterMemory } = require('rate-limiter-flexible');
+const { RateLimiterMemory } = require("rate-limiter-flexible");
+const config = require("../config");
 
 class RateLimiter {
   constructor() {
     // Limit connections per IP
     this.connectionLimiter = new RateLimiterMemory({
-      points: 2, // connections per IP
+      points: config.security.maxConnectionsPerIP, // connections per IP
       duration: 60, // per 60 seconds
     });
 

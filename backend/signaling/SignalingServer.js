@@ -1,8 +1,9 @@
-const WebSocket = require('ws');
-const AuthMiddleware = require('../security/AuthMiddleware');
-const ClientManager = require('./ClientManager');
-const RateLimiter = require('../security/RateLimiter');
-const config = require('../config');
+const WebSocket = require("ws");
+const AuthMiddleware = require("../security/AuthMiddleware");
+const ClientManager = require("./ClientManager");
+const RateLimiter = require("../security/RateLimiter");
+const config = require("../config");
+const Adapters = require("../utils/adapters");
 
 class SignalingServer {
   constructor(server) {
@@ -19,7 +20,7 @@ class SignalingServer {
   }
 
   setupWebSocket() {
-    this.wss.on('connection', async (ws, req) => {
+    this.wss.on("connection", async (ws, req) => {
       // Security checks
       if (!AuthMiddleware.validateWebSocket(ws, req)) {
         return;
@@ -28,27 +29,32 @@ class SignalingServer {
       // Rate limiting by IP
       const ip = req.socket.remoteAddress;
       if (!(await this.rateLimiter.checkConnection(ip))) {
-        ws.close(1013, 'Too many connections');
+        ws.close(1013, "Too many connections");
         return;
       }
 
       this.clientManager.addClient(ws, ip);
 
       // Setup message handler
-      ws.on('message', async (message) => {
+      ws.on("message", async (message) => {
         await this.handleMessage(ws, JSON.parse(message));
       });
 
       // Setup close handler
-      ws.on('close', () => {
+      ws.on("close", () => {
         const clientData = this.clientManager.removeClient(ws);
         if (clientData) {
           this.broadcastToRoom(
             clientData.room,
             {
-              type: 'user-disconnected',
-              clientId: clientData.id,
-              timestamp: new Date().toISOString(),
+              type: "user-disconnected",
+              data: {
+                clientId: clientData.id,
+                timestamp: new Date().toISOString(),
+                clients: this.clientManager
+                  .getClientsInRoom(clientData.room)
+                  .map(Adapters.getClientUser),
+              },
             },
             clientData.id,
           );
@@ -56,7 +62,7 @@ class SignalingServer {
       });
 
       // Setup error handler
-      ws.on('error', (error) => {
+      ws.on("error", (error) => {
         console.error(`WebSocket error for client ${clientId}:`, error);
         this.clientManager.removeClient(ws);
       });
@@ -72,8 +78,8 @@ class SignalingServer {
       // Rate limiting for messages
       if (!(await this.rateLimiter.checkMessage(clientData.id))) {
         this.sendToClient(ws, {
-          type: 'error',
-          message: 'Rate limit exceeded',
+          type: "error",
+          message: "Rate limit exceeded",
         });
         return;
       }
@@ -82,40 +88,36 @@ class SignalingServer {
       this.clientManager.updateHeartbeat(clientData.id);
 
       switch (message.type) {
-        case 'create-room':
+        case "create-room":
           this.handleCreateRoom(clientData.id);
           break;
 
-        case 'join-room':
-          this.handleJoinRoom(
-            clientData.id,
-            data.roomId,
-            data.userName || `Аноним_${Date.now()}`,
-          );
+        case "join-room":
+          this.handleJoinRoom(clientData.id, data);
           break;
 
-        case 'leave-room':
+        case "leave-room":
           this.handleLeaveRoom(clientData.id);
           break;
 
-        case 'offer':
-        case 'answer':
-        case 'candidate':
+        case "offer":
+        case "answer":
+        case "candidate":
           this.handleWebRTCMessage(clientData.id, data);
           break;
 
-        case 'ping':
-          this.sendToClient(ws, { type: 'pong', timestamp: Date.now() });
+        case "ping":
+          this.sendToClient(ws, { type: "pong", timestamp: Date.now() });
           break;
 
         default:
           console.warn(`Unknown message type: ${data.type}`);
       }
     } catch (error) {
-      console.error('Error handling message:', error);
+      console.error("Error handling message:", error);
       this.sendToClient(ws, {
-        type: 'error',
-        message: error.message || 'Invalid message format',
+        type: "error",
+        message: error.message || "Invalid message format",
       });
     }
   }
@@ -126,36 +128,34 @@ class SignalingServer {
 
     const roomId = this.clientManager.createRoom();
     this.sendToClient(clientData.ws, {
-      type: 'room-created',
+      type: "room-created",
       data: {
         roomId,
       },
     });
   }
 
-  handleJoinRoom(clientId, roomId, userName) {
-    const success = this.clientManager.joinRoom(clientId, roomId, userName);
+  handleJoinRoom(clientId, data) {
+    const success = this.clientManager.joinRoom(clientId, data);
     const clientData = this.clientManager.getClientById(clientId);
 
     if (success && clientData) {
       // Notify the joining client
       this.sendToClient(clientData.ws, {
-        type: 'joined-room',
+        type: "joined-room",
         data: {
-          roomId,
-          clients: this.clientManager.getClientsInRoom(roomId).map((c) => ({
-            id: c.id,
-            joinedAt: c.joinedAt,
-            additionalInfo: c.additionalInfo,
-          })),
+          roomId: data.roomId,
+          clients: this.clientManager
+            .getClientsInRoom(data.roomId)
+            .map(Adapters.getClientUser),
         },
       });
 
       // Notify others in the room
       this.broadcastToRoom(
-        roomId,
+        data.roomId,
         {
-          type: 'user-joined',
+          type: "user-joined",
           data: {
             clientId,
             timestamp: new Date().toISOString(),
@@ -174,12 +174,18 @@ class SignalingServer {
       this.clientManager.leaveRoom(clientId);
 
       this.broadcastToRoom(roomId, {
-        type: 'user-left',
-        data: { clientId, timestamp: new Date().toISOString() },
+        type: "user-left",
+        data: {
+          clientId,
+          timestamp: new Date().toISOString(),
+          clients: this.clientManager
+            .getClientsInRoom(roomId)
+            .map(Adapters.getClientUser),
+        },
       });
 
       this.sendToClient(clientData.ws, {
-        type: 'left-room',
+        type: "left-room",
         data: { roomId },
       });
     }
@@ -189,7 +195,7 @@ class SignalingServer {
     const targetClient = this.clientManager.getClientById(message.data.target);
     if (targetClient && targetClient.ws.readyState === WebSocket.OPEN) {
       this.sendToClient(targetClient.ws, {
-        type: 'offer-accepted',
+        type: "offer-accepted",
         data: {
           message: message.data.message,
           sender: senderId,
@@ -226,7 +232,7 @@ class SignalingServer {
           config.websocket.heartbeatInterval * 2
         ) {
           console.log(`Client ${client.id} heartbeat timeout, disconnecting`);
-          client.ws.close(1001, 'Heartbeat timeout');
+          client.ws.close(1001, "Heartbeat timeout");
           this.clientManager.removeClient(client.ws);
         }
       });

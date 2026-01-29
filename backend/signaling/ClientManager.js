@@ -1,5 +1,5 @@
-const { v4: uuidv4 } = require('uuid');
-const Helpers = require('../utils/helpers');
+const { v4: uuidv4 } = require("uuid");
+const Helpers = require("../utils/helpers");
 
 class ClientManager {
   constructor() {
@@ -26,7 +26,8 @@ class ClientManager {
   }
 
   removeClient(ws) {
-    const clientData = this.clients.get(ws);
+    const clientData = { ...this.clients.get(ws) };
+
     if (clientData) {
       // Remove from room if in one
       if (clientData.room) {
@@ -50,13 +51,13 @@ class ClientManager {
     return roomId;
   }
 
-  joinRoom(clientId, roomId, userName) {
+  joinRoom(clientId, data) {
     const client = this.getClientById(clientId);
     if (!client) return false;
 
-    const room = this.rooms.get(roomId);
+    const room = this.rooms.get(data.roomId);
 
-    if (!room) throw new Error('Комнаты с таким номером не существует');
+    if (!room) throw new Error("Комнаты с таким номером не существует");
 
     // Leave current room if any
     if (client.room) {
@@ -64,10 +65,15 @@ class ClientManager {
     }
 
     room.add(clientId);
-    client.room = roomId;
-    client.additionalInfo.name = userName;
+    client.room = data.roomId;
+    client.additionalInfo = {
+      ...client.additionalInfo,
+      ...data,
+    };
 
-    console.log(`Client ${userName} (id: ${clientId}) joined room: ${roomId}`);
+    console.log(
+      `Client ${data.userName} (id: ${clientId}) joined room: ${data.roomId}`,
+    );
     return true;
   }
 
