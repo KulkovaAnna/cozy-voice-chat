@@ -4,6 +4,7 @@ import { GlobalStyles } from "./theme/GlobalStyles";
 import { Root } from "./pages/Root";
 import { AuthProvider } from "./providers/AuthProvider";
 import useLocalStorage from "./hooks/useLocalStorage";
+import { ChatNetworkProvider } from "./providers/ChatNetworkProvider";
 
 function App() {
   const [isDarkMode, setIsDarkMode] = useLocalStorage("dark", "");
@@ -16,11 +17,13 @@ function App() {
   return (
     <ThemeProvider theme={themeWithName}>
       <AuthProvider>
-        <GlobalStyles />
-        <Root
-          isDarkMode={!!isDarkMode}
-          toggleTheme={() => setIsDarkMode((prev) => (prev ? "" : "true"))}
-        />
+        <ChatNetworkProvider>
+          <GlobalStyles />
+          <Root
+            isDarkMode={!!isDarkMode}
+            toggleTheme={() => setIsDarkMode((prev) => (prev ? "" : "true"))}
+          />
+        </ChatNetworkProvider>
       </AuthProvider>
     </ThemeProvider>
   );

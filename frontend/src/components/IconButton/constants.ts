@@ -3,4 +3,8 @@ export enum Icons {
   darkTheme = "🌒",
   edit = "📝",
   save = "💾",
+  micOn = "😁",
+  micOff = "😡",
+  exitRoom = "🕿",
+  settings = "",
 }
