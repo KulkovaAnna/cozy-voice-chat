@@ -1,16 +1,17 @@
 import { Avatar } from "../../components/Avatar";
+import type { UserProfile } from "../../types";
 import * as Styled from "./UserCard.styled";
 
 interface UserCardProps {
-  userName: string;
+  user: UserProfile;
   isSpeaking?: boolean;
 }
 
-export const UserCard = ({ userName, isSpeaking }: UserCardProps) => {
+export const UserCard = ({ user, isSpeaking }: UserCardProps) => {
   return (
     <Styled.UserCard isSpeaking={isSpeaking}>
-      <Avatar src="https://i.pinimg.com/736x/a7/38/60/a738604ecb973216dc68730990060e61.jpg" />
-      {userName}
+      <Avatar size={80} src={user.avatar} />
+      {user.name}
     </Styled.UserCard>
   );
 };

@@ -1,11 +1,15 @@
-import { createContext, type Dispatch, type SetStateAction } from "react";
+import { createContext } from "react";
+import type { User } from "../../types/clientTypes";
 
 type AuthContextType = {
-  userName: string;
-  setUserName: Dispatch<SetStateAction<string>>;
+  user: User;
+  updateUser: (user: Partial<User>) => void;
 };
 
 export const AuthContext = createContext<AuthContextType>({
-  userName: "",
-  setUserName: () => {},
+  user: {
+    userName: "",
+    avatar: "",
+  },
+  updateUser: () => {},
 });

@@ -1,9 +1,11 @@
+import type { ButtonHTMLAttributes } from "react";
 import * as Styled from "./Avatar.styled";
 
-interface AvatarProps {
+interface AvatarProps extends ButtonHTMLAttributes<HTMLButtonElement> {
   src: string;
+  size?: number;
 }
 
-export const Avatar = ({ src }: AvatarProps) => {
-  return <Styled.Avatar src={src} />;
+export const Avatar = ({ src, size }: AvatarProps) => {
+  return <Styled.Avatar src={src} size={size} />;
 };

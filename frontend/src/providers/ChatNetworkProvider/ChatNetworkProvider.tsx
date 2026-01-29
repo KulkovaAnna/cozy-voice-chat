@@ -28,7 +28,11 @@ export function ChatNetworkProvider(props: PropsWithChildren) {
       const data = JSON.parse(e.data);
       const currentUsers =
         data.data?.clients?.map((client: ClientData) => {
-          return { name: client.additionalInfo.userName, id: client.id };
+          return {
+            name: client.additionalInfo.userName,
+            id: client.id,
+            avatar: client.additionalInfo.avatar,
+          };
         }) || [];
 
       switch (data.type) {
@@ -47,6 +51,7 @@ export function ChatNetworkProvider(props: PropsWithChildren) {
             ...userList,
             {
               name: data.data.clientInfo.userName,
+              avatar: data.data.clientInfo.avatar,
               id: data.data.clientId,
             },
           ]);

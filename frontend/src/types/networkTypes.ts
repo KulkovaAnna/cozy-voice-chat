@@ -1,5 +1,6 @@
 export type UserProfile = {
   name: string;
+  avatar: string;
   id: string;
 };
 
@@ -14,6 +15,7 @@ export type JoinedRoomData = {
 export type ClientData = {
   additionalInfo: {
     userName: string;
+    avatar: string;
   };
   id: string;
   joinedAt: string;

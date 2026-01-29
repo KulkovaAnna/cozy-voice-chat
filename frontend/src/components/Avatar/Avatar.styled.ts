@@ -1,8 +1,12 @@
 import styled from "@emotion/styled";
 
-export const Avatar = styled.img(() => ({
+interface AvatarProps {
+  size?: number;
+}
+
+export const Avatar = styled.img<AvatarProps>(({ size }) => ({
+  width: size ?? "100%",
+  height: size ?? "100%",
   borderRadius: "50%",
-  width: "100%",
-  maxWidth: "80px",
-  aspectRatio: 1,
+  objectFit: "cover" as const,
 }));

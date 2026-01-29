@@ -6,17 +6,18 @@ import { Input } from "../../components/Input";
 import { Button } from "../../components/Button";
 
 export const EnterUserNameForm = () => {
-  const { userName, setUserName } = useAuth();
+  const { user, updateUser } = useAuth();
   const {
     register,
     handleSubmit,
     formState: { errors },
   } = useForm();
+
   return (
-    !userName && (
+    !user.userName && (
       <Form
         onSubmit={handleSubmit((data) => {
-          setUserName(data.userName);
+          updateUser({ userName: data.userName });
         })}
       >
         <Column align="center">

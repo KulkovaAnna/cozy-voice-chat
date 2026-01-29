@@ -1,5 +1,9 @@
 import styled from "@emotion/styled";
 
+interface AvatarProps {
+  size: number;
+}
+
 export const Header = styled.div(({ theme }) => ({
   position: "fixed",
   top: 0,
@@ -20,6 +24,22 @@ export const Header = styled.div(({ theme }) => ({
 export const RightPanel = styled.div(() => ({
   display: "flex",
   flexFlow: "row",
+  justifyContent: "right",
+  alignItems: "center",
   width: "fit-content",
   gap: "1rem",
 }));
+
+export const InvisibleButton = styled.button<AvatarProps>(
+  ({ size, theme }) => ({
+    width: `${size}px`,
+    height: `${size}px`,
+    background: "none",
+    border: "none",
+    borderRadius: "50%",
+    backgroundColor: theme.colors.secondary.main,
+    "&:hover": {
+      cursor: "pointer",
+    },
+  }),
+);

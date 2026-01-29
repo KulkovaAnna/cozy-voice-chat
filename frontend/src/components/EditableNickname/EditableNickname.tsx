@@ -12,7 +12,10 @@ interface IForm {
 }
 
 export const EditableNickname = ({ ...props }: EditableNicknameProps) => {
-  const { userName, setUserName } = useAuth();
+  const {
+    user: { userName },
+    updateUser,
+  } = useAuth();
   const [isEdit, setIsEdit] = useState(false);
 
   const { register, handleSubmit, setValue } = useForm<IForm>({
@@ -20,7 +23,7 @@ export const EditableNickname = ({ ...props }: EditableNicknameProps) => {
   });
 
   const submit = (data: IForm) => {
-    setUserName(data.name || userName);
+    updateUser({ userName: data.name || userName });
   };
 
   const handleError = () => {
