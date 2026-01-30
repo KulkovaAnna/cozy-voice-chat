@@ -7,7 +7,7 @@ export const UserMenu = styled(Card)({
   alignItems: "center",
   gap: "1rem",
   position: "absolute",
-  zIndex: "99999",
+  zIndex: "9",
   top: "100%",
   right: 0,
   margin: "1rem",

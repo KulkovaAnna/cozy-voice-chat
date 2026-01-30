@@ -1,7 +1,7 @@
 import styled from "@emotion/styled";
 
 export const Input = styled.input(({ theme }) => ({
-  color: theme.colors.primary.contrast,
+  color: theme.colors.text.primary,
   backgroundColor: theme?.colors.background.default,
   outline: "none",
   border: `4px solid transparent`,

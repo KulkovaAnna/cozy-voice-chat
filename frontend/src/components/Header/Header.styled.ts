@@ -8,7 +8,7 @@ export const Header = styled.div(({ theme }) => ({
   position: "fixed",
   top: 0,
   left: 0,
-  zIndex: 10000,
+  zIndex: 10,
   display: "flex",
   flexFlow: "row",
   backgroundColor: theme.colors.background.card,
@@ -17,8 +17,7 @@ export const Header = styled.div(({ theme }) => ({
   padding: "0.5rem 1rem",
   width: "100%",
   boxSizing: "border-box",
-  boxShadow: `0px 2px 16px ${theme.colors.primary.main},
-  0px 4px 16px ${theme.colors.secondary.main}`,
+  boxShadow: `0px 2px 8px ${theme.colors.primary.dark}`,
 }));
 
 export const RightPanel = styled.div(() => ({

@@ -96,21 +96,21 @@ export const lightTheme: AppTheme = {
   name: "light",
   colors: {
     primary: {
-      main: "#b298e7",
-      light: "#c5b1ec",
-      dark: "#997bd3",
-      contrast: "#000000",
+      main: "#7B5FC6",
+      light: "#9B8BDA",
+      dark: "#5E43A8",
+      contrast: "#FFFFFF",
     },
     secondary: {
-      main: "#b8e3e9",
-      light: "#cbf2f7",
-      dark: "#8ec2c9",
+      main: "#26A69A",
+      light: "#64D8CB",
+      dark: "#00796B",
     },
     background: {
-      default: "#F2F2F7",
-      paper: "#FFFFFF",
-      darker: "#E5E5EA",
-      card: "#f5b8d5",
+      default: "#f1f1f1",
+      paper: "#ebebeb",
+      darker: "#afafaf",
+      card: "#d6d6d4",
     },
     text: {
       primary: "#000000",

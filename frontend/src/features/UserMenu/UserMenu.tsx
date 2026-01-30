@@ -1,10 +1,11 @@
 import { EditableNickname } from "../../components/EditableNickname";
-import { IconButton } from "../../components/IconButton";
-import { Icons } from "../../components/IconButton/constants";
 import { Row } from "../../components/Row";
 import { useThemeColor } from "../../providers/ThemeColorProvider";
 import { AvatarChanger } from "../AvatarChanger";
 import * as Styled from "./UserMenu.styled";
+import iconSun from "../../assets/sun.svg";
+import iconMoon from "../../assets/moon.svg";
+import { IconButton } from "../../components/IconButton";
 
 export const UserMenu = () => {
   const { isDarkMode, setIsDarkMode } = useThemeColor();
@@ -15,7 +16,7 @@ export const UserMenu = () => {
       <Row>
         <Styled.Label>Сменить тему</Styled.Label>{" "}
         <IconButton
-          icon={isDarkMode ? Icons.lightTheme : Icons.darkTheme}
+          icon={isDarkMode ? iconSun : iconMoon}
           onClick={() => setIsDarkMode((prev) => (prev ? "" : "true"))}
         ></IconButton>
       </Row>

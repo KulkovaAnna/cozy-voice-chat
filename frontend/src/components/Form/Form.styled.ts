@@ -10,6 +10,6 @@ export const Form = styled.form(({ theme }) => ({
   padding: "1rem 0",
   minWidth: "100px",
   boxSizing: "border-box",
-  boxShadow: `2px 8px 32px ${theme.colors.primary.main},
-  -2px -8px 32px ${theme.colors.secondary.main}`,
+  boxShadow: `2px 4px 16px ${theme.colors.primary.main},
+  -2px -4px 16px ${theme.colors.secondary.main}`,
 }));

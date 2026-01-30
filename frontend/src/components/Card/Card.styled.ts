@@ -8,7 +8,7 @@ export const Card = styled.div<CardProps>(({ hasGlow, theme }) => ({
   display: "flex",
   flexFlow: "row",
   alignItems: "center",
-  color: theme.colors.primary.contrast,
+  color: theme.colors.text.primary,
   backgroundColor: theme?.colors.background.card,
   border: `4px solid transparent`,
   borderRadius: "4px",
@@ -16,7 +16,7 @@ export const Card = styled.div<CardProps>(({ hasGlow, theme }) => ({
   minWidth: "100px",
   boxSizing: "border-box",
   boxShadow: hasGlow
-    ? `2px 8px 32px ${theme.colors.primary.main},
-  -2px -8px 32px ${theme.colors.secondary.main}`
+    ? `2px 4px 12px ${theme.colors.primary.main},
+  -2px -4px 12px ${theme.colors.secondary.main}`
     : "none",
 }));
