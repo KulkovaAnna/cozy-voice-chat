@@ -1,9 +1,9 @@
 import { useForm } from "react-hook-form";
 import { IconButton } from "../../components/IconButton";
-import { Icons } from "../../components/IconButton/constants";
 import { Input } from "../../components/Input";
 import { useAuth } from "../../providers/AuthProvider";
 import * as Styled from "./AvatarChanger.styled";
+import iconSave from "../../assets/save.svg";
 
 interface FormData {
   avatar: string;
@@ -19,8 +19,11 @@ export const AvatarChanger = () => {
 
   return (
     <Styled.FormRow onSubmit={handleSubmit(submit)}>
-      <Input placeholder="Новый URL аватара..." {...register("avatar")} />
-      <IconButton icon={Icons.save} type="submit" />
+      <Input
+        placeholder="Новый URL аватара..."
+        {...register("avatar", { required: true })}
+      />
+      <IconButton icon={iconSave} type="submit" />
     </Styled.FormRow>
   );
 };
