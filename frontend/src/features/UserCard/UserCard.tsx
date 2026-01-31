@@ -10,8 +10,8 @@ interface UserCardProps {
 export const UserCard = ({ user, isSpeaking }: UserCardProps) => {
   return (
     <Styled.UserCard isSpeaking={isSpeaking}>
-      <Avatar size={80} src={user.avatar} />
-      {user.name}
+      <Avatar size={80} src={user.avatar} isMuted={user.micMuted} />
+      <p>{user.name}</p>
     </Styled.UserCard>
   );
 };

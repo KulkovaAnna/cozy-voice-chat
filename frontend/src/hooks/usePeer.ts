@@ -45,6 +45,7 @@ export function usePeer() {
     navigator.mediaDevices.getUserMedia({ audio: true }).then((stream) => {
       const call = peer.current?.call(userId, stream);
       call?.on("stream", (remoteStream) => {
+        // remoteStream.getAudioTracks().forEach(t => t.enabled = !t.enabled)
         const audio = document.getElementById("user-voice") as HTMLAudioElement;
         if (audio) {
           audio.srcObject = remoteStream;
@@ -55,6 +56,14 @@ export function usePeer() {
     });
   }
 
+  function muteMicrophone(state: boolean) {
+    if (currentCall.current) {
+      currentCall.current.localStream.getAudioTracks().forEach((track) => {
+        track.enabled = state;
+      });
+    }
+  }
+
   function endCall() {
     currentCall.current?.close();
   }
@@ -63,5 +72,6 @@ export function usePeer() {
     callToUser,
     initialize,
     endCall,
+    muteMicrophone,
   };
 }
