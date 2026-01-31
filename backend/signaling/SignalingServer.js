@@ -33,7 +33,14 @@ class SignalingServer {
         return;
       }
 
-      this.clientManager.addClient(ws, ip);
+      const client = this.clientManager.addClient(ws, ip);
+
+      this.sendToClient(ws, {
+        type: "welcome",
+        data: {
+          clientId: client.id,
+        },
+      });
 
       // Setup message handler
       ws.on("message", async (message) => {
@@ -53,7 +60,7 @@ class SignalingServer {
                 timestamp: new Date().toISOString(),
                 clients: this.clientManager
                   .getClientsInRoom(clientData.room)
-                  .map(Adapters.getClientUser),
+                  .map(Adapters.getClientUser(clientData.id)),
               },
             },
             clientData.id,
@@ -147,7 +154,7 @@ class SignalingServer {
           roomId: data.roomId,
           clients: this.clientManager
             .getClientsInRoom(data.roomId)
-            .map(Adapters.getClientUser),
+            .map(Adapters.getClientUser(clientData.id)),
         },
       });
 
@@ -180,7 +187,7 @@ class SignalingServer {
           timestamp: new Date().toISOString(),
           clients: this.clientManager
             .getClientsInRoom(roomId)
-            .map(Adapters.getClientUser),
+            .map(Adapters.getClientUser(clientData.id)),
         },
       });
 
