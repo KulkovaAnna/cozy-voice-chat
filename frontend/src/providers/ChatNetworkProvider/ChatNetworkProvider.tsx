@@ -13,7 +13,7 @@ export function ChatNetworkProvider(props: PropsWithChildren) {
   const [roomJoined, setRoomJoined] = useState(false);
   const [userList, setUserList] = useState<Array<UserProfile>>([]);
 
-  const { initialize, callToUser, endCall } = usePeer();
+  const { initialize, callToUser, endCall, muteMicrophone } = usePeer();
 
   useEffect(() => {
     if (
@@ -83,6 +83,21 @@ export function ChatNetworkProvider(props: PropsWithChildren) {
           initialize(data.data.clientId);
           break;
         }
+        case "user-broadcasted": {
+          setUserList((userList) => {
+            const index = userList.findIndex(
+              (user) => user.id === data.data.clientId,
+            );
+            userList[index] = {
+              ...userList[index],
+              ...data.data.broadcastedData,
+            };
+            const newList = [...userList];
+
+            return newList;
+          });
+          break;
+        }
       }
     };
     socket.current.onclose = (e) => {
@@ -116,9 +131,28 @@ export function ChatNetworkProvider(props: PropsWithChildren) {
       }),
     );
   };
+
   const leaveRoom = () => {
     socket.current?.send(JSON.stringify({ type: "leave-room" }));
   };
+
+  const muteMic = (micMuted: boolean) => {
+    const me = userList.find((u) => u.isMe);
+
+    if (me) {
+      muteMicrophone(!micMuted);
+      me.micMuted = micMuted;
+      setUserList([...userList]);
+    }
+
+    socket.current?.send(
+      JSON.stringify({
+        type: "broadcast",
+        data: { roomId, broadcastedData: { micMuted } },
+      }),
+    );
+  };
+
   return (
     <ChatNetworkContext
       value={{
@@ -129,6 +163,7 @@ export function ChatNetworkProvider(props: PropsWithChildren) {
         userList,
         setRoomId,
         leaveRoom,
+        muteMic,
       }}
     >
       {props.children}
