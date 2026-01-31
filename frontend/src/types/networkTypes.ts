@@ -2,6 +2,7 @@ export type UserProfile = {
   name: string;
   avatar: string;
   id: string;
+  isMe: boolean;
 };
 
 export type JoinedRoomData = {
@@ -19,4 +20,5 @@ export type ClientData = {
   };
   id: string;
   joinedAt: string;
+  isMe: boolean;
 };

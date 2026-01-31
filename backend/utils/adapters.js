@@ -1,9 +1,12 @@
 class Adapters {
-  static getClientUser(user) {
-    return {
-      id: user.id,
-      joinedAt: user.joinedAt,
-      additionalInfo: user.additionalInfo,
+  static getClientUser(recieverId) {
+    return function (user) {
+      return {
+        id: user.id,
+        additionalInfo: user.additionalInfo,
+        isMe: user.id === recieverId,
+        joinedAt: user.joinedAt,
+      };
     };
   }
 }

@@ -28,6 +28,7 @@ export const Room = () => {
         <Card>
           <Column>{userCards}</Column>
         </Card>
+        <audio id="user-voice" />
         <ControlPanel />
       </Column>
     </>

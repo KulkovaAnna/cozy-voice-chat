@@ -4,6 +4,7 @@ import {
   type ChatNetworkContextType,
 } from "./ChatNetworkContext";
 import type { ClientData, UserProfile } from "../../types";
+import { usePeer } from "../../hooks/usePeer";
 
 export function ChatNetworkProvider(props: PropsWithChildren) {
   const socket = useRef<WebSocket | null>(null);
@@ -11,6 +12,8 @@ export function ChatNetworkProvider(props: PropsWithChildren) {
   const [roomId, setRoomId] = useState<string>();
   const [roomJoined, setRoomJoined] = useState(false);
   const [userList, setUserList] = useState<Array<UserProfile>>([]);
+
+  const { initialize, callToUser, endCall } = usePeer();
 
   useEffect(() => {
     if (
@@ -21,9 +24,10 @@ export function ChatNetworkProvider(props: PropsWithChildren) {
     socket.current = new WebSocket(
       `ws://${import.meta.env.VITE_HOST_IP}:${import.meta.env.VITE_PORT}`,
     );
-    socket.current.onopen = (e) => {
+    socket.current.onopen = () => {
       console.log("Successfully connected!");
     };
+
     socket.current.onmessage = (e) => {
       const data = JSON.parse(e.data);
       const currentUsers =
@@ -32,8 +36,11 @@ export function ChatNetworkProvider(props: PropsWithChildren) {
             name: client.additionalInfo.userName,
             id: client.id,
             avatar: client.additionalInfo.avatar,
+            isMe: client.isMe,
           };
         }) || [];
+
+      console.info(e);
 
       switch (data.type) {
         case "room-created":
@@ -46,16 +53,23 @@ export function ChatNetworkProvider(props: PropsWithChildren) {
 
           break;
         }
-        case "user-joined":
+        case "user-joined": {
           setUserList((userList) => [
             ...userList,
             {
               name: data.data.clientInfo.userName,
               avatar: data.data.clientInfo.avatar,
               id: data.data.clientId,
+              isMe: false,
             },
           ]);
+          const anotherUserId = data.data.clientId;
+
+          if (anotherUserId) {
+            callToUser(anotherUserId);
+          }
           break;
+        }
         case "left-room":
           setRoomId(undefined);
           setRoomJoined(false);
@@ -63,7 +77,12 @@ export function ChatNetworkProvider(props: PropsWithChildren) {
         case "user-left":
         case "user-disconnected":
           setUserList([...currentUsers]);
+          endCall();
           break;
+        case "welcome": {
+          initialize(data.data.clientId);
+          break;
+        }
       }
     };
     socket.current.onclose = (e) => {
@@ -72,8 +91,6 @@ export function ChatNetworkProvider(props: PropsWithChildren) {
           `[close] Соединение закрыто чисто, код=${e.code} причина=${e.reason}`,
         );
       } else {
-        // например, сервер убил процесс или сеть недоступна
-        // обычно в этом случае event.code 1006
         console.log("[close] Соединение прервано");
       }
     };
