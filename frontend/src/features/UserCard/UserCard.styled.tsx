@@ -15,3 +15,15 @@ export const UserCard = styled(Card)<UserCardProps>(
     borderColor: isSpeaking ? theme.colors.voice.speaking : "none",
   }),
 );
+
+export const RelativeBlock = styled.div({
+  position: "relative",
+});
+
+export const MutedIcon = styled.img(({ theme }) => ({
+  position: "absolute",
+  bottom: 0,
+  right: 0,
+  borderRadius: "50%",
+  backgroundColor: theme.colors.primary.light,
+}));

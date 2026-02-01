@@ -1,6 +1,7 @@
 import { Avatar } from "../../components/Avatar";
 import type { UserProfile } from "../../types";
 import * as Styled from "./UserCard.styled";
+import mutedIcon from "../../assets/mic_off.svg";
 
 interface UserCardProps {
   user: UserProfile;
@@ -10,7 +11,10 @@ interface UserCardProps {
 export const UserCard = ({ user, isSpeaking }: UserCardProps) => {
   return (
     <Styled.UserCard isSpeaking={isSpeaking}>
-      <Avatar size={80} src={user.avatar} isMuted={user.micMuted} />
+      <Styled.RelativeBlock>
+        <Avatar size={80} src={user.avatar} />
+        {user.micMuted && <Styled.MutedIcon src={mutedIcon} />}
+      </Styled.RelativeBlock>
       <p>{user.name}</p>
     </Styled.UserCard>
   );

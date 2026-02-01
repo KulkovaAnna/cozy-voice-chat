@@ -13,7 +13,7 @@ export function ChatNetworkProvider(props: PropsWithChildren) {
   const [roomJoined, setRoomJoined] = useState(false);
   const [userList, setUserList] = useState<Array<UserProfile>>([]);
 
-  const { initialize, callToUser, endCall, muteMicrophone } = usePeer();
+  const { initialize, callToUser, endCall, switchMicState } = usePeer();
 
   useEffect(() => {
     if (
@@ -136,11 +136,11 @@ export function ChatNetworkProvider(props: PropsWithChildren) {
     socket.current?.send(JSON.stringify({ type: "leave-room" }));
   };
 
-  const muteMic = (micMuted: boolean) => {
+  const setMicState = (micMuted: boolean) => {
     const me = userList.find((u) => u.isMe);
 
     if (me) {
-      muteMicrophone(!micMuted);
+      switchMicState(!micMuted);
       me.micMuted = micMuted;
       setUserList([...userList]);
     }
@@ -163,7 +163,7 @@ export function ChatNetworkProvider(props: PropsWithChildren) {
         userList,
         setRoomId,
         leaveRoom,
-        muteMic,
+        setMicState,
       }}
     >
       {props.children}
