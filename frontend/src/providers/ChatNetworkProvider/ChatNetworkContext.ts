@@ -13,6 +13,7 @@ export type ChatNetworkContextType = {
     [k: string]: any;
   }) => void;
   leaveRoom: VoidFunction;
+  setMicState: (muted: boolean) => void;
 };
 
 export const ChatNetworkContext = createContext<ChatNetworkContextType>({
@@ -22,4 +23,5 @@ export const ChatNetworkContext = createContext<ChatNetworkContextType>({
   createRoom: () => {},
   joinToRoom: () => {},
   leaveRoom: () => {},
+  setMicState: () => {},
 });

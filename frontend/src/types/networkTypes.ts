@@ -3,6 +3,7 @@ export type UserProfile = {
   avatar: string;
   id: string;
   isMe: boolean;
+  micMuted?: boolean;
 };
 
 export type JoinedRoomData = {

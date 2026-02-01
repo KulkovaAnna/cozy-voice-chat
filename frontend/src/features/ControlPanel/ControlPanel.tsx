@@ -7,18 +7,25 @@ import iconMicOn from "../../assets/mic_on.svg";
 import iconMicOff from "../../assets/mic_off.svg";
 
 export const ControlPanel = () => {
-  const [isMicOn, setIsMicOn] = useState(false);
-  const { leaveRoom } = useChatNetwork();
+  const [isMicMuted, setIsMicMuted] = useState(false);
+  const { leaveRoom, setMicState } = useChatNetwork();
 
   const handleExit = () => {
     leaveRoom();
   };
 
+  const handleMicState = () => {
+    setMicState(!isMicMuted);
+    setIsMicMuted((prev) => {
+      return !prev;
+    });
+  };
+
   return (
     <Styled.ControlPanel>
       <IconButton
-        icon={isMicOn ? iconMicOff : iconMicOn}
-        onClick={() => setIsMicOn((prev) => !prev)}
+        icon={isMicMuted ? iconMicOff : iconMicOn}
+        onClick={handleMicState}
       />
       <IconButton icon={iconExit} variant="secondary" onClick={handleExit} />
     </Styled.ControlPanel>
