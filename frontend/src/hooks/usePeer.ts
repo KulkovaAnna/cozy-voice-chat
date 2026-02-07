@@ -55,6 +55,14 @@ export function usePeer() {
     });
   }
 
+  function switchMicState(state: boolean) {
+    if (currentCall.current) {
+      currentCall.current.localStream.getAudioTracks().forEach((track) => {
+        track.enabled = state;
+      });
+    }
+  }
+
   function endCall() {
     currentCall.current?.close();
   }
@@ -63,5 +71,6 @@ export function usePeer() {
     callToUser,
     initialize,
     endCall,
+    switchMicState,
   };
 }

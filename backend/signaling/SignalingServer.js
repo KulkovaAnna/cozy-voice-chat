@@ -116,7 +116,9 @@ class SignalingServer {
         case "ping":
           this.sendToClient(ws, { type: "pong", timestamp: Date.now() });
           break;
-
+        case "broadcast":
+          this.handleBroadcast(clientData.id, data);
+          break;
         default:
           console.warn(`Unknown message type: ${data.type}`);
       }
@@ -127,6 +129,23 @@ class SignalingServer {
         message: error.message || "Invalid message format",
       });
     }
+  }
+
+  handleBroadcast(clientId, data) {
+    const clientData = this.clientManager.getClientById(clientId);
+    this.broadcastToRoom(
+      data.roomId,
+      {
+        type: "user-broadcasted",
+        data: {
+          clientId,
+          timestamp: new Date().toISOString(),
+          clientInfo: clientData.additionalInfo,
+          broadcastedData: data.broadcastedData,
+        },
+      },
+      clientId,
+    );
   }
 
   handleCreateRoom(clientId) {
