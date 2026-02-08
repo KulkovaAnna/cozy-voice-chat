@@ -23,7 +23,7 @@ export const AvatarChanger = () => {
         placeholder="Новый URL аватара..."
         {...register("avatar", { required: true })}
       />
-      <IconButton icon={<SaveIcon state={true} />} type="submit" />
+      <IconButton icon={<SaveIcon />} type="submit" />
     </Styled.FormRow>
   );
 };

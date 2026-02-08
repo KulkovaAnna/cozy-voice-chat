@@ -1,7 +1,7 @@
 import { useTheme } from "@emotion/react";
 import type { IconProps } from "./types";
 
-export const SaveIcon = ({ color }: IconProps) => {
+export const SunIcon = ({ color }: IconProps) => {
   const theme = useTheme();
   return (
     <svg
@@ -12,7 +12,7 @@ export const SaveIcon = ({ color }: IconProps) => {
       xmlns="http://www.w3.org/2000/svg"
     >
       <path
-        d="M17 3H5C3.89 3 3 3.9 3 5V19C3 20.1 3.89 21 5 21H19C20.1 21 21 20.1 21 19V7L17 3ZM19 19H5V5H16.17L19 7.83V19ZM12 12C10.34 12 9 13.34 9 15C9 16.66 10.34 18 12 18C13.66 18 15 16.66 15 15C15 13.34 13.66 12 12 12ZM6 6H15V10H6V6Z"
+        d="M12 4C16.41 4 20 7.59 20 12C20 16.41 16.41 20 12 20C7.59 20 4 16.41 4 12C4 7.59 7.59 4 12 4ZM12 2C6.48 2 2 6.48 2 12C2 17.52 6.48 22 12 22C17.52 22 22 17.52 22 12C22 6.48 17.52 2 12 2Z"
         fill={color || theme.colors.primary.contrast}
       />
     </svg>
