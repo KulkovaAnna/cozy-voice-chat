@@ -16,7 +16,7 @@ export const Card = styled.div<CardProps>(({ hasGlow, theme }) => ({
   minWidth: "100px",
   boxSizing: "border-box",
   boxShadow: hasGlow
-    ? `2px 4px 12px ${theme.colors.primary.main},
-  -2px -4px 12px ${theme.colors.secondary.main}`
+    ? `2px 2px 4px 1px ${theme.colors.primary.main},
+  -2px -2px 4px 1px ${theme.colors.secondary.main}`
     : "none",
 }));

@@ -3,9 +3,8 @@ import { Row } from "../../components/Row";
 import { useThemeColor } from "../../providers/ThemeColorProvider";
 import { AvatarChanger } from "../AvatarChanger";
 import * as Styled from "./UserMenu.styled";
-import iconSun from "../../assets/sun.svg";
-import iconMoon from "../../assets/moon.svg";
 import { IconButton } from "../../components/IconButton";
+import { ThemeIcon } from "../../components/Icons";
 
 export const UserMenu = () => {
   const { isDarkMode, setIsDarkMode } = useThemeColor();
@@ -16,7 +15,7 @@ export const UserMenu = () => {
       <Row>
         <Styled.Label>Сменить тему</Styled.Label>{" "}
         <IconButton
-          icon={isDarkMode ? iconSun : iconMoon}
+          icon={<ThemeIcon state={!!isDarkMode} />}
           onClick={() => setIsDarkMode((prev) => (prev ? "" : "true"))}
         ></IconButton>
       </Row>

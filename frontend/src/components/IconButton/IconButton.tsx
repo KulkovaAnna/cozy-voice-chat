@@ -1,8 +1,8 @@
-import React from "react";
+import React, { type JSX } from "react";
 import * as Styled from "./IconButton.styled";
 
 interface IconButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
-  icon: string;
+  icon: JSX.Element;
   variant?: "primary" | "secondary";
 }
 
@@ -13,7 +13,7 @@ export const IconButton = ({
 }: IconButtonProps) => {
   return (
     <Styled.IconButton variant={variant} {...props}>
-      <img src={icon} />
+      {icon}
     </Styled.IconButton>
   );
 };

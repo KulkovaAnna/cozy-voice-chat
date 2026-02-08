@@ -21,6 +21,9 @@ export function WaitCallModal() {
         transform: "translate(-50%, -50%)",
         display: "flex",
         flexDirection: "column",
+        gap: "1rem",
+        border: "none",
+        boxShadow: `0px 0px 4px 2px ${theme.colors.secondary.dark}`,
         backgroundColor: theme.colors.background.card,
         text: theme.colors.text.primary,
       },
@@ -28,7 +31,7 @@ export function WaitCallModal() {
         backgroundColor: "rgba(0, 0, 0, 0.5)",
       },
     }),
-    [],
+    [theme],
   );
   return (
     <Modal

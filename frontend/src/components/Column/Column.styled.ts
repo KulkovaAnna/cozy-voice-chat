@@ -18,5 +18,6 @@ export const Column = styled.div<ColumnProps>(
     padding: "2rem",
     width: "100%",
     boxSizing: "border-box",
+    color: theme.colors.text.primary,
   }),
 );

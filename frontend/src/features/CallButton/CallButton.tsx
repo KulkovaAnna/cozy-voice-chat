@@ -1,5 +1,6 @@
 import { useChatNetwork } from "../../providers/ChatNetworkProvider";
-import * as Styled from "./CallButton.styled";
+import { IconButton } from "../../components/IconButton";
+import { CallIcon } from "../../components/Icons";
 
 interface CallButtonProps {
   uid: string;
@@ -10,9 +11,5 @@ export function CallButton({ uid }: CallButtonProps) {
     callToUser(uid);
   };
 
-  return (
-    <Styled.CallButton onClick={handleClick} isPrimary>
-      Позвонить
-    </Styled.CallButton>
-  );
+  return <IconButton onClick={handleClick} icon={<CallIcon />} />;
 }

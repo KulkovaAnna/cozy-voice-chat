@@ -3,8 +3,7 @@ import * as Styled from "./EditableNickname.styled";
 import { IconButton } from "../IconButton";
 import { useForm } from "react-hook-form";
 import { useAuth } from "../../providers/AuthProvider";
-import iconSave from "../../assets/save.svg";
-import iconEdit from "../../assets/edit.svg";
+import { SaveIcon } from "../Icons";
 
 interface EditableNicknameProps extends InputHTMLAttributes<HTMLInputElement> {}
 
@@ -50,7 +49,7 @@ export const EditableNickname = ({ ...props }: EditableNicknameProps) => {
         <IconButton
           onClick={changeEditState}
           type="submit"
-          icon={isEdit ? iconSave : iconEdit}
+          icon={<SaveIcon state={isEdit} />}
         />
       </Styled.Form>
     )

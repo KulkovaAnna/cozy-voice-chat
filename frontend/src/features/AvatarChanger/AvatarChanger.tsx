@@ -3,7 +3,7 @@ import { IconButton } from "../../components/IconButton";
 import { Input } from "../../components/Input";
 import { useAuth } from "../../providers/AuthProvider";
 import * as Styled from "./AvatarChanger.styled";
-import iconSave from "../../assets/save.svg";
+import { SaveIcon } from "../../components/Icons";
 
 interface FormData {
   avatar: string;
@@ -23,7 +23,7 @@ export const AvatarChanger = () => {
         placeholder="Новый URL аватара..."
         {...register("avatar", { required: true })}
       />
-      <IconButton icon={iconSave} type="submit" />
+      <IconButton icon={<SaveIcon state={true} />} type="submit" />
     </Styled.FormRow>
   );
 };
