@@ -6,14 +6,26 @@ import { AcceptCallModal } from "../AcceptCallModal/AcceptCallModal";
 import { WaitCallModal } from "../WaitCallModal";
 import { LobbyRow } from "../../components/LobbyRow/LobbyRow";
 import { Navigate } from "react-router";
+import { useMemo } from "react";
+import { useAuth } from "../../providers/AuthProvider";
 
 export function Lobby() {
   const { lobbyMembers, callInfo } = useChatNetwork();
+  const { user } = useAuth();
 
   if (callInfo) return <Navigate to={`/call/${callInfo.id}`} />;
 
-  const currentLobbyMembers = lobbyMembers?.map((member: UserProfile) =>
-    member.name ? <LobbyRow key={member.id} currentUser={member} /> : null,
+  const currentLobbyMembers = useMemo(
+    () =>
+      lobbyMembers
+        ?.sort((a, b) => (a.name > b.name ? 1 : -1))
+        .sort((a) => (a.id === user.id ? -1 : 1))
+        ?.map((member: UserProfile) =>
+          member.name ? (
+            <LobbyRow key={member.id} currentUser={member} />
+          ) : null,
+        ),
+    [lobbyMembers, user],
   );
 
   return (
