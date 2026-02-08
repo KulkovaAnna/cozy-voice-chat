@@ -6,7 +6,7 @@ import { ControlPanel } from "../../features/ControlPanel";
 import { useChatNetwork } from "../../providers/ChatNetworkProvider";
 import { useEffect } from "react";
 
-export const Room = () => {
+export const Call = () => {
   const navigate = useNavigate();
   const { callInfo } = useChatNetwork();
 
