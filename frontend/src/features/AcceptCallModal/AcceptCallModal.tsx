@@ -33,7 +33,7 @@ export function AcceptCallModal() {
         backgroundColor: "rgba(0, 0, 0, 0.5)",
       },
     }),
-    [],
+    [theme],
   );
 
   return (
