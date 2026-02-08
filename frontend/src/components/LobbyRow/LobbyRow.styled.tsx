@@ -3,11 +3,9 @@ import { Card } from "../Card";
 
 export const Container = styled(Card)(({ theme }) => ({
   position: "relative",
-  border: `2px solid ${theme.colors.primary.main}`,
+  boxShadow: `0px 0px 4px 2px ${theme.colors.primary.dark}`,
   padding: "2rem 1rem",
-  minWidth: "300px",
-  width: "100%",
-  maxWidth: "500px",
+  width: "300px",
   justifyContent: "space-between",
   maxHeight: "3rem",
   gap: "1rem",
@@ -21,6 +19,9 @@ export const InnerContainer = styled.div({
   width: "100%",
   height: "100%",
   gap: "1rem",
+  overflow: "hidden",
+  whiteSpace: "nowrap",
+  textOverflow: "ellipsis",
 });
 
 export const Label = styled.p({
