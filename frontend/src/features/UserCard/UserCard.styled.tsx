@@ -20,8 +20,10 @@ export const RelativeBlock = styled.div({
   position: "relative",
 });
 
-export const MutedIcon = styled.img(({ theme }) => ({
+export const MutedIconDiv = styled.div(({ theme }) => ({
   position: "absolute",
+  aspectRatio: 1,
+  height: 24,
   bottom: 0,
   right: 0,
   borderRadius: "50%",

@@ -1,9 +1,9 @@
 import { IconButton } from "../../components/IconButton";
 import * as Styled from "./ControlPanel.styled";
-import iconExit from "../../assets/exit.svg";
-import iconMicOn from "../../assets/mic_on.svg";
-import iconMicOff from "../../assets/mic_off.svg";
 import { useChatNetwork } from "../../providers/ChatNetworkProvider";
+import { MicOffIcon } from "../../components/Icons";
+import { MicOnIcon } from "../../components/Icons";
+import { ExitIcon } from "../../components/Icons";
 
 export const ControlPanel = () => {
   const { endCall, changeMuteStatus, isMyUserMuted } = useChatNetwork();
@@ -19,10 +19,14 @@ export const ControlPanel = () => {
   return (
     <Styled.ControlPanel>
       <IconButton
-        icon={isMyUserMuted ? iconMicOff : iconMicOn}
+        icon={isMyUserMuted ? <MicOffIcon /> : <MicOnIcon />}
         onClick={handleMicState}
       />
-      <IconButton icon={iconExit} variant="secondary" onClick={handleExit} />
+      <IconButton
+        icon={<ExitIcon />}
+        variant="secondary"
+        onClick={handleExit}
+      />
     </Styled.ControlPanel>
   );
 };
