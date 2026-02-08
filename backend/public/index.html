@@ -132,42 +132,66 @@
         <p>Используйте WebSocket для подключения клиентов.</p>
       </div>
 
-      <h2>📋 Возможности:</h2>
+      <h2>📋 Сообщения для отправки:</h2>
 
       <div class="step">
-        <strong>1. Создать комнату и получить ее ID</strong>
-        <div class="code">{ "type": "create-room" }</div>
-        <i>Примечание: комната создается без привязки к пользователю</i>
-      </div>
-
-      <div class="step">
-        <strong>2. Присоединиться к комнате по ID</strong>
+        <strong>1. Присоединиться к лобби</strong>
         <div class="code">
-          {"type": "join-room", "data": {"roomCode": "ABC123", "userName": "Имя
-          пользователя"}}
+          { "type": "lobby::join", "data:" {"personalInfo": {"name": "string",
+          "avatar": "string" | "undefined"}} }
         </div>
-        <i
-          >Примечание: пользователь может находиться только в одной комнате
-          одновременно. При попытке присоединиться к новой комнате пользователь
-          будет автоматически исключен из предыдущей</i
-        >
       </div>
 
       <div class="step">
-        <strong>3. Покинуть комнату</strong>
-        <div class="code">{ "type": "leave-room" }</div>
+        <strong>2. Начать звонок другому пользователю</strong>
+        <div class="code">
+          {"type": "lobby::initiate-call", "data": {"receiverId": "string"}}
+        </div>
       </div>
 
       <div class="step">
-        <strong>4. Проверить работоспособность сокета</strong>
-        <div class="code">{ "type": "ping" }</div>
-        <i>Примечание: должен ответить "pong"</i>
+        <strong>3. Принять звонок</strong>
+        <div class="code">
+          { "type": "lobby::accept-offer", "data": {"offerId": "string"} }
+        </div>
       </div>
 
-      <h2>🔧 WebRTC сигналы конкретному пользователю</h2>
-      <div class="code">
-        { "type": "offer", "data": {"target": "userId", "message":
-        {...any_data}} }
+      <div class="step">
+        <strong>4. Отклонить звонок</strong>
+        <div class="code">
+          { "type": "lobby::decline-offer", "data": {"offerId": "string"} }
+        </div>
+      </div>
+
+      <div class="step">
+        <strong>5. Закончить звонок</strong>
+        <div class="code">
+          { "type": "call::end", "data": {"callId": "string"} }
+        </div>
+      </div>
+
+      <div class="step">
+        <strong>6. Поменять онлайн статус</strong>
+        <div class="code">
+          { "type": "call::online", "data": {"callId": "string", "status":
+          boolean} }
+        </div>
+      </div>
+
+      <div class="step">
+        <strong>7. Поменять mute статус</strong>
+        <div class="code">
+          { "type": "call::mute", "data": {"callId": "string", "status":
+          boolean} }
+        </div>
+      </div>
+
+      <div class="step">
+        <strong>8. Поменять speaking статус</strong>
+        <div class="code">
+          { "type": "call::speaking", "data": {"callId": "string", "status":
+          boolean} }
+        </div>
       </div>
 
       <div class="warning">
@@ -176,10 +200,6 @@
 
       <h2>📊 Статистика сервера</h2>
       <div class="stats" id="stats">
-        <div class="stat-card">
-          <div class="stat-value" id="roomCount">0</div>
-          <div class="stat-label">Активных комнат</div>
-        </div>
         <div class="stat-card">
           <div class="stat-value" id="userCount">0</div>
           <div class="stat-label">Подключенных пользователей</div>
