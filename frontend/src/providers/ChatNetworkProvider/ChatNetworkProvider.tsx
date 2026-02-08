@@ -4,18 +4,22 @@ import {
   type PropsWithChildren,
   useState,
   useMemo,
+  useCallback,
 } from "react";
 import { ChatNetworkContext } from "./ChatNetworkContext";
 import type { CallInfo, CallOffer, UserProfile, UserDTO } from "../../types";
 import { useAuth } from "../AuthProvider";
 import { callInfoAdapter, userAdapter } from "../../utils/adapters";
 import { usePeer } from "../../hooks/usePeer";
+import { SpeechDetection } from "../../features/SpeechDetection";
 
 export function ChatNetworkProvider(props: PropsWithChildren) {
   const [callOffer, setCallOffer] = useState<CallOffer | null>(null);
   const [callInfo, setCallInfo] = useState<CallInfo | null>(null);
   const socket = useRef<WebSocket | null>(null);
   const [lobbyMembers, setLobbyMembers] = useState<Array<UserProfile>>([]);
+
+  const speechDetection = useRef<SpeechDetection | null>(null);
 
   const { user, updateUser } = useAuth();
 
@@ -24,6 +28,7 @@ export function ChatNetworkProvider(props: PropsWithChildren) {
     callToUser: peerCallToUser,
     endCall: peerEndCall,
     switchMicState,
+    call,
   } = usePeer();
 
   const isMyUserMuted = useMemo(
@@ -51,8 +56,6 @@ export function ChatNetworkProvider(props: PropsWithChildren) {
 
     socket.current.onmessage = (e) => {
       const data = JSON.parse(e.data);
-
-      console.info(e);
 
       switch (data.type) {
         case "all::lobby::joined": {
@@ -108,7 +111,8 @@ export function ChatNetworkProvider(props: PropsWithChildren) {
           }
           break;
         }
-        case "all::call::mute-changed": {
+        case "all::call::mute-changed":
+        case "all::call::speaking-changed": {
           setCallInfo(callInfoAdapter(data.data.callInfo));
           break;
         }
@@ -127,6 +131,31 @@ export function ChatNetworkProvider(props: PropsWithChildren) {
       console.error(err);
     };
   }, [user]);
+
+  const changeIsSpeakingState = useCallback(
+    (isSpeaking: boolean) => {
+      if (!callInfo) return;
+
+      socket.current?.send(
+        JSON.stringify({
+          type: "call::speaking",
+          data: { callId: callInfo.id, status: isSpeaking },
+        }),
+      );
+    },
+    [callInfo],
+  );
+
+  useEffect(() => {
+    if (call) {
+      speechDetection.current = new SpeechDetection({
+        onUpdate: changeIsSpeakingState,
+      });
+      speechDetection.current.start(call.localStream);
+    } else if (speechDetection) {
+      speechDetection.current?.stop();
+    }
+  }, [call, changeIsSpeakingState]);
 
   function acceptCallOffer() {
     if (!callOffer) return;

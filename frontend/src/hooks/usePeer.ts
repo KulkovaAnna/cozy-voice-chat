@@ -1,9 +1,10 @@
 import Peer, { type MediaConnection } from "peerjs";
-import { useRef } from "react";
+import { useRef, useState } from "react";
 
 export function usePeer() {
   const peer = useRef<Peer | undefined>(undefined);
-  const currentCall = useRef<MediaConnection | undefined>(undefined);
+  const [currentCall, setCurrentCall] = useState<MediaConnection | null>(null);
+  const callRef = useRef<MediaConnection | null>(null);
 
   function initialize(clientId: string) {
     if (peer.current) return;
@@ -11,7 +12,7 @@ export function usePeer() {
       host: import.meta.env.VITE_HOST_IP,
       port: import.meta.env.VITE_PEER_PORT,
       path: "/peerjs",
-      debug: 3,
+      debug: 0,
       config: {
         iceServers: [
           { urls: "stun:stun.l.google.com:19302" },
@@ -24,16 +25,7 @@ export function usePeer() {
       navigator.mediaDevices.getUserMedia({ audio: true }).then(
         (stream) => {
           call.answer(stream);
-          call.on("stream", (remoteStream) => {
-            const audio = document.getElementById(
-              "user-voice",
-            ) as HTMLAudioElement;
-            if (audio) {
-              audio.srcObject = remoteStream;
-              audio.play();
-            }
-          });
-          currentCall.current = call;
+          handleCall(call);
         },
         (err) => {
           console.error("Failed to get local stream", err);
@@ -45,33 +37,43 @@ export function usePeer() {
   function callToUser(userId: string) {
     navigator.mediaDevices.getUserMedia({ audio: true }).then((stream) => {
       const call = peer.current?.call(userId, stream);
-      call?.on("stream", (remoteStream) => {
-        const audio = document.getElementById("user-voice") as HTMLAudioElement;
-        if (audio) {
-          audio.srcObject = remoteStream;
-          audio.play();
-        }
-      });
-      currentCall.current = call;
+      if (call) {
+        handleCall(call);
+      }
     });
   }
 
+  function handleCall(call: MediaConnection) {
+    call.on("stream", (remoteStream) => {
+      const audio = document.getElementById("user-voice") as HTMLAudioElement;
+      if (audio) {
+        audio.srcObject = remoteStream;
+        audio.play();
+      }
+    });
+    callRef.current = call;
+    setCurrentCall(callRef.current);
+  }
+
   function switchMicState(state: boolean) {
-    if (currentCall.current) {
-      currentCall.current.localStream.getAudioTracks().forEach((track) => {
+    if (callRef.current) {
+      callRef.current.localStream.getAudioTracks().forEach((track) => {
         track.enabled = state;
       });
     }
   }
 
   function endCall() {
-    currentCall.current?.localStream.getAudioTracks().forEach((track) => {
+    callRef.current?.localStream.getAudioTracks().forEach((track) => {
       track.stop();
     });
-    currentCall.current?.close();
+    callRef.current?.close();
+    callRef.current = null;
+    setCurrentCall(null);
   }
 
   return {
+    call: currentCall,
     callToUser,
     initialize,
     endCall,
