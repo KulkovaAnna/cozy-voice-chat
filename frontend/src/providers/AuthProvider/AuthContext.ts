@@ -1,14 +1,14 @@
 import { createContext } from "react";
-import type { User } from "../../types/clientTypes";
+import type { UserProfile } from "../../types";
 
 type AuthContextType = {
-  user: User;
-  updateUser: (user: Partial<User>) => void;
+  user: UserProfile;
+  updateUser: (user: Partial<UserProfile>) => void;
 };
 
 export const AuthContext = createContext<AuthContextType>({
   user: {
-    userName: "",
+    name: "",
     avatar: "",
   },
   updateUser: () => {},

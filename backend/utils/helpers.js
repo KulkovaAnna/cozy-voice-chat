@@ -1,4 +1,5 @@
 const os = require('os');
+const _ = require('lodash');
 
 class Helpers {
   static getLocalIP() {
@@ -41,6 +42,37 @@ class Helpers {
       id += chars.charAt(Math.floor(Math.random() * chars.length));
     }
     return id;
+  }
+
+  static omitDeep(obj, keysToOmit) {
+    // Если это массив - обрабатываем каждый элемент
+    if (_.isArray(obj)) {
+      return _.map(obj, (item) => Helpers.omitDeep(item, keysToOmit));
+    }
+
+    // Если это объект (но не специальные типы вроде Date, RegExp)
+    if (
+      _.isObject(obj) &&
+      !_.isDate(obj) &&
+      !_.isRegExp(obj) &&
+      !_.isFunction(obj)
+    ) {
+      // Сначала удаляем указанные ключи из текущего объекта
+      const newObj = _.omit(obj, keysToOmit);
+
+      // Затем рекурсивно обрабатываем все оставшиеся значения
+      return _.transform(
+        newObj,
+        function (result, value, key) {
+          // Рекурсивно вызываем для вложенных объектов и массивов
+          result[key] = Helpers.omitDeep(value, keysToOmit);
+        },
+        {},
+      );
+    }
+
+    // Все остальное (примитивы, даты, регулярки, функции) возвращаем как есть
+    return obj;
   }
 }
 

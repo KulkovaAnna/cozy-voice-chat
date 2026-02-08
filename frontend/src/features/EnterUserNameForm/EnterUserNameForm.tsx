@@ -4,36 +4,36 @@ import { useAuth } from "../../providers/AuthProvider";
 import { Column } from "../../components/Column";
 import { Input } from "../../components/Input";
 import { Button } from "../../components/Button";
+import { useNavigate } from "react-router";
 
 export const EnterUserNameForm = () => {
-  const { user, updateUser } = useAuth();
+  const { updateUser } = useAuth();
+  const navigate = useNavigate();
   const {
     register,
     handleSubmit,
     formState: { errors },
   } = useForm();
-
   return (
-    !user.userName && (
-      <Form
-        onSubmit={handleSubmit((data) => {
-          updateUser({ userName: data.userName });
-        })}
-      >
-        <Column align="center">
-          <p>Представьтесь, пожалуйста!</p>
-          <Input
-            placeholder="Ваш никнейм"
-            {...register("userName", { required: true })}
-          />
-          {errors.userName && (
-            <p>Никнейм обязателен для регистрации соединения.</p>
-          )}
-          <Button type={"submit"} isPrimary>
-            Далее
-          </Button>
-        </Column>
-      </Form>
-    )
+    <Form
+      onSubmit={handleSubmit((data) => {
+        updateUser({ name: data.userName });
+        navigate("/");
+      })}
+    >
+      <Column align="center">
+        <p>Представьтесь, пожалуйста!</p>
+        <Input
+          placeholder="Ваш никнейм"
+          {...register("userName", { required: true })}
+        />
+        {errors.userName && (
+          <p>Никнейм обязателен для регистрации соединения.</p>
+        )}
+        <Button type={"submit"} isPrimary>
+          Далее
+        </Button>
+      </Column>
+    </Form>
   );
 };

@@ -5,7 +5,7 @@ const helmet = require('helmet');
 const path = require('path');
 
 const config = require('./config');
-const SignalingServer = require('./signaling/SignalingServer');
+const SignalingServer = require('./signaling-v2/SignalingServer');
 const AuthMiddleware = require('./security/AuthMiddleware');
 const Helpers = require('./utils/helpers');
 
@@ -79,19 +79,6 @@ class VoiceChatServer {
         status: 'ok',
         uptime: process.uptime(),
         timestamp: new Date().toISOString(),
-      });
-    });
-
-    // Генерация комнаты
-    this.app.post('/room', (req, res) => {
-      if (!AuthMiddleware.authenticate(req)) {
-        return res.status(401).json({ error: 'Unauthorized' });
-      }
-
-      const roomId = Helpers.generateRoomCode();
-      res.json({
-        roomId,
-        expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
       });
     });
   }

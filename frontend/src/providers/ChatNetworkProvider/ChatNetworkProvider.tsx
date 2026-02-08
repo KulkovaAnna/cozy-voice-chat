@@ -1,21 +1,41 @@
-import { useRef, useEffect, type PropsWithChildren, useState } from "react";
 import {
-  ChatNetworkContext,
-  type ChatNetworkContextType,
-} from "./ChatNetworkContext";
-import type { ClientData, UserProfile } from "../../types";
+  useRef,
+  useEffect,
+  type PropsWithChildren,
+  useState,
+  useMemo,
+} from "react";
+import { ChatNetworkContext } from "./ChatNetworkContext";
+import type { CallInfo, CallOffer, UserProfile, UserDTO } from "../../types";
+import { useAuth } from "../AuthProvider";
+import { callInfoAdapter, userAdapter } from "../../utils/adapters";
 import { usePeer } from "../../hooks/usePeer";
 
 export function ChatNetworkProvider(props: PropsWithChildren) {
+  const [callOffer, setCallOffer] = useState<CallOffer | null>(null);
+  const [callInfo, setCallInfo] = useState<CallInfo | null>(null);
   const socket = useRef<WebSocket | null>(null);
+  const [lobbyMembers, setLobbyMembers] = useState<Array<UserProfile>>([]);
 
-  const [roomId, setRoomId] = useState<string>();
-  const [roomJoined, setRoomJoined] = useState(false);
-  const [userList, setUserList] = useState<Array<UserProfile>>([]);
+  const { user, updateUser } = useAuth();
 
-  const { initialize, callToUser, endCall, switchMicState } = usePeer();
+  const {
+    initialize,
+    callToUser: peerCallToUser,
+    endCall: peerEndCall,
+    switchMicState,
+  } = usePeer();
+
+  const isMyUserMuted = useMemo(
+    () =>
+      callInfo?.members.find((mem) => mem.member.id === user.id)?.isMuted ||
+      false,
+    [user, callInfo],
+  );
 
   useEffect(() => {
+    if (!user.name) return;
+
     if (
       socket.current?.readyState === WebSocket.OPEN ||
       socket.current?.readyState === WebSocket.CONNECTING
@@ -26,76 +46,70 @@ export function ChatNetworkProvider(props: PropsWithChildren) {
     );
     socket.current.onopen = () => {
       console.log("Successfully connected!");
+      joinToLobby();
     };
 
     socket.current.onmessage = (e) => {
       const data = JSON.parse(e.data);
-      const currentUsers =
-        data.data?.clients?.map((client: ClientData) => {
-          return {
-            name: client.additionalInfo.userName,
-            id: client.id,
-            avatar: client.additionalInfo.avatar,
-            isMe: client.isMe,
-          };
-        }) || [];
 
       console.info(e);
 
       switch (data.type) {
-        case "room-created":
-          setRoomId(data.data.roomId);
-          break;
-        case "joined-room": {
-          setRoomJoined(true);
-
-          setUserList([...currentUsers]);
-
+        case "all::lobby::joined": {
+          const currentLobbyMembers = data.data.lobbyInfo.members.map(
+            (member: UserDTO) => userAdapter(member),
+          );
+          setLobbyMembers(currentLobbyMembers);
           break;
         }
-        case "user-joined": {
-          setUserList((userList) => [
-            ...userList,
-            {
-              name: data.data.clientInfo.userName,
-              avatar: data.data.clientInfo.avatar,
-              id: data.data.clientId,
-              isMe: false,
-            },
-          ]);
-          const anotherUserId = data.data.clientId;
+        case "me::lobby-joined": {
+          const me = data.data.client;
+          updateUser({ id: me.id });
+          initialize(me.id!);
+          break;
+        }
+        case "me::call-offer":
+        case "me::call-initiated": {
+          const callOffer = data.data.callOffer;
+          setCallOffer({
+            id: callOffer.id,
+            initiator: userAdapter(callOffer.initiator),
+          });
+          break;
+        }
+        case "me::call-offer-declined": {
+          setCallOffer(null);
+          break;
+        }
+        case "all::lobby::client-disconnected": {
+          break;
+        }
+        case "all::call::started": {
+          setCallOffer(null);
+          const callInfoData = data.data.callInfo;
+          const currentCallInfo = callInfoAdapter(callInfoData);
+          setCallInfo(currentCallInfo);
+          const meString = localStorage.getItem("user");
 
-          if (anotherUserId) {
-            callToUser(anotherUserId);
+          if (!meString) return;
+
+          const me = JSON.parse(meString);
+
+          if (me.id === currentCallInfo.initiator.id) {
+            peerCallToUser(currentCallInfo.receiver.id!);
           }
           break;
         }
-        case "left-room":
-          setRoomId(undefined);
-          setRoomJoined(false);
-          break;
-        case "user-left":
-        case "user-disconnected":
-          setUserList([...currentUsers]);
-          endCall();
-          break;
-        case "welcome": {
-          initialize(data.data.clientId);
+        case "all::call::ended":
+        case "all::call::online-changed": {
+          if (data.type === "all::call::ended" || !data.data.isOnline) {
+            peerEndCall();
+            setCallInfo(null);
+          }
           break;
         }
-        case "user-broadcasted": {
-          setUserList((userList) => {
-            const index = userList.findIndex(
-              (user) => user.id === data.data.clientId,
-            );
-            userList[index] = {
-              ...userList[index],
-              ...data.data.broadcastedData,
-            };
-            const newList = [...userList];
-
-            return newList;
-          });
+        case "all::call::mute-changed": {
+          setCallInfo(callInfoAdapter(data.data.callInfo));
           break;
         }
       }
@@ -112,58 +126,83 @@ export function ChatNetworkProvider(props: PropsWithChildren) {
     socket.current.onerror = (err) => {
       console.error(err);
     };
-  }, []);
+  }, [user]);
 
-  function createRoom() {
-    socket.current?.send(JSON.stringify({ type: "create-room" }));
+  function acceptCallOffer() {
+    if (!callOffer) return;
+    socket.current?.send(
+      JSON.stringify({
+        type: "lobby::accept-offer",
+        data: { offerId: callOffer.id },
+      }),
+    );
   }
 
-  const joinToRoom: ChatNetworkContextType["joinToRoom"] = (data) => {
-    console.log("data.roomId: " + data.roomId);
-    console.log("roomId: " + roomId);
+  function declineCallOffer() {
+    if (!callOffer) return;
     socket.current?.send(
       JSON.stringify({
-        type: "join-room",
-        data: {
-          roomId: data.roomId || roomId,
-          ...data,
-        },
+        type: "lobby::decline-offer",
+        data: { offerId: callOffer.id },
       }),
     );
-  };
+    setCallOffer(null);
+  }
 
-  const leaveRoom = () => {
-    socket.current?.send(JSON.stringify({ type: "leave-room" }));
-  };
+  function joinToLobby() {
+    socket.current?.send(
+      JSON.stringify({
+        type: "lobby::join",
+        data: { personalInfo: { name: user.name, avatar: user.avatar } },
+      }),
+    );
+  }
 
-  const setMicState = (micMuted: boolean) => {
-    const me = userList.find((u) => u.isMe);
+  function callToUser(uid: string) {
+    socket.current?.send(
+      JSON.stringify({
+        type: "lobby::initiate-call",
+        data: { receiverId: uid },
+      }),
+    );
+  }
 
-    if (me) {
-      switchMicState(!micMuted);
-      me.micMuted = micMuted;
-      setUserList([...userList]);
-    }
+  function endCall() {
+    if (!callInfo) return;
 
     socket.current?.send(
       JSON.stringify({
-        type: "broadcast",
-        data: { roomId, broadcastedData: { micMuted } },
+        type: "call::end",
+        data: { callId: callInfo.id },
       }),
     );
-  };
+  }
+
+  function changeMuteStatus(status: boolean) {
+    if (!callInfo) return;
+
+    switchMicState(!status);
+    socket.current?.send(
+      JSON.stringify({
+        type: "call::mute",
+        data: { callId: callInfo.id, status },
+      }),
+    );
+  }
 
   return (
     <ChatNetworkContext
       value={{
-        createRoom,
-        roomId,
-        joinToRoom,
-        roomJoined,
-        userList,
-        setRoomId,
-        leaveRoom,
-        setMicState,
+        lobbyMembers,
+        callInfo,
+        callOffer,
+        isMyUserMuted,
+        joinToLobby,
+        callToUser,
+        acceptCallOffer,
+        declineCallOffer,
+        endCall,
+        changeMuteStatus,
       }}
     >
       {props.children}

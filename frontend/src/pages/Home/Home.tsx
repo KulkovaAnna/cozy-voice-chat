@@ -1,11 +1,11 @@
-import { EnterUserNameForm } from "../../features/EnterUserNameForm";
-import { RoomConnectionForm } from "../../features/RoomConnectionForm";
+import { Navigate } from "react-router";
+import { Lobby } from "../../features/Lobby";
+import { useAuth } from "../../providers/AuthProvider";
 
 export const Home = () => {
-  return (
-    <>
-      <EnterUserNameForm />
-      <RoomConnectionForm />
-    </>
-  );
+  const { user } = useAuth();
+
+  if (!user.name) return <Navigate to="/login" />;
+
+  return <Lobby />;
 };

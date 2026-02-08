@@ -4,6 +4,7 @@ import { useRef } from "react";
 export function usePeer() {
   const peer = useRef<Peer | undefined>(undefined);
   const currentCall = useRef<MediaConnection | undefined>(undefined);
+
   function initialize(clientId: string) {
     if (peer.current) return;
     peer.current = new Peer(clientId, {
@@ -22,7 +23,7 @@ export function usePeer() {
     peer.current?.on("call", (call) => {
       navigator.mediaDevices.getUserMedia({ audio: true }).then(
         (stream) => {
-          call.answer(stream); // Answer the call with an A/V stream.
+          call.answer(stream);
           call.on("stream", (remoteStream) => {
             const audio = document.getElementById(
               "user-voice",
@@ -64,6 +65,9 @@ export function usePeer() {
   }
 
   function endCall() {
+    currentCall.current?.localStream.getAudioTracks().forEach((track) => {
+      track.stop();
+    });
     currentCall.current?.close();
   }
 

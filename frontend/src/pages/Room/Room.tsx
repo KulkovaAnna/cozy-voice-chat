@@ -1,4 +1,4 @@
-import { useNavigate, useParams } from "react-router";
+import { useNavigate } from "react-router";
 import { Column } from "../../components/Column";
 import { UserCard } from "../../features/UserCard";
 import { Card } from "../../components/Card";
@@ -7,24 +7,29 @@ import { useChatNetwork } from "../../providers/ChatNetworkProvider";
 import { useEffect } from "react";
 
 export const Room = () => {
-  const params = useParams();
   const navigate = useNavigate();
-  const { userList, roomId } = useChatNetwork();
+  const { callInfo } = useChatNetwork();
 
   useEffect(() => {
-    if (!roomId) {
+    if (!callInfo?.id) {
       navigate("/");
     }
-  }, [roomId]);
+  }, [callInfo?.id]);
 
-  const userCards = userList?.map((profile) => (
-    <UserCard key={profile.id} user={profile} isSpeaking={false} />
-  ));
+  const userCards = callInfo?.members?.map(
+    ({ member, isSpeaking, isMuted }) => (
+      <UserCard
+        key={member.id}
+        user={member}
+        isSpeaking={isSpeaking}
+        isMuted={isMuted}
+      />
+    ),
+  );
 
   return (
     <>
       <Column>
-        <h1>Комната {params.roomId}</h1>
         <Card>
           <Column>{userCards}</Column>
         </Card>
