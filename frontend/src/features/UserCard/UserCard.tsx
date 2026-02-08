@@ -6,14 +6,15 @@ import mutedIcon from "../../assets/mic_off.svg";
 interface UserCardProps {
   user: UserProfile;
   isSpeaking?: boolean;
+  isMuted?: boolean;
 }
 
-export const UserCard = ({ user, isSpeaking }: UserCardProps) => {
+export const UserCard = ({ user, isSpeaking, isMuted }: UserCardProps) => {
   return (
     <Styled.UserCard isSpeaking={isSpeaking}>
       <Styled.RelativeBlock>
         <Avatar size={80} src={user.avatar} />
-        {user.micMuted && <Styled.MutedIcon src={mutedIcon} />}
+        {isMuted && <Styled.MutedIcon src={mutedIcon} />}
       </Styled.RelativeBlock>
       <p>{user.name}</p>
     </Styled.UserCard>

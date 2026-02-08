@@ -17,7 +17,7 @@ const MESSAGE_TYPES = Object.freeze({
     ALL: {
       LOBBY: {
         JOINED: 'all::lobby::joined',
-        CLIENT_DISCONNECTED: 'lobby::client-disconnected',
+        CLIENT_DISCONNECTED: 'all::lobby::client-disconnected',
       },
       CALL: {
         CALL_STARTED: 'all::call::started',
@@ -32,6 +32,7 @@ const MESSAGE_TYPES = Object.freeze({
       CALL_OFFER: 'me::call-offer',
       CALL_OFFER_ACCEPTED: 'me::call-offer-accepted',
       CALL_OFFER_DECLINED: 'me::call-offer-declined',
+      LOBBY_JOINED: 'me::lobby-joined',
     },
   },
 });

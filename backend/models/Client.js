@@ -1,6 +1,5 @@
 const { v4 } = require('uuid');
 const { WebSocket } = require('ws');
-const Call = require('./Call');
 const PersonalInfo = require('./PersonalInfo');
 
 class Client {

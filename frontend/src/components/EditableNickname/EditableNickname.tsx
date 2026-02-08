@@ -14,21 +14,21 @@ interface IForm {
 
 export const EditableNickname = ({ ...props }: EditableNicknameProps) => {
   const {
-    user: { userName },
+    user: { name },
     updateUser,
   } = useAuth();
   const [isEdit, setIsEdit] = useState(false);
 
   const { register, handleSubmit, setValue } = useForm<IForm>({
-    defaultValues: { name: userName },
+    defaultValues: { name },
   });
 
   const submit = (data: IForm) => {
-    updateUser({ userName: data.name || userName });
+    updateUser({ name: data.name || name });
   };
 
   const handleError = () => {
-    setValue("name", userName);
+    setValue("name", name);
   };
 
   const changeEditState = () => {
@@ -36,11 +36,11 @@ export const EditableNickname = ({ ...props }: EditableNicknameProps) => {
   };
 
   useEffect(() => {
-    setValue("name", userName);
-  }, [userName]);
+    setValue("name", name);
+  }, [name]);
 
   return (
-    userName && (
+    name && (
       <Styled.Form onSubmit={handleSubmit(submit, handleError)}>
         <Styled.EditableNickname
           disabled={!isEdit}

@@ -23,6 +23,10 @@ class LobbyManager {
    * @returns {Client}
    */
   addClient(ws, ip, personalInfo) {
+    const clients = Array.from(this.#clients.values);
+    if (clients.some((c) => c.ip === ip)) {
+      throw new Error(`Данный пользователь уже находится в лобби`);
+    }
     const client = new Client(ws, ip, personalInfo);
     this.#clients.set(ws, client);
     return client;
@@ -40,10 +44,22 @@ class LobbyManager {
 
   /**
    * @param {string} id
-   * @returns {CallOffer|undefined}
+   * @returns {CallOffer | undefined}
    */
   getOfferById(id) {
     return this.callOffers.get(id);
+  }
+
+  /**
+   * @param {string} memberId
+   * @returns {CallOffer | undefined}
+   */
+  getOfferByMemberId(memberId) {
+    const offers = Array.from(this.callOffers.values()) || [];
+    return offers.find(
+      (offer) =>
+        offer.initiator.id === memberId || offer.receiver.id === memberId,
+    );
   }
 
   getLobbyMembers() {
@@ -64,6 +80,10 @@ class LobbyManager {
    */
   getMemberById(clientId) {
     return this.getLobbyMembers().find((m) => m.id === clientId);
+  }
+
+  removeMember(ws) {
+    this.#clients.delete(ws);
   }
 
   getStats() {

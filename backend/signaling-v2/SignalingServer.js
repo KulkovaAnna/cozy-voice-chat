@@ -49,9 +49,14 @@ class SignalingServer {
       // Setup close handler
       ws.on('close', () => {
         const clientData = this.lobbyManager.getMemberByWs(ws);
+        const offer = this.lobbyManager.getOfferByMemberId(clientData.id);
+        if (offer) {
+          this.handleDeclineCallOffer(ws, offer.id);
+        }
+        this.lobbyManager.removeMember(ws);
         const memberCall = this.callManager.getClientCall(clientData.id);
         if (memberCall) {
-          this.handleChangeOnlineStatus(ws, memberCall.id, false);
+          this.handleChangeOnlineStatus(clientData.id, memberCall.id, false);
         }
         if (clientData) {
           this.broadcastToLobby(
@@ -107,7 +112,8 @@ class SignalingServer {
           break;
 
         case MESSAGE_TYPES.RECEIVE.CALL.CHANGE_ONLINE_STATUS:
-          this.handleChangeOnlineStatus(ws, data.callId, data.status);
+          const client = this.lobbyManager.getMemberByWs(ws);
+          this.handleChangeOnlineStatus(client.id, data.callId, data.status);
           break;
 
         case MESSAGE_TYPES.RECEIVE.CALL.CHANGE_SPEAKING_STATUS:
@@ -146,6 +152,14 @@ class SignalingServer {
           lobbyInfo: {
             members: this.lobbyManager.getLobbyMembers(true),
           },
+        },
+      });
+
+      this.sendToClient(ws, {
+        type: 'me::lobby-joined',
+        data: {
+          client,
+          timestamp: new Date().toISOString(),
         },
       });
     }
@@ -225,17 +239,24 @@ class SignalingServer {
   handleDeclineCallOffer(ws, offerId) {
     const receiver = this.lobbyManager.getMemberByWs(ws);
     const currentOffer = this.lobbyManager.getOfferById(offerId);
-    if (!currentOffer || receiver.id !== currentOffer.receiver.id) {
+
+    const initiatorDeclined = receiver.id === currentOffer.initiator.id;
+    const receiverDeclined = receiver.id === currentOffer.receiver.id;
+
+    if (!currentOffer || (!initiatorDeclined && !receiverDeclined)) {
       throw new Error('Вы не можете отклонить этот звонок');
     }
 
-    this.sendToClient(currentOffer.initiator.ws, {
-      type: MESSAGE_TYPES.SEND.ME.CALL_OFFER_DECLINED,
-      data: {
-        callOffer: currentOffer,
-        timestamp: new Date().toISOString(),
+    this.sendToClient(
+      initiatorDeclined ? currentOffer.receiver.ws : currentOffer.initiator.ws,
+      {
+        type: MESSAGE_TYPES.SEND.ME.CALL_OFFER_DECLINED,
+        data: {
+          callOffer: currentOffer,
+          timestamp: new Date().toISOString(),
+        },
       },
-    });
+    );
 
     this.lobbyManager.callOffers.delete(offerId);
   }
@@ -255,17 +276,18 @@ class SignalingServer {
   }
 
   /**
-   * @param {WebSocket} ws
+   * @param {string} clientId
    * @param {string} callId
    * @param {boolean} status
    */
-  handleChangeOnlineStatus(ws, callId, status) {
-    const client = this.lobbyManager.getMemberByWs(ws);
-    this.callManager.changeOnlineStatus(callId, client.id, status);
+  handleChangeOnlineStatus(clientId, callId, status) {
+    this.callManager.changeOnlineStatus(callId, clientId, status);
     this.broadcastToCall(callId, {
       type: MESSAGE_TYPES.SEND.ALL.CALL.ONLINE_STATUS_CHANGED,
       data: {
-        client,
+        client: {
+          id: clientId,
+        },
         isOnline: status,
         callInfo: this.callManager.getCallById(callId),
       },
