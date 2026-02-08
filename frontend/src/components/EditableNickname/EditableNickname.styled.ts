@@ -1,7 +1,7 @@
 import styled from "@emotion/styled";
 import { Input } from "../Input";
 
-export const EditableNickname = styled(Input)(({ theme }) => ({
+export const EditableNickname = styled(Input)(() => ({
   maxWidth: "300px",
   overflow: "hidden",
   whiteSpace: "nowrap",
