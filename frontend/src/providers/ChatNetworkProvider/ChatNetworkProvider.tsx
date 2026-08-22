@@ -4,7 +4,6 @@ import {
   type PropsWithChildren,
   useState,
   useMemo,
-  useCallback,
 } from "react";
 import { ChatNetworkContext } from "./ChatNetworkContext";
 import type { CallInfo, CallOffer, UserProfile, UserDTO } from "../../types";
@@ -37,6 +36,91 @@ export function ChatNetworkProvider(props: PropsWithChildren) {
       false,
     [user, callInfo],
   );
+
+  const changeIsSpeakingState = (isSpeaking: boolean) => {
+    if (!callInfo) return;
+
+    socket.current?.send(
+      JSON.stringify({
+        type: "call::speaking",
+        data: { callId: callInfo.id, status: isSpeaking },
+      }),
+    );
+  };
+
+  function acceptCallOffer() {
+    if (!callOffer) return;
+    socket.current?.send(
+      JSON.stringify({
+        type: "lobby::accept-offer",
+        data: { offerId: callOffer.id },
+      }),
+    );
+  }
+
+  function declineCallOffer() {
+    if (!callOffer) return;
+    socket.current?.send(
+      JSON.stringify({
+        type: "lobby::decline-offer",
+        data: { offerId: callOffer.id },
+      }),
+    );
+    setCallOffer(null);
+  }
+
+  function joinToLobby() {
+    socket.current?.send(
+      JSON.stringify({
+        type: "lobby::join",
+        data: { personalInfo: { name: user.name, avatar: user.avatar } },
+      }),
+    );
+  }
+
+  function callToUser(uid: string) {
+    socket.current?.send(
+      JSON.stringify({
+        type: "lobby::initiate-call",
+        data: { receiverId: uid },
+      }),
+    );
+  }
+
+  function endCall() {
+    if (!callInfo) return;
+
+    socket.current?.send(
+      JSON.stringify({
+        type: "call::end",
+        data: { callId: callInfo.id },
+      }),
+    );
+  }
+
+  function changeMuteStatus(status: boolean) {
+    if (!callInfo) return;
+
+    switchMicState(!status);
+    socket.current?.send(
+      JSON.stringify({
+        type: "call::mute",
+        data: { callId: callInfo.id, status },
+      }),
+    );
+  }
+
+  useEffect(() => {
+    if (call && !speechDetection.current) {
+      speechDetection.current = new SpeechDetection({
+        onUpdate: changeIsSpeakingState,
+      });
+      speechDetection.current.start(call.localStream);
+      console.log("CREATE SPEECH DETECT");
+    } else if (speechDetection) {
+      speechDetection.current?.stop();
+    }
+  }, [call]);
 
   useEffect(() => {
     if (!user.name) return;
@@ -131,93 +215,6 @@ export function ChatNetworkProvider(props: PropsWithChildren) {
       console.error(err);
     };
   }, [user]);
-
-  const changeIsSpeakingState = useCallback(
-    (isSpeaking: boolean) => {
-      if (!callInfo) return;
-
-      socket.current?.send(
-        JSON.stringify({
-          type: "call::speaking",
-          data: { callId: callInfo.id, status: isSpeaking },
-        }),
-      );
-    },
-    [callInfo],
-  );
-
-  useEffect(() => {
-    if (call) {
-      speechDetection.current = new SpeechDetection({
-        onUpdate: changeIsSpeakingState,
-      });
-      speechDetection.current.start(call.localStream);
-    } else if (speechDetection) {
-      speechDetection.current?.stop();
-    }
-  }, [call, changeIsSpeakingState]);
-
-  function acceptCallOffer() {
-    if (!callOffer) return;
-    socket.current?.send(
-      JSON.stringify({
-        type: "lobby::accept-offer",
-        data: { offerId: callOffer.id },
-      }),
-    );
-  }
-
-  function declineCallOffer() {
-    if (!callOffer) return;
-    socket.current?.send(
-      JSON.stringify({
-        type: "lobby::decline-offer",
-        data: { offerId: callOffer.id },
-      }),
-    );
-    setCallOffer(null);
-  }
-
-  function joinToLobby() {
-    socket.current?.send(
-      JSON.stringify({
-        type: "lobby::join",
-        data: { personalInfo: { name: user.name, avatar: user.avatar } },
-      }),
-    );
-  }
-
-  function callToUser(uid: string) {
-    socket.current?.send(
-      JSON.stringify({
-        type: "lobby::initiate-call",
-        data: { receiverId: uid },
-      }),
-    );
-  }
-
-  function endCall() {
-    if (!callInfo) return;
-
-    socket.current?.send(
-      JSON.stringify({
-        type: "call::end",
-        data: { callId: callInfo.id },
-      }),
-    );
-  }
-
-  function changeMuteStatus(status: boolean) {
-    if (!callInfo) return;
-
-    switchMicState(!status);
-    socket.current?.send(
-      JSON.stringify({
-        type: "call::mute",
-        data: { callId: callInfo.id, status },
-      }),
-    );
-  }
 
   return (
     <ChatNetworkContext
