@@ -1,19 +1,17 @@
+import { useMemo } from "react";
+import { Navigate } from "react-router";
 import { Card } from "../../components/Card";
+import { Column } from "../../components/Column";
+import { LobbyRow } from "../../components/LobbyRow/LobbyRow";
+import { useAuth } from "../../providers/AuthProvider";
 import { useChatNetwork } from "../../providers/ChatNetworkProvider";
 import type { UserProfile } from "../../types";
-import { Column } from "../../components/Column";
 import { AcceptCallModal } from "../AcceptCallModal/AcceptCallModal";
 import { WaitCallModal } from "../WaitCallModal";
-import { LobbyRow } from "../../components/LobbyRow/LobbyRow";
-import { Navigate } from "react-router";
-import { useMemo } from "react";
-import { useAuth } from "../../providers/AuthProvider";
 
 export function Lobby() {
   const { lobbyMembers, callInfo } = useChatNetwork();
   const { user } = useAuth();
-
-  if (callInfo) return <Navigate to={`/call/${callInfo.id}`} />;
 
   const currentLobbyMembers = useMemo(
     () =>
@@ -28,8 +26,11 @@ export function Lobby() {
     [lobbyMembers, user],
   );
 
+  if (callInfo) return <Navigate to={`/call/${callInfo.id}`} />;
+
   return (
-    <Card>
+    <Card direction="column">
+      <h2>Лобби</h2>
       <Column>{currentLobbyMembers}</Column>
       <AcceptCallModal />
       <WaitCallModal />

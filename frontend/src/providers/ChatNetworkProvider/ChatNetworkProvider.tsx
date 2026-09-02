@@ -142,7 +142,8 @@ export function ChatNetworkProvider(props: PropsWithChildren) {
       const data = JSON.parse(e.data);
 
       switch (data.type) {
-        case "all::lobby::joined": {
+        case "all::lobby::joined":
+        case "all::lobby::client-disconnected": {
           const currentLobbyMembers = data.data.lobbyInfo.members.map(
             (member: UserDTO) => userAdapter(member),
           );
@@ -166,9 +167,6 @@ export function ChatNetworkProvider(props: PropsWithChildren) {
         }
         case "me::call-offer-declined": {
           setCallOffer(null);
-          break;
-        }
-        case "all::lobby::client-disconnected": {
           break;
         }
         case "all::call::started": {

@@ -1,9 +1,10 @@
-import { useMemo } from "react";
-import { Button } from "../../components/Button";
-import { useChatNetwork } from "../../providers/ChatNetworkProvider";
-import Modal from "react-modal";
 import { useTheme } from "@emotion/react";
+import { useMemo } from "react";
+import Modal from "react-modal";
+import { Audio } from "../../components/Audio";
+import { Button } from "../../components/Button";
 import { useAuth } from "../../providers/AuthProvider";
+import { useChatNetwork } from "../../providers/ChatNetworkProvider";
 
 Modal.setAppElement("#root");
 
@@ -46,6 +47,7 @@ export function AcceptCallModal() {
         Принять
       </Button>
       <Button onClick={declineCallOffer}>Отклонить</Button>
+      <Audio src="/audio/ringtone.mp3" />
     </Modal>
   );
 }

@@ -17,7 +17,6 @@ export const InnerContainer = styled.div({
   alignItems: "center",
   justifyContent: "flex-start",
   width: "100%",
-  height: "100%",
   gap: "1rem",
   overflow: "hidden",
   whiteSpace: "nowrap",

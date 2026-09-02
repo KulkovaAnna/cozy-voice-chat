@@ -18,7 +18,7 @@ export function LobbyRow({ currentUser }: LobbyRowProps) {
       </Styled.InnerContainer>
       {(currentUser.id && currentUser.id !== user.id && (
         <CallButton uid={currentUser.id} />
-      )) || <Styled.Label>Это я</Styled.Label>}
+      )) || <Styled.Label>Это&nbsp;ты</Styled.Label>}
     </Styled.Container>
   );
 }

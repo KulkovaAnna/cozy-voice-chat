@@ -4,11 +4,17 @@ interface CardProps {
   hasGlow?: boolean;
   children?: React.ReactNode;
   className?: string;
+  direction?: "row" | "column";
 }
 
-export const Card = ({ hasGlow = false, children, ...props }: CardProps) => {
+export const Card = ({
+  hasGlow = false,
+  children,
+  direction = "row",
+  ...props
+}: CardProps) => {
   return (
-    <Styled.Card hasGlow={hasGlow} {...props}>
+    <Styled.Card $direction={direction} $hasGlow={hasGlow} {...props}>
       {children}
     </Styled.Card>
   );

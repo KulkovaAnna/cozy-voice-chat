@@ -1,9 +1,10 @@
-import Modal from "react-modal";
-import { useChatNetwork } from "../../providers/ChatNetworkProvider";
-import { useAuth } from "../../providers/AuthProvider";
-import { Button } from "../../components/Button";
-import { useMemo } from "react";
 import { useTheme } from "@emotion/react";
+import { useMemo } from "react";
+import Modal from "react-modal";
+import { Audio } from "../../components/Audio";
+import { Button } from "../../components/Button";
+import { useAuth } from "../../providers/AuthProvider";
+import { useChatNetwork } from "../../providers/ChatNetworkProvider";
 
 export function WaitCallModal() {
   const { callOffer, declineCallOffer } = useChatNetwork();
@@ -41,6 +42,7 @@ export function WaitCallModal() {
       {/* TODO: добавить инфу о ресивере */}
       Вы звоните неизвестно кому
       <Button onClick={declineCallOffer}>Отменить</Button>
+      <Audio src="/audio/ringing.mp3" />
     </Modal>
   );
 }
