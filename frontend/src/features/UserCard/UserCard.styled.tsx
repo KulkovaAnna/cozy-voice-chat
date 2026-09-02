@@ -1,9 +1,14 @@
 import styled from "@emotion/styled";
 import { Card } from "../../components/Card";
+import { VolumeSlider } from "../../components/VolumeChanger";
 
 interface UserCardProps {
   isSpeaking?: boolean;
 }
+
+export const Container = styled.div({
+  position: "relative",
+});
 
 export const UserCard = styled(Card)<UserCardProps>(
   ({ isSpeaking, theme }) => ({
@@ -29,3 +34,10 @@ export const MutedIconDiv = styled.div(({ theme }) => ({
   borderRadius: "50%",
   backgroundColor: theme.colors.primary.light,
 }));
+
+export const Slider = styled(VolumeSlider)({
+  position: "absolute",
+  right: "1rem",
+  top: "50%",
+  transform: "translateY(-50%)",
+});

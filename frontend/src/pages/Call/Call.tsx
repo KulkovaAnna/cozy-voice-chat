@@ -4,18 +4,32 @@ import { UserCard } from "../../features/UserCard";
 import { Card } from "../../components/Card";
 import { ControlPanel } from "../../features/ControlPanel";
 import { useChatNetwork } from "../../providers/ChatNetworkProvider";
-import { useEffect, useMemo } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useAuth } from "../../providers/AuthProvider";
 
 export const Call = () => {
   const navigate = useNavigate();
   const { callInfo } = useChatNetwork();
   const { user } = useAuth();
+  const [volume, setVolume] = useState(1);
+
+  const audioRef = useRef<HTMLAudioElement>(null);
+
+  const handleVolumeChange = (volume: number) => {
+    setVolume(volume);
+  };
+
   useEffect(() => {
     if (!callInfo?.id) {
       navigate("/");
     }
   }, [callInfo?.id]);
+
+  useEffect(() => {
+    if (audioRef.current) {
+      audioRef.current.volume = volume;
+    }
+  }, [volume]);
 
   const userCards = useMemo(
     () =>
@@ -27,9 +41,14 @@ export const Call = () => {
             user={member}
             isSpeaking={isSpeaking}
             isMuted={isMuted}
+            volume={
+              member.id !== user.id
+                ? { value: volume, onVolumeChange: handleVolumeChange }
+                : undefined
+            }
           />
         )),
-    [callInfo, user],
+    [callInfo, user, volume],
   );
 
   return (
@@ -38,7 +57,7 @@ export const Call = () => {
         <Card>
           <Column>{userCards}</Column>
         </Card>
-        <audio id="user-voice" />
+        <audio ref={audioRef} id="user-voice" />
         <ControlPanel />
       </Column>
     </>
