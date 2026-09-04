@@ -33,6 +33,7 @@ const MESSAGE_TYPES = Object.freeze({
       CALL_OFFER_ACCEPTED: 'me::call-offer-accepted',
       CALL_OFFER_DECLINED: 'me::call-offer-declined',
       LOBBY_JOINED: 'me::lobby-joined',
+      FILE_RECEIVED: 'me::file-received',
     },
   },
 });

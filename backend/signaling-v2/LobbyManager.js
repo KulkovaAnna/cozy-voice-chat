@@ -5,6 +5,10 @@ const CallOffer = require('../models/CallOffer');
 
 class LobbyManager {
   /**
+   * @type {LobbyManager}
+   */
+  static #instance = null;
+  /**
    *  Список клиентов
    *  @type {Map<WebSocket, Client>}
    */
@@ -15,6 +19,24 @@ class LobbyManager {
    */
   callOffers = new Map();
 
+  constructor() {
+    if (LobbyManager.#instance) {
+      return LobbyManager.#instance;
+    }
+    LobbyManager.#instance = this;
+  }
+
+  /**
+   * Статический метод для получения единственного экземпляра.
+   * @returns {LobbyManager}
+   */
+  static getInstance() {
+    if (!LobbyManager.#instance) {
+      LobbyManager.#instance = new LobbyManager();
+    }
+    return LobbyManager.#instance;
+  }
+
   /**
    * Добавляет нового клиента в лобби
    * @param {WebSocket} ws - Вебсокет клиента
@@ -23,9 +45,10 @@ class LobbyManager {
    * @returns {Client}
    */
   addClient(ws, ip, personalInfo) {
-    const clients = Array.from(this.#clients.values);
+    const clients = Array.from(this.#clients.values());
     if (clients.some((c) => c.ip === ip)) {
-      throw new Error(`Данный пользователь уже находится в лобби`);
+      console.error(`Данный пользователь уже находится в лобби`);
+      return;
     }
     const client = new Client(ws, ip, personalInfo);
     this.#clients.set(ws, client);
@@ -80,6 +103,14 @@ class LobbyManager {
    */
   getMemberById(clientId) {
     return this.getLobbyMembers().find((m) => m.id === clientId);
+  }
+
+  /**
+   * @param {string} clientIp
+   * @returns {Client | undefined}
+   */
+  getMemberByIp(clientIp) {
+    return this.getLobbyMembers().find((m) => m.ip === clientIp);
   }
 
   removeMember(ws) {

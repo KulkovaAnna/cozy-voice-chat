@@ -8,19 +8,20 @@ const MESSAGE_TYPES = require('../constants/message-types');
 const CallOffer = require('../models/CallOffer');
 const Helpers = require('../utils/helpers');
 const CallManager = require('./CallManager');
+const eventBus = require('../utils/event-bus');
 
 class SignalingServer {
+  lobbyManager = new LobbyManager();
+  callManager = new CallManager();
+  rateLimiter = new RateLimiter();
   constructor(server) {
     this.wss = new WebSocket.Server({
       server,
       maxPayload: config.websocket.maxMessageSize,
     });
 
-    this.lobbyManager = new LobbyManager();
-    this.callManager = new CallManager();
-    this.rateLimiter = new RateLimiter();
-
     this.setupWebSocket();
+    eventBus.on('file:uploaded', this.handleFileUploaded.bind(this));
   }
 
   setupWebSocket() {
@@ -81,6 +82,21 @@ class SignalingServer {
         this.clientManager.removeClient(ws);
       });
     });
+  }
+
+  handleFileUploaded({ fileId, receiverId, originalName, size }) {
+    const receiver = this.lobbyManager.getMemberById(receiverId);
+    if (receiver && receiver.ws.readyState === WebSocket.OPEN) {
+      this.sendToClient(receiver.ws, {
+        type: MESSAGE_TYPES.SEND.ME.FILE_RECEIVED,
+        data: {
+          fileId,
+          originalName,
+          size,
+          timestamp: new Date().toISOString(),
+        },
+      });
+    }
   }
 
   async handleMessage(ws, ip, message) {

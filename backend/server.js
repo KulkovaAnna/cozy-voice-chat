@@ -8,8 +8,14 @@ const config = require('./config');
 const SignalingServer = require('./signaling-v2/SignalingServer');
 const AuthMiddleware = require('./security/AuthMiddleware');
 const Helpers = require('./utils/helpers');
+const FileManagerRoutes = require('./app/modules/file-manager/file-manager.routes');
+const FileManagerService = require('./app/modules/file-manager/file-manager.service');
+const FileManagerController = require('./app/modules/file-manager/file-manager.controller');
 
 class VoiceChatServer {
+  fileManagerService = new FileManagerService();
+  fileManagerController = new FileManagerController(this.fileManagerService);
+  fileManagerRoutes = new FileManagerRoutes(this.fileManagerController);
   constructor() {
     this.app = express();
     this.setupMiddleware();
@@ -81,6 +87,11 @@ class VoiceChatServer {
         timestamp: new Date().toISOString(),
       });
     });
+
+    this.app.use(
+      FileManagerRoutes.BASE_URL,
+      this.fileManagerRoutes.getRouter(),
+    );
   }
 
   start() {
