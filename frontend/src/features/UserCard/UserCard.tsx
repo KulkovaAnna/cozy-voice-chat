@@ -1,4 +1,5 @@
 import { Avatar } from "../../components/Avatar";
+import { ContextMenuWithSlider } from "../../components/ContextMenu";
 import { MicOffIcon } from "../../components/Icons";
 import type { UserProfile } from "../../types";
 import * as Styled from "./UserCard.styled";
@@ -21,25 +22,22 @@ export const UserCard = ({
 }: UserCardProps) => {
   return (
     <Styled.Container>
-      <Styled.UserCard isSpeaking={isSpeaking}>
-        <Styled.RelativeBlock>
-          <Avatar size={80} src={user.avatar} />
-          {isMuted && (
-            <Styled.MutedIconDiv>
-              <MicOffIcon />
-            </Styled.MutedIconDiv>
-          )}
-        </Styled.RelativeBlock>
-        <p>{user.name}</p>
-      </Styled.UserCard>
-      {volume && (
-        <Styled.Slider
-          height={100}
-          value={volume.value}
-          onChange={volume.onVolumeChange}
-          thumbSize={20}
-        />
-      )}
+      <ContextMenuWithSlider
+        value={volume?.value}
+        onChange={volume?.onVolumeChange}
+      >
+        <Styled.UserCard isSpeaking={isSpeaking}>
+          <Styled.RelativeBlock>
+            <Avatar size={80} src={user.avatar} />
+            {isMuted && (
+              <Styled.MutedIconDiv>
+                <MicOffIcon />
+              </Styled.MutedIconDiv>
+            )}
+          </Styled.RelativeBlock>
+          <p>{user.name}</p>
+        </Styled.UserCard>
+      </ContextMenuWithSlider>
     </Styled.Container>
   );
 };

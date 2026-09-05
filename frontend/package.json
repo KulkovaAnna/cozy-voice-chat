@@ -8,12 +8,13 @@
     "build": "tsc -b && vite build",
     "lint": "eslint .",
     "preview": "vite preview --host",
-    "peerServer:start": "peerjs --port 9000 --key peerjs --path /peerjs"
+    "peerServer:start": "npx peerjs-server --port 9000 --key peerjs --path /peerjs"
   },
   "dependencies": {
     "@emotion/react": "^11.14.0",
     "@emotion/styled": "^11.14.1",
     "peerjs": "^1.5.5",
+    "peerjs-server": "^0.2.9",
     "prettier": "^3.9.6",
     "react": "^19.2.0",
     "react-dom": "^19.2.0",
