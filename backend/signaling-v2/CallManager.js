@@ -118,10 +118,9 @@ class CallManager {
    * @param {string} callId - ID звонка
    * @param {string} senderId - ID отправителя (должен быть участником)
    * @param {string} text - текст сообщения
-   * @param {string} senderName - опционально имя
    * @returns {Message} - объект созданного сообщения
    */
-  sendMessage(callId, senderId, text, senderName = null) {
+  sendMessage(callId, senderId, text) {
     const call = this.#calls.get(callId);
     if (!call) {
       throw new Error('Звонок не найден');
@@ -137,7 +136,8 @@ class CallManager {
     const message = call.addMessage(
       senderId,
       text,
-      senderName || member.client.personalInfo?.name,
+      member.client.personalInfo?.name,
+      member.client.personalInfo?.avatar,
     );
 
     // Возвращаем сообщение, чтобы SignalingServer мог его разослать
