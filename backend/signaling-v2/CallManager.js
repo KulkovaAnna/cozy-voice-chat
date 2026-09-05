@@ -1,15 +1,14 @@
 const Call = require('../models/Call');
 const CallOffer = require('../models/CallOffer');
+const { Message } = require('../models/Message');
 
 class CallManager {
-  /**
-   * @type {Map<string,Call>}
-   */
+  /** @type {Map<string,Call>}*/
   #calls = new Map();
 
   /**
    * @param {CallOffer} callOffer
-   * @returns
+   * @returns {boolean}
    */
   startCall(callOffer) {
     if (
@@ -32,6 +31,7 @@ class CallManager {
     return newCall;
   }
 
+  /** @param {string} callId  */
   endCall(callId) {
     if (!this.#calls.has(callId)) {
       throw new Error('Нет такого звонка');
@@ -41,7 +41,7 @@ class CallManager {
 
   /**
    * @param {string} callId
-   * @returns
+   * @returns {Member[]}
    */
   getCallMembers(callId) {
     const memberCall = this.#calls.get(callId);
@@ -84,9 +84,7 @@ class CallManager {
    * @param {string} clientId
    */
   getClientCall(clientId) {
-    /**
-     * @type {Call|undefined}
-     */
+    /** @type {Call|undefined}*/
     let memberCall;
     this.#calls.forEach((call) => {
       if (call.members.map((m) => m.client.id).includes(clientId)) {
@@ -113,6 +111,47 @@ class CallManager {
     return this.#calls
       .get(callId)
       .members.find((m) => m.client.id === clientId);
+  }
+
+  /**
+   * Отправляет сообщение в звонок
+   * @param {string} callId - ID звонка
+   * @param {string} senderId - ID отправителя (должен быть участником)
+   * @param {string} text - текст сообщения
+   * @param {string} senderName - опционально имя
+   * @returns {Message} - объект созданного сообщения
+   */
+  sendMessage(callId, senderId, text, senderName = null) {
+    const call = this.#calls.get(callId);
+    if (!call) {
+      throw new Error('Звонок не найден');
+    }
+
+    // Проверяем, что отправитель является участником звонка
+    const member = call.members.find((m) => m.client.id === senderId);
+    if (!member) {
+      throw new Error('Отправитель не является участником звонка');
+    }
+
+    // Добавляем сообщение в историю
+    const message = call.addMessage(
+      senderId,
+      text,
+      senderName || member.client.personalInfo?.name,
+    );
+
+    // Возвращаем сообщение, чтобы SignalingServer мог его разослать
+    return message;
+  }
+
+  /**
+   * @param {string} callId
+   * @returns {Message[]}
+   */
+  getCallMessages(callId) {
+    const call = this.#calls.get(callId);
+    if (!call) return [];
+    return call.messages;
   }
 }
 

@@ -1,6 +1,7 @@
 const { v4 } = require('uuid');
 const CallOffer = require('./CallOffer');
 const Client = require('./Client');
+const Message = require('./Message');
 
 class Member {
   /**
@@ -27,30 +28,38 @@ class Member {
 }
 
 class Call {
-  /**
-   * @param {CallOffer} callOffer
-   */
+  /** @param {CallOffer} callOffer */
   constructor(callOffer) {
-    /**
-     * @type {string}
-     */
+    /** @type {string} */
     this.id = v4();
-    /**
-     * Участники звонка
-     * @type {Member[]}
-     */
+
+    /** @type {Member[]} */
     this.members = [
       new Member(callOffer.initiator),
       new Member(callOffer.receiver),
     ];
-    /**
-     * @type {Client}
-     */
+
+    /** @type {Client} */
     this.initiator = callOffer.initiator;
-    /**
-     * @type {Client}
-     */
+
+    /** @type {Client} */
     this.receiver = callOffer.receiver;
+
+    /** @type {Message} */
+    this.messages = [];
+  }
+
+  /**
+   * Добавляет сообщение в историю звонка
+   * @param {string} senderId - ID отправителя
+   * @param {string} text - текст сообщения
+   * @param {string} senderName - опционально имя отправителя
+   * @returns {Object} - объект сообщения
+   */
+  addMessage(senderId, text, senderName = null) {
+    const message = new Message(senderId, text, senderName);
+    this.messages.push(message);
+    return message;
   }
 }
 

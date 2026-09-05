@@ -136,6 +136,10 @@ class SignalingServer {
           this.handleChangeSpeakingStatus(ws, data.callId, data.status);
           break;
 
+        case MESSAGE_TYPES.RECEIVE.CALL.SEND_MESSAGE:
+          this.handleSendCallMessage(ws, data.callId, data.text);
+          break;
+
         default:
           console.warn(`Unknown message type: ${data.type}`);
       }
@@ -325,6 +329,37 @@ class SignalingServer {
         isMuted: status,
         callInfo: this.callManager.getCallById(callId),
       },
+    });
+  }
+
+  /**
+   * Обработка отправки текстового сообщения в звонок
+   * @param {WebSocket} ws
+   * @param {string} callId
+   * @param {string} text
+   */
+  handleSendCallMessage(ws, callId, text) {
+    if (!callId || !text) {
+      throw new Error('Не указан callId или текст сообщения');
+    }
+
+    const client = this.lobbyManager.getMemberByWs(ws);
+    if (!client) {
+      throw new Error('Вы не в лобби');
+    }
+
+    // Отправляем сообщение через CallManager
+    const message = this.callManager.sendMessage(
+      callId,
+      client.id,
+      text,
+      client.personalInfo?.name,
+    );
+
+    // Рассылаем всем участникам звонка (включая отправителя)
+    this.broadcastToCall(callId, {
+      type: MESSAGE_TYPES.SEND.ALL.CALL.NEW_MESSAGE,
+      data: message,
     });
   }
 

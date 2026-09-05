@@ -11,6 +11,7 @@ const MESSAGE_TYPES = Object.freeze({
       CHANGE_ONLINE_STATUS: 'call::online',
       CHANGE_MUTE_STATUS: 'call::mute',
       CHANGE_SPEAKING_STATUS: 'call::speaking',
+      SEND_MESSAGE: 'call::send-message',
     },
   },
   SEND: {
@@ -25,6 +26,7 @@ const MESSAGE_TYPES = Object.freeze({
         ONLINE_STATUS_CHANGED: 'all::call::online-changed',
         MUTE_STATUS_CHANGED: 'all::call::mute-changed',
         SPEAKING_STATUS_CHANGED: 'all::call::speaking-changed',
+        NEW_MESSAGE: 'call::new-message',
       },
     },
     ME: {
