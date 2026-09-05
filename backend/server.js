@@ -11,19 +11,32 @@ const Helpers = require('./utils/helpers');
 const FileManagerRoutes = require('./app/modules/file-manager/file-manager.routes');
 const FileManagerService = require('./app/modules/file-manager/file-manager.service');
 const FileManagerController = require('./app/modules/file-manager/file-manager.controller');
+const LobbyManager = require('./signaling-v2/LobbyManager');
+const CallManager = require('./signaling-v2/CallManager');
 
 class VoiceChatServer {
-  fileManagerService = new FileManagerService();
-  fileManagerController = new FileManagerController(this.fileManagerService);
-  fileManagerRoutes = new FileManagerRoutes(this.fileManagerController);
   constructor() {
     this.app = express();
     this.setupMiddleware();
-    this.setupRoutes();
 
     this.server = http.createServer(this.app);
-    this.signalingServer = new SignalingServer(this.server);
+    this.lobbyManager = new LobbyManager();
+    this.callManager = new CallManager();
+    this.fileManagerService = new FileManagerService(
+      this.callManager,
+      this.lobbyManager,
+    );
+    this.fileManagerController = new FileManagerController(
+      this.fileManagerService,
+    );
+    this.fileManagerRoutes = new FileManagerRoutes(this.fileManagerController);
+    this.signalingServer = new SignalingServer(
+      this.server,
+      this.lobbyManager,
+      this.callManager,
+    );
 
+    this.setupRoutes();
     this.start();
   }
 
@@ -90,7 +103,7 @@ class VoiceChatServer {
 
     this.app.use(
       FileManagerRoutes.BASE_URL,
-      this.fileManagerRoutes.getRouter(),
+      this.fileManagerRoutes.getRouter.bind(this.fileManagerRoutes)(),
     );
   }
 

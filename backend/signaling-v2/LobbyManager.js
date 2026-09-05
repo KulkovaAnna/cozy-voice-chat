@@ -7,7 +7,6 @@ class LobbyManager {
   /**
    * @type {LobbyManager}
    */
-  static #instance = null;
   /**
    *  Список клиентов
    *  @type {Map<WebSocket, Client>}
@@ -18,24 +17,6 @@ class LobbyManager {
    * @type {Map<string,CallOffer>}
    */
   callOffers = new Map();
-
-  constructor() {
-    if (LobbyManager.#instance) {
-      return LobbyManager.#instance;
-    }
-    LobbyManager.#instance = this;
-  }
-
-  /**
-   * Статический метод для получения единственного экземпляра.
-   * @returns {LobbyManager}
-   */
-  static getInstance() {
-    if (!LobbyManager.#instance) {
-      LobbyManager.#instance = new LobbyManager();
-    }
-    return LobbyManager.#instance;
-  }
 
   /**
    * Добавляет нового клиента в лобби

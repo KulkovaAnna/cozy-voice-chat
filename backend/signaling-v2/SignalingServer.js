@@ -2,26 +2,23 @@ const WebSocket = require('ws');
 const AuthMiddleware = require('../security/AuthMiddleware');
 const RateLimiter = require('../security/RateLimiter');
 const config = require('../config');
-const LobbyManager = require('./LobbyManager');
 const PersonalInfo = require('../models/PersonalInfo');
 const MESSAGE_TYPES = require('../constants/message-types');
-const CallOffer = require('../models/CallOffer');
 const Helpers = require('../utils/helpers');
-const CallManager = require('./CallManager');
 const eventBus = require('../utils/event-bus');
 
 class SignalingServer {
-  lobbyManager = new LobbyManager();
-  callManager = new CallManager();
   rateLimiter = new RateLimiter();
-  constructor(server) {
+  constructor(server, lobbyManager, callManager) {
     this.wss = new WebSocket.Server({
       server,
       maxPayload: config.websocket.maxMessageSize,
     });
-
+    this.lobbyManager = lobbyManager;
+    this.callManager = callManager;
     this.setupWebSocket();
     eventBus.on('file:uploaded', this.handleFileUploaded.bind(this));
+    eventBus.on('file:deleted', this.handleFileDeleted.bind(this));
   }
 
   setupWebSocket() {
@@ -84,11 +81,26 @@ class SignalingServer {
     });
   }
 
-  handleFileUploaded({ fileId, receiverId, originalName, size }) {
-    const receiver = this.lobbyManager.getMemberById(receiverId);
-    if (receiver && receiver.ws.readyState === WebSocket.OPEN) {
-      this.sendToClient(receiver.ws, {
-        type: MESSAGE_TYPES.SEND.ME.FILE_RECEIVED,
+  handleFileUploaded({ fileId, callId, originalName, size }) {
+    const call = this.callManager.getCallById(callId);
+    if (call) {
+      this.broadcastToCall(callId, {
+        type: MESSAGE_TYPES.SEND.ALL.CALL.FILE_RECEIVED,
+        data: {
+          fileId,
+          originalName,
+          size,
+          timestamp: new Date().toISOString(),
+        },
+      });
+    }
+  }
+
+  handleFileDeleted({ fileId, callId, originalName, size }) {
+    const call = this.callManager.getCallById(callId);
+    if (call) {
+      this.broadcastToCall(callId, {
+        type: MESSAGE_TYPES.SEND.ALL.CALL.FILE_DELETED,
         data: {
           fileId,
           originalName,
