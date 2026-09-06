@@ -1,76 +1,68 @@
 import React, { useState, useEffect } from "react";
 import { createPortal } from "react-dom";
-import { HorizontalSlider } from "../Slider";
-import { MenuContainer, MenuLabel } from "./ContextMenu.styles";
+import { MenuContainer, TriggerContainter } from "./ContextMenu.styles"; // ваши стили
 
 interface ContextMenuProps {
   children: React.ReactNode;
-  value: number | undefined;
-  onChange: ((val: number) => void) | undefined;
+  menu: React.ReactNode;
+  id?: string;
+  isShow: boolean;
 }
 
-export const ContextMenuWithSlider: React.FC<ContextMenuProps> = ({
+export const ContextMenu: React.FC<ContextMenuProps> = ({
   children,
-  value,
-  onChange = () => {},
+  menu,
+  id = "custom-context-menu",
+  isShow,
 }) => {
-  const [menuVisible, setMenuVisible] = useState(false);
+  const [visible, setVisible] = useState(false);
   const [position, setPosition] = useState({ x: 0, y: 0 });
 
   const handleContextMenu = (e: React.MouseEvent) => {
     e.preventDefault();
     setPosition({ x: e.clientX, y: e.clientY });
-    setMenuVisible(true);
+    setVisible(true);
   };
+  const handlePreventDefault = (e: React.MouseEvent) => e.preventDefault();
+  const closeMenu = () => setVisible(false);
 
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
-      if (menuVisible) {
-        const menuElement = document.getElementById("custom-context-menu");
+      if (visible) {
+        const menuElement = document.getElementById(id);
         if (menuElement && !menuElement.contains(e.target as Node)) {
-          setMenuVisible(false);
+          closeMenu();
         }
       }
     };
     document.addEventListener("click", handleClickOutside);
     return () => document.removeEventListener("click", handleClickOutside);
-  }, [menuVisible]);
+  }, [visible, id]);
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === "Escape" && menuVisible) setMenuVisible(false);
+      if (e.key === "Escape" && visible) closeMenu();
     };
     document.addEventListener("keydown", handleKeyDown);
     return () => document.removeEventListener("keydown", handleKeyDown);
-  }, [menuVisible]);
-
-  const handleMenuClick = (e: React.MouseEvent) => e.stopPropagation();
+  }, [visible]);
 
   return (
     <>
-      <div
-        onContextMenu={handleContextMenu}
-        style={{ display: "inline-block" }}
-      >
+      <TriggerContainter onContextMenu={handleContextMenu}>
         {children}
-      </div>
+      </TriggerContainter>
 
-      {value != null &&
-        menuVisible &&
+      {isShow &&
+        visible &&
         createPortal(
           <MenuContainer
-            id="custom-context-menu"
+            id={id}
             x={position.x}
             y={position.y}
-            onClick={handleMenuClick}
-            onContextMenu={(e) => e.preventDefault()}
+            onContextMenu={handlePreventDefault}
           >
-            <MenuLabel>Громкость</MenuLabel>
-            <HorizontalSlider
-              value={value}
-              onChange={onChange}
-              thumbSize={20}
-            />
+            {menu}
           </MenuContainer>,
           document.body,
         )}

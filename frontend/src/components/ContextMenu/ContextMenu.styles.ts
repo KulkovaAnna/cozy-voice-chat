@@ -23,3 +23,7 @@ export const MenuLabel = styled.span`
   color: ${({ theme }) => theme.colors.text.primary};
   font-weight: 500;
 `;
+
+export const TriggerContainter = styled.div`
+  display: "inline-block";
+`;
