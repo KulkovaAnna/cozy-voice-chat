@@ -1,22 +1,33 @@
 import {
-  useRef,
   useEffect,
-  type PropsWithChildren,
-  useState,
   useMemo,
+  useRef,
+  useState,
+  type PropsWithChildren,
 } from "react";
-import { ChatNetworkContext } from "./ChatNetworkContext";
-import type { CallInfo, CallOffer, UserProfile, UserDTO } from "../../types";
-import { useAuth } from "../AuthProvider";
-import { callInfoAdapter, userAdapter } from "../../utils/adapters";
-import { usePeer } from "../../hooks/usePeer";
 import { SpeechDetection } from "../../features/SpeechDetection";
+import { usePeer } from "../../hooks/usePeer";
+import type {
+  CallInfo,
+  CallOffer,
+  TextMessage,
+  UserDTO,
+  UserProfile,
+} from "../../types";
+import {
+  callInfoAdapter,
+  textMessageAdapter,
+  userAdapter,
+} from "../../utils/adapters";
+import { useAuth } from "../AuthProvider";
+import { ChatNetworkContext } from "./ChatNetworkContext";
 
 export function ChatNetworkProvider(props: PropsWithChildren) {
   const [callOffer, setCallOffer] = useState<CallOffer | null>(null);
   const [callInfo, setCallInfo] = useState<CallInfo | null>(null);
   const socket = useRef<WebSocket | null>(null);
   const [lobbyMembers, setLobbyMembers] = useState<Array<UserProfile>>([]);
+  const [textMessages, setTextMessages] = useState<Array<TextMessage>>([]);
 
   const speechDetection = useRef<SpeechDetection | null>(null);
 
@@ -110,6 +121,17 @@ export function ChatNetworkProvider(props: PropsWithChildren) {
     );
   }
 
+  function sendTextMessage(msg: string) {
+    if (!callInfo) return;
+
+    socket.current?.send(
+      JSON.stringify({
+        type: "call::send-message",
+        data: { callId: callInfo.id, text: msg },
+      }),
+    );
+  }
+
   useEffect(() => {
     if (call && !speechDetection.current) {
       speechDetection.current = new SpeechDetection({
@@ -190,12 +212,17 @@ export function ChatNetworkProvider(props: PropsWithChildren) {
           if (data.type === "all::call::ended" || !data.data.isOnline) {
             peerEndCall();
             setCallInfo(null);
+            setTextMessages([]);
           }
           break;
         }
         case "all::call::mute-changed":
         case "all::call::speaking-changed": {
           setCallInfo(callInfoAdapter(data.data.callInfo));
+          break;
+        }
+        case "all::call::new-message": {
+          setTextMessages((prev) => [...prev, textMessageAdapter(data.data)]);
           break;
         }
       }
@@ -221,12 +248,14 @@ export function ChatNetworkProvider(props: PropsWithChildren) {
         callInfo,
         callOffer,
         isMyUserMuted,
+        textMessages,
         joinToLobby,
         callToUser,
         acceptCallOffer,
         declineCallOffer,
         endCall,
         changeMuteStatus,
+        sendTextMessage,
       }}
     >
       {props.children}

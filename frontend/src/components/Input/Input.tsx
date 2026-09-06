@@ -1,8 +1,21 @@
-import type { InputHTMLAttributes } from "react";
+import { forwardRef, type ForwardedRef, type InputHTMLAttributes } from "react";
 import * as Styled from "./Input.styled";
 
-interface InputProps extends InputHTMLAttributes<HTMLInputElement> {}
+type InputProps = InputHTMLAttributes<HTMLInputElement> &
+  InputHTMLAttributes<HTMLTextAreaElement> & {
+    isTextarea?: boolean;
+  };
 
-export const Input = ({ ...props }: InputProps) => {
-  return <Styled.Input {...props} />;
-};
+export const Input = forwardRef<
+  HTMLInputElement | HTMLTextAreaElement,
+  InputProps
+>(({ isTextarea, ...props }, ref) => {
+  return isTextarea ? (
+    <Styled.Textarea
+      ref={ref as ForwardedRef<HTMLTextAreaElement>}
+      {...props}
+    />
+  ) : (
+    <Styled.Input ref={ref as ForwardedRef<HTMLInputElement>} {...props} />
+  );
+});
