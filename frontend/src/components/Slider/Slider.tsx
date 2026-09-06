@@ -1,46 +1,39 @@
 import { useRef, useState, useCallback, useEffect } from "react";
-import { SliderContainer, Track, Thumb } from "./VolumeSlider.styles";
+import { SliderContainer, Track, Thumb } from "./Slider.styles";
 
-interface VolumeSliderProps {
+interface HorizontalSliderProps {
   value: number;
   onChange: (value: number) => void;
-  height: number;
+  width?: number;
   className?: string;
   thumbSize?: number;
+  id?: string;
 }
 
 const MIN = 0,
   MAX = 1,
   STEP = 0.1;
 
-export function VolumeSlider(props: VolumeSliderProps) {
-  const { onChange, value, className, height, thumbSize = 24 } = props;
+export function HorizontalSlider(props: HorizontalSliderProps) {
+  const { onChange, value, className, width, thumbSize = 24 } = props;
   const containerRef = useRef<HTMLDivElement>(null);
   const [isDragging, setIsDragging] = useState(false);
 
-  const calculateThumbTop = useCallback(
-    (val: number) => {
-      const containerHeight = containerRef.current?.clientHeight || height;
-      const trackHeight = containerHeight - thumbSize;
-      const progress = 1 - (val - MIN) / (MAX - MIN);
-      return thumbSize / 2 + progress * trackHeight;
-    },
-    [height, thumbSize],
-  );
+  const progress = Math.max(MIN, Math.min(MAX, (value - MIN) / (MAX - MIN)));
 
   const getValueFromPosition = useCallback(
-    (clientY: number) => {
+    (clientX: number) => {
       const container = containerRef.current;
       if (!container) return value;
 
       const rect = container.getBoundingClientRect();
-      const containerHeight = rect.height;
-      const trackHeight = containerHeight - thumbSize;
+      const padding = thumbSize / 2;
+      const trackWidth = rect.width - 2 * padding;
 
-      let relativeY = clientY - rect.top - thumbSize / 2;
-      relativeY = Math.max(0, Math.min(relativeY, trackHeight));
+      let relativeX = clientX - rect.left - padding;
+      relativeX = Math.max(0, Math.min(relativeX, trackWidth));
 
-      const progress = 1 - relativeY / trackHeight;
+      const progress = relativeX / trackWidth;
       const rawValue = MIN + progress * (MAX - MIN);
       const steppedValue = Math.round(rawValue / STEP) * STEP;
       return Math.min(MAX, Math.max(MIN, steppedValue));
@@ -50,45 +43,34 @@ export function VolumeSlider(props: VolumeSliderProps) {
 
   const handleMouseDown = (e: React.MouseEvent) => {
     setIsDragging(true);
-    const newValue = getValueFromPosition(e.clientY);
-    onChange(newValue);
+    onChange(getValueFromPosition(e.clientX));
   };
 
   const handleMouseMove = useCallback(
     (e: MouseEvent) => {
       if (!isDragging) return;
-      const newValue = getValueFromPosition(e.clientY);
-      onChange(newValue);
+      onChange(getValueFromPosition(e.clientX));
     },
     [isDragging, getValueFromPosition, onChange],
   );
 
-  const handleMouseUp = useCallback(() => {
-    setIsDragging(false);
-  }, []);
-
+  const handleMouseUp = useCallback(() => setIsDragging(false), []);
   const handleTouchStart = (e: React.TouchEvent) => {
     const touch = e.touches[0];
     if (!touch) return;
     setIsDragging(true);
-    const newValue = getValueFromPosition(touch.clientY);
-    onChange(newValue);
+    onChange(getValueFromPosition(touch.clientX));
   };
-
   const handleTouchMove = useCallback(
     (e: TouchEvent) => {
       if (!isDragging) return;
       const touch = e.touches[0];
       if (!touch) return;
-      const newValue = getValueFromPosition(touch.clientY);
-      onChange(newValue);
+      onChange(getValueFromPosition(touch.clientX));
     },
     [isDragging, getValueFromPosition, onChange],
   );
-
-  const handleTouchEnd = useCallback(() => {
-    setIsDragging(false);
-  }, []);
+  const handleTouchEnd = useCallback(() => setIsDragging(false), []);
 
   useEffect(() => {
     if (isDragging) {
@@ -116,19 +98,18 @@ export function VolumeSlider(props: VolumeSliderProps) {
     handleTouchEnd,
   ]);
 
-  // eslint-disable-next-line react-hooks/refs
-  const thumbTop = calculateThumbTop(value);
-
   return (
     <SliderContainer
+      id={props.id}
       ref={containerRef}
-      style={{ height }}
+      style={{ width: width ?? "100%" }}
       onMouseDown={handleMouseDown}
       onTouchStart={handleTouchStart}
       className={className}
+      thumbSize={thumbSize}
     >
-      <Track />
-      <Thumb top={thumbTop} size={thumbSize} />
+      <Track volume={value} />
+      <Thumb progress={progress} size={thumbSize} />
     </SliderContainer>
   );
 }
