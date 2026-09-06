@@ -20,14 +20,19 @@ export const Header = styled.div(({ theme }) => ({
   boxShadow: `0px 2px 8px ${theme.colors.primary.dark}`,
 }));
 
-export const RightPanel = styled.div(() => ({
-  display: "flex",
-  flexFlow: "row",
-  justifyContent: "right",
-  alignItems: "center",
-  width: "fit-content",
-  gap: "1rem",
-}));
+export const RightPanel = styled.div`
+  display: flex;
+  flex-flow: row;
+  justify-content: right;
+  align-items: center;
+  width: fit-content;
+  gap: 1rem;
+  @media screen and (max-width: ${({ theme }) => theme.breakpoints.mobile}) {
+    > p {
+      display: none;
+    }
+  }
+`;
 
 export const InvisibleButton = styled.button<AvatarProps>(
   ({ size, theme }) => ({

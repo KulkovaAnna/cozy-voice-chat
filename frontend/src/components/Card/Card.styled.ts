@@ -14,7 +14,7 @@ export const Card = styled.div<CardProps>(
     backgroundColor: theme?.colors.background.card,
     border: `4px solid transparent`,
     borderRadius: "4px",
-    padding: "16px",
+    padding: theme.spacing.layout.small,
     minWidth: "100px",
     boxSizing: "border-box",
     boxShadow: $hasGlow
