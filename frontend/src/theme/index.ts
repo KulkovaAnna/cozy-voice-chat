@@ -177,9 +177,9 @@ export const lightTheme: AppTheme = {
     desktop: "1024px",
   },
   transitions: {
-    fast: "150ms ease",
-    normal: "250ms ease",
-    slow: "350ms ease",
+    fast: "150ms",
+    normal: "250ms",
+    slow: "350ms",
   },
 };
 

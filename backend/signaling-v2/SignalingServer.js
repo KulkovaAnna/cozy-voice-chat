@@ -6,9 +6,16 @@ const PersonalInfo = require('../models/PersonalInfo');
 const MESSAGE_TYPES = require('../constants/message-types');
 const Helpers = require('../utils/helpers');
 const eventBus = require('../utils/event-bus');
+const LobbyManager = require('./LobbyManager');
+const CallManager = require('./CallManager');
 
 class SignalingServer {
   rateLimiter = new RateLimiter();
+  /**
+   * @param server
+   * @param {LobbyManager} lobbyManager
+   * @param {CallManager} callManager
+   * */
   constructor(server, lobbyManager, callManager) {
     this.wss = new WebSocket.Server({
       server,
@@ -360,15 +367,8 @@ class SignalingServer {
       throw new Error('Вы не в лобби');
     }
 
-    // Отправляем сообщение через CallManager
-    const message = this.callManager.sendMessage(
-      callId,
-      client.id,
-      text,
-      client.personalInfo?.name,
-    );
+    const message = this.callManager.sendMessage(callId, client.id, text);
 
-    // Рассылаем всем участникам звонка (включая отправителя)
     this.broadcastToCall(callId, {
       type: MESSAGE_TYPES.SEND.ALL.CALL.NEW_MESSAGE,
       data: message,

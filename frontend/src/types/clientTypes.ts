@@ -23,3 +23,12 @@ export type CallInfo = {
   receiver: UserProfile;
   members: CallMember[];
 };
+
+export type TextMessage = {
+  id: string;
+  senderId: string;
+  message: string;
+  timestamp: string;
+  senderAvatar?: string;
+  senderName?: string;
+};

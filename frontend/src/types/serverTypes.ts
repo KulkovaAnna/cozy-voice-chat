@@ -21,3 +21,12 @@ export type CallInfoDTO = {
   members: CallMemberDTO[];
   receiver: UserDTO;
 };
+
+export type MessageDto = {
+  id: string;
+  senderId: string;
+  text: string;
+  timestamp: string;
+  senderName?: string;
+  avatar?: string;
+};

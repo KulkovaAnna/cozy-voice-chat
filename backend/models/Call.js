@@ -54,10 +54,11 @@ class Call {
    * @param {string} senderId - ID отправителя
    * @param {string} text - текст сообщения
    * @param {string} senderName - опционально имя отправителя
+   * * @param {string} avatar - опционально аватар отправителя
    * @returns {Object} - объект сообщения
    */
-  addMessage(senderId, text, senderName = null) {
-    const message = new Message(senderId, text, senderName);
+  addMessage(senderId, text, senderName = null, avatar = null) {
+    const message = new Message(senderId, text, senderName, avatar);
     this.messages.push(message);
     return message;
   }

@@ -1,6 +1,8 @@
+import { type CSSObject } from "@emotion/react";
 import styled from "@emotion/styled";
+import type { Theme } from "../../theme";
 
-export const Input = styled.input(({ theme }) => ({
+const getStyles = (theme: Theme): CSSObject => ({
   color: theme.colors.text.primary,
   backgroundColor: theme?.colors.background.default,
   outline: "none",
@@ -10,10 +12,11 @@ export const Input = styled.input(({ theme }) => ({
   minWidth: "100px",
   width: "100%",
   maxWidth: "200px",
+  minHeight: "45px",
   height: "45px",
   boxSizing: "border-box",
+  transition: "0.2s ease all",
   "&:hover": {
-    cursor: "pointer",
     backgroundColor: theme.colors.background.darker,
   },
   "&:focus": {
@@ -24,4 +27,12 @@ export const Input = styled.input(({ theme }) => ({
     WebkitBoxShadow: `0 0 0 1000px ${theme?.colors.background.darker} inset !important`,
     borderColor: theme.colors.primary.dark,
   },
+});
+
+export const Input = styled.input(({ theme }) => ({
+  ...getStyles(theme),
+}));
+
+export const Textarea = styled.textarea(({ theme }) => ({
+  ...getStyles(theme),
 }));

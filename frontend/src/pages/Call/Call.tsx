@@ -1,15 +1,18 @@
-import { useNavigate } from "react-router";
-import { Column } from "../../components/Column";
-import { UserCard } from "../../features/UserCard";
-import { Card } from "../../components/Card";
-import { ControlPanel } from "../../features/ControlPanel";
-import { useChatNetwork } from "../../providers/ChatNetworkProvider";
 import { useEffect, useMemo, useRef, useState } from "react";
+import { useNavigate } from "react-router";
+import { Card } from "../../components/Card";
+import { Column } from "../../components/Column";
+import { ControlPanel } from "../../features/ControlPanel";
+import { UserCard } from "../../features/UserCard";
 import { useAuth } from "../../providers/AuthProvider";
+import { useChatNetwork } from "../../providers/ChatNetworkProvider";
+import { TextChatProvider } from "../../providers/TextChatProvider";
+import { TextChat } from "../../features/TextChat";
 
 export const Call = () => {
   const navigate = useNavigate();
   const { callInfo } = useChatNetwork();
+
   const { user } = useAuth();
   const [volume, setVolume] = useState(1);
 
@@ -52,14 +55,15 @@ export const Call = () => {
   );
 
   return (
-    <>
+    <TextChatProvider>
       <Column>
         <Card>
           <Column>{userCards}</Column>
         </Card>
         <audio ref={audioRef} id="user-voice" />
         <ControlPanel />
+        <TextChat />
       </Column>
-    </>
+    </TextChatProvider>
   );
 };
