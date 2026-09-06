@@ -25,11 +25,13 @@ export const UserCard = ({
   const menuContent = (
     <>
       <MenuLabel>Громкость</MenuLabel>
-      <HorizontalSlider
-        value={volume?.value ?? 0}
-        onChange={volume?.onVolumeChange ?? (() => {})}
-        thumbSize={20}
-      />
+      {volume != null && (
+        <HorizontalSlider
+          value={volume.value}
+          onChange={volume.onVolumeChange}
+          thumbSize={20}
+        />
+      )}
     </>
   );
   return (

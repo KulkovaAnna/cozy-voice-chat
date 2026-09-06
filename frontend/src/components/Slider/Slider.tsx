@@ -19,8 +19,7 @@ export function HorizontalSlider(props: HorizontalSliderProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const [isDragging, setIsDragging] = useState(false);
 
-  // Прогресс (0..1) – вычисляется синхронно
-  const progress = Math.max(0, Math.min(1, (value - MIN) / (MAX - MIN)));
+  const progress = Math.max(MIN, Math.min(MAX, (value - MIN) / (MAX - MIN)));
 
   const getValueFromPosition = useCallback(
     (clientX: number) => {
@@ -29,7 +28,7 @@ export function HorizontalSlider(props: HorizontalSliderProps) {
 
       const rect = container.getBoundingClientRect();
       const padding = thumbSize / 2;
-      const trackWidth = rect.width - 2 * padding; // полезная ширина трека
+      const trackWidth = rect.width - 2 * padding;
 
       let relativeX = clientX - rect.left - padding;
       relativeX = Math.max(0, Math.min(relativeX, trackWidth));
