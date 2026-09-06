@@ -2,6 +2,8 @@ const fs = require('fs');
 const path = require('path');
 const { v4: uuidv4 } = require('uuid');
 const LobbyManager = require('../../../signaling-v2/LobbyManager');
+const CallManager = require('../../../signaling-v2/CallManager');
+const eventBus = require('../../../utils/event-bus');
 
 class FileManagerService {
   /** @type {Map<string, Object>} */
@@ -10,46 +12,55 @@ class FileManagerService {
   // Папка для хранения файлов (создаём при инициализации)
   #uploadDir = path.join(__dirname, './uploads');
 
-  constructor() {
+  /**
+   * @param {CallManager} callManager
+   * @param {LobbyManager} lobbyManager
+   *  */
+  constructor(callManager, lobbyManager) {
     // Создаём папку, если её нет
     fs.promises
       .mkdir(this.#uploadDir, { recursive: true })
       .catch(console.error);
+    this.callManager = callManager;
+    this.lobbyManager = lobbyManager;
+
+    setInterval(() => this.#cleanupOldFiles(), 10 * 60 * 1000);
   }
 
   /**
    * Загружает файл и сохраняет метаданные.
    * @param {Express.Multer.File} file - объект файла от multer
    * @param {string} senderIp - IP отправителя
-   * @param {string} receiverId - идентификатор получателя
+   * @param {string} callId - идентификатор звонка
    * @returns {Promise<{ fileId: string }>}
    */
-  async uploadFile(file, senderIp, receiverId) {
-    const lobby = LobbyManager.getInstance();
-    const sender = lobby.getMemberByIp(senderIp);
-    const receiver = lobby.getMemberById(receiverId);
-    if (!sender || !receiver) {
-      const error = new Error('Отправитель или получатель не найдены в лобби');
+  async uploadFile(file, senderIp, callId) {
+    const sender = this.lobbyManager.getMemberByIp(senderIp);
+    const call = this.callManager.getCallById(callId);
+    if (!sender) {
+      const error = new Error('Отправитель не найден');
       error.status = 404;
       throw error;
     }
 
-    // Генерируем уникальный ID для файла
+    if (!call) {
+      const error = new Error('Звонок не найден');
+      error.status = 404;
+      throw error;
+    }
+
     const fileId = uuidv4();
-    // Сохраняем файл с новым именем, чтобы избежать коллизий
     const ext = path.extname(file.originalname);
     const saveName = `${fileId}${ext}`;
     const savePath = path.join(this.#uploadDir, saveName);
 
-    // Переносим файл из временной папки multer в постоянную
     await fs.promises.rename(file.path, savePath);
 
-    // Сохраняем метаданные
     this.#fileMetadata.set(fileId, {
       path: savePath,
       originalName: file.originalname,
       senderId: sender.id,
-      receiverId,
+      callId,
       createdAt: Date.now(),
     });
 
@@ -94,6 +105,27 @@ class FileManagerService {
       path: meta.path,
       cleanup,
     };
+  }
+
+  /**
+   * Удаляет файлы, которые были загружены более 10 минут назад и не скачаны.
+   */
+  #cleanupOldFiles() {
+    const now = Date.now();
+    const MAX_AGE = 10 * 60 * 1000; // 10 минут
+    for (const [fileId, meta] of this.#fileMetadata.entries()) {
+      if (now - meta.createdAt > MAX_AGE) {
+        this.#fileMetadata.delete(fileId);
+        fs.unlink(meta.path).catch(console.error);
+        console.log(`Удалён старый файл ${fileId}`);
+        eventBus.emit('file:deleted', {
+          fileId: result.fileId,
+          originalName: req.file.originalname,
+          size: req.file.size,
+          callId,
+        });
+      }
+    }
   }
 }
 

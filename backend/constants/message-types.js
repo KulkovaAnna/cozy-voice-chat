@@ -11,6 +11,7 @@ const MESSAGE_TYPES = Object.freeze({
       CHANGE_ONLINE_STATUS: 'call::online',
       CHANGE_MUTE_STATUS: 'call::mute',
       CHANGE_SPEAKING_STATUS: 'call::speaking',
+      SEND_MESSAGE: 'call::send-message',
     },
   },
   SEND: {
@@ -25,6 +26,9 @@ const MESSAGE_TYPES = Object.freeze({
         ONLINE_STATUS_CHANGED: 'all::call::online-changed',
         MUTE_STATUS_CHANGED: 'all::call::mute-changed',
         SPEAKING_STATUS_CHANGED: 'all::call::speaking-changed',
+        NEW_MESSAGE: 'all::call::new-message',
+        FILE_RECEIVED: 'all::call::file-received',
+        FILE_DELETED: 'all::call::file-deleted',
       },
     },
     ME: {
@@ -33,7 +37,6 @@ const MESSAGE_TYPES = Object.freeze({
       CALL_OFFER_ACCEPTED: 'me::call-offer-accepted',
       CALL_OFFER_DECLINED: 'me::call-offer-declined',
       LOBBY_JOINED: 'me::lobby-joined',
-      FILE_RECEIVED: 'me::file-received',
     },
   },
 });

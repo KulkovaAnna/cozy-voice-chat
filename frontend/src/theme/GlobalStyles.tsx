@@ -26,7 +26,7 @@ export const GlobalStyles = () => {
           background-color: ${theme.colors.background.default};
           color: ${theme.colors.text.primary};
           transition:
-            background-color ${theme.transitions.normal},
+            background-color ${theme.transitions.normal} ease,
             color ${theme.transitions.normal};
           overflow-x: hidden;
         }
@@ -36,11 +36,13 @@ export const GlobalStyles = () => {
           margin: 0 auto;
           padding: 4rem 0;
           text-align: center;
-          background: ${theme.name === "dark"
-            ? `linear-gradient(135deg, 
+          background: ${
+            theme.name === "dark"
+              ? `linear-gradient(135deg, 
                  ${theme.colors.background.darker} 0%, 
                  ${theme.colors.background.default} 100%)`
-            : theme.colors.background.default};
+              : theme.colors.background.default
+          };
         }
 
         ::-webkit-scrollbar {

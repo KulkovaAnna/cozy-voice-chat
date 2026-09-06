@@ -12,9 +12,9 @@ class FileManagerController {
   async uploadFile(req, res, next) {
     try {
       const senderIp = req.socket.remoteAddress;
-      const { receiverId } = req.body;
-      if (!receiverId) {
-        const err = new Error('Не указан receiverId');
+      const { callId } = req.body;
+      if (!callId) {
+        const err = new Error('Не указан callId');
         err.status = 400;
         throw err;
       }
@@ -27,14 +27,14 @@ class FileManagerController {
       const result = await this.fileManagerService.uploadFile(
         req.file,
         senderIp,
-        receiverId,
+        callId,
       );
 
       eventBus.emit('file:uploaded', {
         fileId: result.fileId,
         originalName: req.file.originalname,
         size: req.file.size,
-        receiverId,
+        callId,
       });
 
       res.status(201).json(result);

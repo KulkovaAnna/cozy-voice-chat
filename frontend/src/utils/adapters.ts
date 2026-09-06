@@ -5,6 +5,8 @@ import type {
   UserDTO,
   CallInfoDTO,
   CallInfo,
+  MessageDto,
+  TextMessage,
 } from "../types";
 
 export const userAdapter = (serverUser: UserDTO): UserProfile => {
@@ -30,5 +32,16 @@ export const callInfoAdapter = (serverCallInfo: CallInfoDTO): CallInfo => {
     initiator: userAdapter(serverCallInfo.initiator),
     receiver: userAdapter(serverCallInfo.receiver),
     members: serverCallInfo.members.map(memberAdapter),
+  };
+};
+
+export const textMessageAdapter = (serverMsg: MessageDto): TextMessage => {
+  return {
+    id: serverMsg.id,
+    message: serverMsg.text,
+    senderId: serverMsg.senderId,
+    senderName: serverMsg.senderName,
+    timestamp: serverMsg.timestamp,
+    senderAvatar: serverMsg.avatar,
   };
 };

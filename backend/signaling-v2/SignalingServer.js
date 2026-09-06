@@ -2,26 +2,30 @@ const WebSocket = require('ws');
 const AuthMiddleware = require('../security/AuthMiddleware');
 const RateLimiter = require('../security/RateLimiter');
 const config = require('../config');
-const LobbyManager = require('./LobbyManager');
 const PersonalInfo = require('../models/PersonalInfo');
 const MESSAGE_TYPES = require('../constants/message-types');
-const CallOffer = require('../models/CallOffer');
 const Helpers = require('../utils/helpers');
-const CallManager = require('./CallManager');
 const eventBus = require('../utils/event-bus');
+const LobbyManager = require('./LobbyManager');
+const CallManager = require('./CallManager');
 
 class SignalingServer {
-  lobbyManager = new LobbyManager();
-  callManager = new CallManager();
   rateLimiter = new RateLimiter();
-  constructor(server) {
+  /**
+   * @param server
+   * @param {LobbyManager} lobbyManager
+   * @param {CallManager} callManager
+   * */
+  constructor(server, lobbyManager, callManager) {
     this.wss = new WebSocket.Server({
       server,
       maxPayload: config.websocket.maxMessageSize,
     });
-
+    this.lobbyManager = lobbyManager;
+    this.callManager = callManager;
     this.setupWebSocket();
     eventBus.on('file:uploaded', this.handleFileUploaded.bind(this));
+    eventBus.on('file:deleted', this.handleFileDeleted.bind(this));
   }
 
   setupWebSocket() {
@@ -84,11 +88,26 @@ class SignalingServer {
     });
   }
 
-  handleFileUploaded({ fileId, receiverId, originalName, size }) {
-    const receiver = this.lobbyManager.getMemberById(receiverId);
-    if (receiver && receiver.ws.readyState === WebSocket.OPEN) {
-      this.sendToClient(receiver.ws, {
-        type: MESSAGE_TYPES.SEND.ME.FILE_RECEIVED,
+  handleFileUploaded({ fileId, callId, originalName, size }) {
+    const call = this.callManager.getCallById(callId);
+    if (call) {
+      this.broadcastToCall(callId, {
+        type: MESSAGE_TYPES.SEND.ALL.CALL.FILE_RECEIVED,
+        data: {
+          fileId,
+          originalName,
+          size,
+          timestamp: new Date().toISOString(),
+        },
+      });
+    }
+  }
+
+  handleFileDeleted({ fileId, callId, originalName, size }) {
+    const call = this.callManager.getCallById(callId);
+    if (call) {
+      this.broadcastToCall(callId, {
+        type: MESSAGE_TYPES.SEND.ALL.CALL.FILE_DELETED,
         data: {
           fileId,
           originalName,
@@ -134,6 +153,10 @@ class SignalingServer {
 
         case MESSAGE_TYPES.RECEIVE.CALL.CHANGE_SPEAKING_STATUS:
           this.handleChangeSpeakingStatus(ws, data.callId, data.status);
+          break;
+
+        case MESSAGE_TYPES.RECEIVE.CALL.SEND_MESSAGE:
+          this.handleSendCallMessage(ws, data.callId, data.text);
           break;
 
         default:
@@ -325,6 +348,30 @@ class SignalingServer {
         isMuted: status,
         callInfo: this.callManager.getCallById(callId),
       },
+    });
+  }
+
+  /**
+   * Обработка отправки текстового сообщения в звонок
+   * @param {WebSocket} ws
+   * @param {string} callId
+   * @param {string} text
+   */
+  handleSendCallMessage(ws, callId, text) {
+    if (!callId || !text) {
+      throw new Error('Не указан callId или текст сообщения');
+    }
+
+    const client = this.lobbyManager.getMemberByWs(ws);
+    if (!client) {
+      throw new Error('Вы не в лобби');
+    }
+
+    const message = this.callManager.sendMessage(callId, client.id, text);
+
+    this.broadcastToCall(callId, {
+      type: MESSAGE_TYPES.SEND.ALL.CALL.NEW_MESSAGE,
+      data: message,
     });
   }
 
