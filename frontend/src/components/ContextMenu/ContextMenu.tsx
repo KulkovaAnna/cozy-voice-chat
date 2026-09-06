@@ -26,19 +26,6 @@ export const ContextMenu: React.FC<ContextMenuProps> = ({
   const handlePreventDefault = (e: React.MouseEvent) => e.preventDefault();
 
   useEffect(() => {
-    const handleClickOutside = (e: MouseEvent) => {
-      if (visible) {
-        const menuElement = document.getElementById(id);
-        if (menuElement && !menuElement.contains(e.target as Node)) {
-          closeMenu();
-        }
-      }
-    };
-    document.addEventListener("click", handleClickOutside);
-    return () => document.removeEventListener("click", handleClickOutside);
-  }, [visible, id]);
-
-  useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === "Escape" && visible) closeMenu();
     };
