@@ -23,8 +23,6 @@ class FileManagerService {
       .catch(console.error);
     this.callManager = callManager;
     this.lobbyManager = lobbyManager;
-
-    setInterval(() => this.#cleanupOldFiles(), 10 * 60 * 1000);
   }
 
   /**
@@ -74,19 +72,10 @@ class FileManagerService {
    * @returns {Promise<{ stream: NodeJS.ReadableStream, filename: string, path: string }>}
    */
   async downloadFile(fileId, userIp) {
-    const lobby = LobbyManager.getInstance();
     const meta = this.#fileMetadata.get(fileId);
     if (!meta) {
       const error = new Error('Файл не найден или уже удалён');
       error.status = 404;
-      throw error;
-    }
-    const user = lobby.getMemberByIp(userIp);
-    // Проверяем, что скачивает именно получатель
-    if (meta.receiverId !== user.id) {
-      const error = new Error('У вас нет прав на скачивание этого файла');
-      error.status = 403;
-      +3;
       throw error;
     }
 
@@ -105,27 +94,6 @@ class FileManagerService {
       path: meta.path,
       cleanup,
     };
-  }
-
-  /**
-   * Удаляет файлы, которые были загружены более 10 минут назад и не скачаны.
-   */
-  #cleanupOldFiles() {
-    const now = Date.now();
-    const MAX_AGE = 10 * 60 * 1000; // 10 минут
-    for (const [fileId, meta] of this.#fileMetadata.entries()) {
-      if (now - meta.createdAt > MAX_AGE) {
-        this.#fileMetadata.delete(fileId);
-        fs.unlink(meta.path).catch(console.error);
-        console.log(`Удалён старый файл ${fileId}`);
-        eventBus.emit('file:deleted', {
-          fileId: result.fileId,
-          originalName: req.file.originalname,
-          size: req.file.size,
-          callId,
-        });
-      }
-    }
   }
 }
 

@@ -47,3 +47,8 @@ export const InvisibleButton = styled.button<AvatarProps>(
     },
   }),
 );
+
+export const SiteLogo = styled.div`
+  display: flex;
+  gap: 4px;
+`;

@@ -10,6 +10,7 @@ import { usePeer } from "../../hooks/usePeer";
 import type {
   CallInfo,
   CallOffer,
+  FileInfoDTO,
   TextMessage,
   UserDTO,
   UserProfile,
@@ -223,6 +224,26 @@ export function ChatNetworkProvider(props: PropsWithChildren) {
         }
         case "all::call::new-message": {
           setTextMessages((prev) => [...prev, textMessageAdapter(data.data)]);
+          break;
+        }
+        case "all::call::file-received": {
+          const fileInfo: FileInfoDTO = data.data;
+          setTextMessages((prev) => [
+            ...prev,
+            {
+              id: "file-msg" + fileInfo.fileId,
+              message: "",
+              senderId: fileInfo.senderInfo.id,
+              timestamp: fileInfo.timestamp,
+              senderAvatar: fileInfo.senderInfo.avatar,
+              senderName: fileInfo.senderInfo.name,
+              attachment: {
+                id: fileInfo.fileId,
+                fileName: fileInfo.originalName,
+                fileSize: fileInfo.size,
+              },
+            },
+          ]);
           break;
         }
       }

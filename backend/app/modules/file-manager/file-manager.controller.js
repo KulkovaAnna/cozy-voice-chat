@@ -35,6 +35,7 @@ class FileManagerController {
         originalName: req.file.originalname,
         size: req.file.size,
         callId,
+        senderIp,
       });
 
       res.status(201).json(result);
@@ -61,7 +62,6 @@ class FileManagerController {
 
       // После завершения ответа (или при ошибке) чистим файл
       const onFinish = () => {
-        cleanup();
         res.off('finish', onFinish);
         res.off('error', onFinish);
       };

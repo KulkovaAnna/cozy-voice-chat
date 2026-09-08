@@ -7,15 +7,18 @@ import {
   type KeyboardEventHandler,
 } from "react";
 import { IconButton } from "../../components/IconButton";
-import { SendIcon } from "../../components/Icons";
+import { AttachmentIcon, LoadingIcon, SendIcon } from "../../components/Icons";
 import { Message } from "../../components/Message";
 import { SidePanel } from "../../components/SidePanel";
 import { useAuth } from "../../providers/AuthProvider";
 import { useTextChat } from "../../providers/TextChatProvider";
 import * as Styles from "./TextChat.styles";
+import { FileInfo } from "../../components/FileInfo";
 
 export function TextChat() {
   const [text, setText] = useState("");
+  const [file, setFile] = useState<File | null>(null);
+  const [loading, setLoading] = useState(false);
 
   const {
     textChatIsOpen,
@@ -23,12 +26,14 @@ export function TextChat() {
     messages,
     switchTextChatIsOpen,
     sendTextMessage,
+    sendFile,
   } = useTextChat();
 
   const me = useAuth();
   const msgRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const audioRef = useRef<HTMLAudioElement>(null);
+  const attachmentRef = useRef<HTMLInputElement>(null);
 
   const handleInputChange: ChangeEventHandler<
     HTMLInputElement | HTMLTextAreaElement
@@ -43,7 +48,12 @@ export function TextChat() {
       Math.max(45, inputRef.current.scrollHeight) + "px";
   };
 
-  const submit = () => {
+  const submit = async () => {
+    if (file) {
+      setLoading(true);
+      await sendFile(file).finally(() => setLoading(false));
+      setFile(null);
+    }
     if (text) {
       sendTextMessage(text);
       setText("");
@@ -70,6 +80,10 @@ export function TextChat() {
       audioRef.current.pause();
       audioRef.current.currentTime = 0;
     }
+  };
+
+  const handleFileSelect: ChangeEventHandler<HTMLInputElement> = (e) => {
+    setFile(e.target.files?.[0] || null);
   };
 
   useEffect(() => {
@@ -100,28 +114,51 @@ export function TextChat() {
             );
           })}
         </Styles.MessagesContainer>
-        <Styles.FormPanel onSubmit={handleSubmit}>
-          <Styles.InputWrapper>
-            <Styles.StyledInput
-              name="message"
-              placeholder="Введите сообщение..."
-              onChange={handleInputChange}
-              onInput={handleInputResize}
-              value={text}
-              isTextarea
-              autoComplete="off"
-              onKeyDown={handleEnter}
-              ref={inputRef}
-            />
-          </Styles.InputWrapper>
+        <div>
+          {!!file && <FileInfo file={file} />}
+          <Styles.FormPanel onSubmit={handleSubmit}>
+            <Styles.AttachmentWrapper>
+              <label htmlFor="file">
+                <AttachmentIcon />
+              </label>
+              <input
+                onChange={handleFileSelect}
+                ref={attachmentRef}
+                name="file"
+                type="file"
+                id="file"
+                multiple={false}
+              />
+            </Styles.AttachmentWrapper>
 
-          <IconButton
-            disabled={!text}
-            icon={<SendIcon />}
-            variant="secondary"
-            onMouseDown={(e) => e.preventDefault()}
-          />
-        </Styles.FormPanel>
+            <Styles.InputWrapper>
+              <Styles.StyledInput
+                name="message"
+                placeholder="Введите сообщение..."
+                onChange={handleInputChange}
+                onInput={handleInputResize}
+                value={text}
+                isTextarea
+                autoComplete="off"
+                onKeyDown={handleEnter}
+                ref={inputRef}
+              />
+            </Styles.InputWrapper>
+
+            <IconButton
+              disabled={(!text && !file) || loading}
+              icon={
+                loading ? (
+                  <LoadingIcon styles={{ width: 40, height: 40 }} />
+                ) : (
+                  <SendIcon />
+                )
+              }
+              variant="secondary"
+              onMouseDown={(e) => e.preventDefault()}
+            />
+          </Styles.FormPanel>
+        </div>
       </Styles.Container>
       <audio src="/audio/sms.mp3" ref={audioRef} onEnded={resetAudio} />
     </SidePanel>

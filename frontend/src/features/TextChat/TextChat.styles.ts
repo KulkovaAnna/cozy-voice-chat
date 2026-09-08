@@ -45,3 +45,33 @@ export const InputWrapper = styled.div`
   position: relative;
   width: 100%;
 `;
+
+export const AttachmentWrapper = styled.div`
+  position: relative;
+  label {
+    color: ${({ theme }) => theme.colors.primary.contrast};
+    background-color: ${({ theme }) => theme.colors.primary.main};
+    border: none;
+    border-radius: 4px;
+    min-width: 45px;
+    max-width: 200px;
+    height: 45px;
+    font-size: 1rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: ${({ theme }) => theme.transitions.normal} ease all;
+    :not(:disabled):hover {
+      cursor: pointer;
+      background-color: ${({ theme }) => theme.colors.primary.dark};
+    }
+    :disabled {
+      opacity: 0.5;
+    }
+  }
+  input {
+    opacity: 0;
+    position: absolute;
+    bottom: -1000px;
+  }
+`;

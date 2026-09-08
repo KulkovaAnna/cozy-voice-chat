@@ -11,7 +11,10 @@ export const Header = () => {
 
   return (
     <Styled.Header id="page-header">
-      <h1>Cozy Voice Chat</h1>
+      <Styled.SiteLogo>
+        <img height={44} width={44} src="/coza.svg" />
+        <h1>Cozy Voice Chat</h1>
+      </Styled.SiteLogo>
       <Styled.RightPanel>
         <UserName />
         <Styled.InvisibleButton

@@ -8,6 +8,7 @@ export type TextChatContextType = {
   switchTextChatIsOpen: VoidFunction;
   readMessages: VoidFunction;
   sendTextMessage: (msg: string) => void;
+  sendFile: (file: File) => Promise<{ fileId: string }>;
 };
 
 export const TextChatContext = createContext<TextChatContextType>({
@@ -17,4 +18,5 @@ export const TextChatContext = createContext<TextChatContextType>({
   switchTextChatIsOpen: () => {},
   readMessages: () => {},
   sendTextMessage: () => {},
+  sendFile: async () => ({ fileId: "" }),
 });

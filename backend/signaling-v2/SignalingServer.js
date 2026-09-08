@@ -88,8 +88,10 @@ class SignalingServer {
     });
   }
 
-  handleFileUploaded({ fileId, callId, originalName, size }) {
+  handleFileUploaded({ fileId, callId, originalName, size, senderIp }) {
     const call = this.callManager.getCallById(callId);
+    const sender = call.members.find((m) => m.client.ip === senderIp);
+
     if (call) {
       this.broadcastToCall(callId, {
         type: MESSAGE_TYPES.SEND.ALL.CALL.FILE_RECEIVED,
@@ -98,6 +100,11 @@ class SignalingServer {
           originalName,
           size,
           timestamp: new Date().toISOString(),
+          senderInfo: {
+            id: sender.client.id,
+            name: sender.client.personalInfo.name,
+            avatar: sender.client.personalInfo.avatar,
+          },
         },
       });
     }

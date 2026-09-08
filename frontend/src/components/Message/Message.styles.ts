@@ -1,4 +1,5 @@
 import styled from "@emotion/styled";
+import { FileInfo } from "../FileInfo";
 
 type AnglePosition = "left" | "right";
 
@@ -26,9 +27,17 @@ export const MessageBubble = styled.div<AngleProps>(
   ({ $anglePosition, theme }) => `
   background-color: ${theme.colors.background.card};
   padding: 8px;
-  span {
     font-size: 14px;
-  }
   border-radius: ${$anglePosition === "left" ? 0 : "8px"} ${$anglePosition === "right" ? 0 : "8px"} 8px 8px;
+  word-wrap: break-word;
+  max-width: 250px;
+  width: 100vw;
 `,
 );
+
+export const StyledFileInfo = styled(FileInfo)`
+  width: calc(100% - ${({ theme }) => theme.spacing.layout.small});
+  * a {
+    cursor: pointer;
+  }
+`;

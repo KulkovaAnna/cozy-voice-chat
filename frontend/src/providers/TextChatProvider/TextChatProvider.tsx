@@ -1,14 +1,17 @@
 import { useEffect, useRef, useState, type PropsWithChildren } from "react";
-import { TextChatContext } from "./TextChatContext";
-import { useChatNetwork } from "../ChatNetworkProvider";
+
 import { usePageVisibility } from "../../hooks/usePageVisibility";
+import { useChatNetwork } from "../ChatNetworkProvider";
+import { TextChatContext } from "./TextChatContext";
+import { toast } from "react-toastify";
+import { fetcher } from "../../api";
 
 export function TextChatProvider(props: PropsWithChildren) {
   const [isOpen, setIsOpen] = useState(false);
   const [hasNewMessages, setHasNewMessages] = useState(false);
 
   const isTabVisible = usePageVisibility();
-  const { textMessages, sendTextMessage } = useChatNetwork();
+  const { textMessages, callInfo, sendTextMessage } = useChatNetwork();
 
   const lastMessagesLength = useRef(0);
 
@@ -38,6 +41,23 @@ export function TextChatProvider(props: PropsWithChildren) {
     }
   }, [isOpen, isTabVisible]);
 
+  const sendFile = async (file: File) => {
+    if (!callInfo) return;
+    const formData = new FormData();
+    formData.append("file", file);
+    formData.append("callId", callInfo.id);
+    const res = await fetcher("/files/upload", {
+      method: "POST",
+      body: formData,
+    });
+
+    if (res.ok) {
+      return res.json();
+    } else {
+      toast("Что-то пошло не так", { type: "error" });
+    }
+  };
+
   return (
     <TextChatContext
       value={{
@@ -47,6 +67,7 @@ export function TextChatProvider(props: PropsWithChildren) {
         readMessages,
         switchTextChatIsOpen: switchOpen,
         sendTextMessage,
+        sendFile,
       }}
     >
       {props.children}

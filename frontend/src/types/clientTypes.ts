@@ -24,6 +24,12 @@ export type CallInfo = {
   members: CallMember[];
 };
 
+export type Attachment = {
+  id: string;
+  fileName: string;
+  fileSize: number;
+};
+
 export type TextMessage = {
   id: string;
   senderId: string;
@@ -31,4 +37,5 @@ export type TextMessage = {
   timestamp: string;
   senderAvatar?: string;
   senderName?: string;
+  attachment?: Attachment;
 };
