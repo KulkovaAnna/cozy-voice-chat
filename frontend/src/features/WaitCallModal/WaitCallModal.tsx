@@ -27,6 +27,7 @@ export function WaitCallModal() {
         boxShadow: `0px 0px 4px 2px ${theme.colors.secondary.dark}`,
         backgroundColor: theme.colors.background.card,
         text: theme.colors.text.primary,
+        alignItems: "center",
       },
       overlay: {
         backgroundColor: "rgba(0, 0, 0, 0.5)",
@@ -39,8 +40,8 @@ export function WaitCallModal() {
       style={customStyles}
       isOpen={!!callOffer && callOffer.initiator.id === user.id}
     >
-      {/* TODO: добавить инфу о ресивере */}
-      Вы звоните неизвестно кому
+      <h1>Идёт звонок</h1>
+      <img src="/gif/coza.gif" width={128} height={128} />
       <Button onClick={declineCallOffer}>Отменить</Button>
       <Audio src="/audio/ringing.mp3" />
     </Modal>

@@ -4,6 +4,7 @@ export * from "./ChatIcon";
 export * from "./CloseIcon";
 export * from "./DownLoadFileIcon";
 export * from "./EditIcon";
+export * from "./EndCallIcon";
 export * from "./ExitIIcon";
 export * from "./FileUploadIcon";
 export * from "./LoadingIcon";

@@ -1,9 +1,10 @@
 import React, { type JSX } from "react";
 import * as Styled from "./IconButton.styled";
 
+export type ButtonVariant = "primary" | "secondary" | "error";
 interface IconButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
   icon: JSX.Element;
-  variant?: "primary" | "secondary";
+  variant?: ButtonVariant;
 }
 
 export const IconButton = ({

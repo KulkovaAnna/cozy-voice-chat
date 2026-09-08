@@ -1,16 +1,27 @@
 import styled from "@emotion/styled";
+import type { ButtonVariant } from "./IconButton";
+import type { Theme } from "../../theme";
+
+const getColor = (variant: ButtonVariant = "primary", theme: Theme) => {
+  switch (variant) {
+    case "error":
+      return theme.colors.status.error;
+    case "primary":
+    case "secondary":
+      return theme.colors[variant].main;
+    default:
+      return theme.colors.primary.main;
+  }
+};
 
 interface IconButtonProps {
-  variant?: "primary" | "secondary";
+  variant?: ButtonVariant;
 }
 
 export const IconButton = styled.button<IconButtonProps>(
   ({ variant, theme }) => ({
     color: theme.colors.primary.contrast,
-    backgroundColor:
-      variant === "primary"
-        ? theme?.colors.primary.main
-        : theme?.colors.secondary.main,
+    backgroundColor: getColor(variant, theme),
     border: "none",
     borderRadius: "4px",
     minWidth: "45px",

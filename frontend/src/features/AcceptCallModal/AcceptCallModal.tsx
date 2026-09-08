@@ -5,6 +5,7 @@ import { Audio } from "../../components/Audio";
 import { Button } from "../../components/Button";
 import { useAuth } from "../../providers/AuthProvider";
 import { useChatNetwork } from "../../providers/ChatNetworkProvider";
+import * as Styles from "./AcceptCallModal.styles";
 
 Modal.setAppElement("#root");
 
@@ -42,11 +43,14 @@ export function AcceptCallModal() {
       isOpen={!!callOffer && callOffer?.initiator.id !== user.id}
       style={customStyles}
     >
-      {callOffer?.initiator.name} выходит на связь
-      <Button onClick={acceptCallOffer} isPrimary>
-        Принять
-      </Button>
-      <Button onClick={declineCallOffer}>Отклонить</Button>
+      <h1>{callOffer?.initiator.name} выходит на связь</h1>
+      <Styles.ButtonsPanel>
+        <Button onClick={acceptCallOffer} isPrimary>
+          Принять
+        </Button>
+        <Button onClick={declineCallOffer}>Отклонить</Button>
+      </Styles.ButtonsPanel>
+
       <Audio src="/audio/ringtone.mp3" />
     </Modal>
   );

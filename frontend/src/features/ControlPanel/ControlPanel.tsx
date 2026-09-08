@@ -1,14 +1,14 @@
 import { IconButton } from "../../components/IconButton";
 import {
-  ExitIcon,
+  ChatIcon,
+  EndCallIcon,
   MicOffIcon,
   MicOnIcon,
-  ChatIcon,
   UnreadMessageIcon,
 } from "../../components/Icons";
 import { useChatNetwork } from "../../providers/ChatNetworkProvider";
-import * as Styled from "./ControlPanel.styled";
 import { useTextChat } from "../../providers/TextChatProvider/useTextChat";
+import * as Styled from "./ControlPanel.styled";
 
 export const ControlPanel = () => {
   const { endCall, changeMuteStatus, isMyUserMuted } = useChatNetwork();
@@ -32,11 +32,7 @@ export const ControlPanel = () => {
         icon={hasNewMessages ? <UnreadMessageIcon /> : <ChatIcon />}
         onClick={switchTextChatIsOpen}
       />
-      <IconButton
-        icon={<ExitIcon />}
-        variant="secondary"
-        onClick={handleExit}
-      />
+      <IconButton icon={<EndCallIcon />} variant="error" onClick={handleExit} />
     </Styled.ControlPanel>
   );
 };
