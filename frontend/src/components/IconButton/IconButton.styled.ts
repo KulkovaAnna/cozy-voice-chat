@@ -5,12 +5,16 @@ import type { Theme } from "../../theme";
 const getColor = (variant: ButtonVariant = "primary", theme: Theme) => {
   switch (variant) {
     case "error":
-      return theme.colors.status.error;
+      return {
+        main: theme.colors.status.error,
+        hover: theme.colors.status.error,
+      };
     case "primary":
     case "secondary":
-      return theme.colors[variant].main;
-    default:
-      return theme.colors.primary.main;
+      return {
+        main: theme.colors[variant].main,
+        hover: theme.colors[variant].dark,
+      };
   }
 };
 
@@ -21,7 +25,7 @@ interface IconButtonProps {
 export const IconButton = styled.button<IconButtonProps>(
   ({ variant, theme }) => ({
     color: theme.colors.primary.contrast,
-    backgroundColor: getColor(variant, theme),
+    backgroundColor: getColor(variant, theme).main,
     border: "none",
     borderRadius: "4px",
     minWidth: "45px",
@@ -34,10 +38,7 @@ export const IconButton = styled.button<IconButtonProps>(
     transition: "0.2s ease all",
     "&:not(:disabled):hover": {
       cursor: "pointer",
-      backgroundColor:
-        variant === "primary"
-          ? theme?.colors.primary.dark
-          : theme?.colors.secondary.dark,
+      backgroundColor: getColor(variant, theme).hover,
     },
     "&:disabled": {
       opacity: 0.5,

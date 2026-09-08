@@ -32,6 +32,7 @@ export const UserCard = styled(Card)<UserCardProps>(
     minWidth: "300px",
     minHeight: "150px",
     borderColor: isSpeaking ? theme.colors.voice.speaking : "none",
+    transition: theme.transitions.slow,
   }),
 );
 
