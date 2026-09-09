@@ -68,10 +68,9 @@ class FileManagerService {
   /**
    * Скачивает файл, проверяя права доступа, и удаляет после отправки.
    * @param {string} fileId
-   * @param {string} userIp - кто запрашивает скачивание
    * @returns {Promise<{ stream: NodeJS.ReadableStream, filename: string, path: string }>}
    */
-  async downloadFile(fileId, userIp) {
+  async downloadFile(fileId) {
     const meta = this.#fileMetadata.get(fileId);
     if (!meta) {
       const error = new Error('Файл не найден или уже удалён');
@@ -94,6 +93,23 @@ class FileManagerService {
       path: meta.path,
       cleanup,
     };
+  }
+
+  /**
+   * Возвращает поток для чтения файла без удаления.
+   * @param {string} fileId
+   * @returns {Promise<{ stream: fs.ReadStream, meta: Object }>}
+   */
+  async getFileStream(fileId) {
+    const meta = this.#fileMetadata.get(fileId);
+    if (!meta) {
+      const err = new Error('Файл не найден или уже удалён');
+      err.status = 404;
+      throw err;
+    }
+
+    const stream = fs.createReadStream(meta.path);
+    return { stream, meta };
   }
 }
 

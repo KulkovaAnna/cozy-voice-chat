@@ -24,6 +24,10 @@ class FileManagerRoutes {
       '/download/:fileId',
       this.fileManagerController.downloadFile.bind(this.fileManagerController),
     );
+    router.get(
+      '/view/:fileId',
+      this.fileManagerController.viewFile.bind(this.fileManagerController),
+    );
 
     return router;
   }

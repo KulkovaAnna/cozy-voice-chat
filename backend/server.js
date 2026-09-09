@@ -44,7 +44,8 @@ class VoiceChatServer {
     // Security headers
     this.app.use(
       helmet({
-        contentSecurityPolicy: false, // Отключаем для WebSocket
+        contentSecurityPolicy: false,
+        crossOriginResourcePolicy: { policy: 'cross-origin' },
       }),
     );
 
@@ -62,6 +63,8 @@ class VoiceChatServer {
           }
         },
         credentials: true,
+        allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
+        methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
       }),
     );
 

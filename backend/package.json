@@ -23,6 +23,7 @@
     "express": "^5.2.1",
     "helmet": "^8.1.0",
     "lodash": "^4.17.23",
+    "mime-types": "^3.0.2",
     "multer": "^2.3.0",
     "prettier": "^3.8.1",
     "rate-limiter-flexible": "^9.0.1",

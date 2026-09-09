@@ -29,4 +29,5 @@ export const FileName = styled.p`
 export const FileSize = styled.p`
   color: ${({ theme }) => theme.colors.text.secondary};
   font-size: 12px;
+  white-space: nowrap;
 `;

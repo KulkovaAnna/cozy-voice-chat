@@ -1,3 +1,4 @@
+const mime = require('mime-types');
 const FileManagerService = require('./file-manager.service');
 const eventBus = require('../../../utils/event-bus');
 
@@ -67,6 +68,33 @@ class FileManagerController {
       };
       res.on('finish', onFinish);
       res.on('error', onFinish);
+    } catch (err) {
+      next(err);
+    }
+  }
+
+  /**
+   * Просмотр файла
+   * GET /files/view
+   */
+  async viewFile(req, res, next) {
+    try {
+      const { fileId } = req.params;
+
+      const { stream, meta } =
+        await this.fileManagerService.getFileStream(fileId);
+
+      const contentType =
+        mime.lookup(meta.originalName) || 'application/octet-stream';
+      res.setHeader('Content-Type', contentType);
+
+      // Отправляем поток
+      stream.pipe(res);
+
+      // Если нужно обработать ошибки потока
+      stream.on('error', (err) => {
+        next(err);
+      });
     } catch (err) {
       next(err);
     }

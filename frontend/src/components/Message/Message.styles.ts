@@ -29,9 +29,11 @@ export const MessageBubble = styled.div<AngleProps>(
   padding: 8px;
     font-size: 14px;
   border-radius: ${$anglePosition === "left" ? 0 : "8px"} ${$anglePosition === "right" ? 0 : "8px"} 8px 8px;
-  word-wrap: break-word;
-  max-width: 250px;
-  width: 100vw;
+  word-wrap: anywhere;
+
+  * {
+    word-wrap: anywhere;
+  }
 `,
 );
 
@@ -40,4 +42,8 @@ export const StyledFileInfo = styled(FileInfo)`
   * a {
     cursor: pointer;
   }
+`;
+
+export const Image = styled.img`
+  width: calc(100% - ${({ theme }) => theme.spacing.layout.small});
 `;

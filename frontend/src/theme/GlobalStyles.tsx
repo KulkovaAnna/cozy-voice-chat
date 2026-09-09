@@ -31,6 +31,14 @@ export const GlobalStyles = () => {
           overflow-x: hidden;
         }
 
+        a {
+          color: ${theme.colors.primary.main};
+
+          :hover {
+            color: ${theme.colors.primary.dark};
+          }
+        }
+
         #root {
           min-height: 100vh;
           margin: 0 auto;
