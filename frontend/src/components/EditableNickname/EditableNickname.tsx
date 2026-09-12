@@ -5,7 +5,9 @@ import { useForm } from "react-hook-form";
 import { useAuth } from "../../providers/AuthProvider";
 import { EditIcon, SaveIcon } from "../Icons";
 
-interface EditableNicknameProps extends InputHTMLAttributes<HTMLInputElement> {}
+type EditableNicknameProps = InputHTMLAttributes<
+  HTMLInputElement | HTMLTextAreaElement
+>;
 
 interface IForm {
   name: string;
