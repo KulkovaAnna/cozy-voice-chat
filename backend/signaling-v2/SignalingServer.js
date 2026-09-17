@@ -55,11 +55,11 @@ class SignalingServer {
       ws.on('close', () => {
         const clientData = this.lobbyManager.getMemberByWs(ws);
         const offer = this.lobbyManager.getOfferByMemberId(clientData.id);
-        if (offer) {
+        const memberCall = this.callManager.getClientCall(clientData.id);
+        if (offer && !memberCall) {
           this.handleDeclineCallOffer(ws, offer.id);
         }
         this.lobbyManager.removeMember(ws);
-        const memberCall = this.callManager.getClientCall(clientData.id);
         if (memberCall) {
           this.handleChangeOnlineStatus(clientData.id, memberCall.id, false);
         }

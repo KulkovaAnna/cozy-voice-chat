@@ -57,14 +57,14 @@ export function usePeer() {
 
   function switchMicState(state: boolean) {
     if (callRef.current) {
-      callRef.current.localStream.getAudioTracks().forEach((track) => {
+      callRef.current.localStream?.getAudioTracks().forEach((track) => {
         track.enabled = state;
       });
     }
   }
 
   function endCall() {
-    callRef.current?.localStream.getAudioTracks().forEach((track) => {
+    callRef.current?.localStream?.getAudioTracks().forEach((track) => {
       track.stop();
     });
     callRef.current?.close();
