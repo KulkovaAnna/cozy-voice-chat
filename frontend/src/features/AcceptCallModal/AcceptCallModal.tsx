@@ -43,7 +43,7 @@ export function AcceptCallModal() {
       isOpen={!!callOffer && callOffer?.initiator.id !== user.id}
       style={customStyles}
     >
-      <h1>{callOffer?.initiator.name} выходит на связь</h1>
+      <h2>{callOffer?.initiator.name} выходит на связь</h2>
       <Styles.ButtonsPanel>
         <Button onClick={acceptCallOffer} isPrimary>
           Принять

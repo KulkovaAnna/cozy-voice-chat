@@ -8,7 +8,7 @@
     "build": "tsc -b && vite build",
     "lint": "eslint .",
     "preview": "vite preview --host",
-    "peerServer:start": "npx peerjs --port 9000 --path /peerjs"
+    "peerServer:start": "npx peerjs --port 9000 --path /peerjs --sslkey ../cert/192.168.31.231-key.pem --sslcert ../cert/192.168.31.231.pem"
   },
   "dependencies": {
     "@emotion/react": "^11.14.0",

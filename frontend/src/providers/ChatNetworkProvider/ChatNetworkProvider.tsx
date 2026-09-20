@@ -141,7 +141,6 @@ export function ChatNetworkProvider(props: PropsWithChildren) {
         onUpdate: changeIsSpeakingState,
       });
       speechDetection.current.start(call.localStream);
-      console.log("CREATE SPEECH DETECT");
     } else if (speechDetection) {
       speechDetection.current?.stop();
     }
@@ -156,7 +155,7 @@ export function ChatNetworkProvider(props: PropsWithChildren) {
     )
       return;
     socket.current = new WebSocket(
-      `ws://${import.meta.env.VITE_HOST_IP}:${import.meta.env.VITE_PORT}`,
+      `${import.meta.env.VITE_SSL === "true" ? "wss" : "ws"}://${import.meta.env.VITE_HOST_IP}:${import.meta.env.VITE_PORT}`,
     );
     socket.current.onopen = () => {
       console.log("Successfully connected!");

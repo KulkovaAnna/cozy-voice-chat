@@ -13,7 +13,7 @@ export type MessageProps = {
 
 export function Message(props: MessageProps) {
   const { attachment } = props.message;
-  const attachmentUrl = `http://${API_URLS.BASE_URL}/files`;
+  const attachmentUrl = `${API_URLS.BASE_URL}/files`;
 
   return (
     <Styles.Container $anglePosition={props.anglePosition}>

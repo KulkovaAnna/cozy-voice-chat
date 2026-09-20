@@ -12,6 +12,7 @@ export function usePeer() {
       host: import.meta.env.VITE_HOST_IP,
       port: import.meta.env.VITE_PEER_PORT,
       path: "/peerjs",
+      secure: true,
       debug: 0,
       config: {
         iceServers: [

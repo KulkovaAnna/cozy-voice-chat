@@ -40,7 +40,7 @@ export function WaitCallModal() {
       style={customStyles}
       isOpen={!!callOffer && callOffer.initiator.id === user.id}
     >
-      <h1>Идёт звонок</h1>
+      <h2>Идёт звонок</h2>
       <img src="/gif/coza.gif" width={128} height={128} />
       <Button onClick={declineCallOffer}>Отменить</Button>
       <Audio src="/audio/ringing.mp3" />

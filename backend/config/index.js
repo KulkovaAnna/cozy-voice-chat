@@ -11,7 +11,7 @@ const config = {
   security: {
     allowedOrigins: process.env.ALLOWED_ORIGINS
       ? process.env.ALLOWED_ORIGINS.split(',')
-      : ['http://localhost:*', 'http://192.168.*'],
+      : ['http://localhost:*', 'http://192.168.*', 'https://192.168.*'],
 
     requireAuth: process.env.REQUIRE_AUTH === 'true',
     authToken: process.env.AUTH_TOKEN || 'local_default_token',
