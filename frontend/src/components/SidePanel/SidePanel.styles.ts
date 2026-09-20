@@ -2,7 +2,7 @@ import styled from "@emotion/styled";
 
 export const Container = styled.div<{ $topOffset?: number; $isOpen?: boolean }>`
   position: fixed;
-  right: ${({ $isOpen }) => ($isOpen ? 0 : "-100%")};
+  right: 0;
   top: 0;
   padding: ${({ theme }) => theme.spacing.layout.small};
   background-color: ${({ theme }) => theme.colors.background.paper};
@@ -11,7 +11,7 @@ export const Container = styled.div<{ $topOffset?: number; $isOpen?: boolean }>`
   width: 100%;
   max-width: 375px;
   transition: ${({ theme }) => theme.transitions.fast} linear all;
-
+  transform: translateX(${({ $isOpen }) => ($isOpen ? 0 : "100%")});
   @media screen and (max-width: ${({ theme }) => theme.breakpoints.mobile}) {
     max-width: unset;
   }

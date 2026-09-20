@@ -34,6 +34,7 @@ class VoiceChatServer {
       this.server,
       this.lobbyManager,
       this.callManager,
+      this.fileManagerService,
     );
 
     this.setupRoutes();

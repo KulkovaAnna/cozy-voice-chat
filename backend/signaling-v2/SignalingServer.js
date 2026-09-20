@@ -8,6 +8,7 @@ const Helpers = require('../utils/helpers');
 const eventBus = require('../utils/event-bus');
 const LobbyManager = require('./LobbyManager');
 const CallManager = require('./CallManager');
+const FileManagerService = require('../app/modules/file-manager/file-manager.service');
 
 class SignalingServer {
   rateLimiter = new RateLimiter();
@@ -15,14 +16,16 @@ class SignalingServer {
    * @param server
    * @param {LobbyManager} lobbyManager
    * @param {CallManager} callManager
+   * @param {FileManagerService} fileManager
    * */
-  constructor(server, lobbyManager, callManager) {
+  constructor(server, lobbyManager, callManager, fileManager) {
     this.wss = new WebSocket.Server({
       server,
       maxPayload: config.websocket.maxMessageSize,
     });
     this.lobbyManager = lobbyManager;
     this.callManager = callManager;
+    this.fileManager = fileManager;
     this.setupWebSocket();
     eventBus.on('file:uploaded', this.handleFileUploaded.bind(this));
     eventBus.on('file:deleted', this.handleFileDeleted.bind(this));
@@ -319,6 +322,7 @@ class SignalingServer {
       },
     });
     this.callManager.endCall(callId);
+    this.fileManager.cleanDownloads();
   }
 
   /**

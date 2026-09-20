@@ -9,6 +9,7 @@ import { SpeechDetection } from "../../features/SpeechDetection";
 import { usePeer } from "../../hooks/usePeer";
 import type {
   CallInfo,
+  CallMember,
   CallOffer,
   FileInfoDTO,
   TextMessage,
@@ -99,16 +100,17 @@ export function ChatNetworkProvider(props: PropsWithChildren) {
     );
   }
 
-  function endCall() {
-    if (!callInfo) return;
+  const endCall = (_callInfo?: CallInfo) => {
+    const call = _callInfo || callInfo;
+    if (!call) return;
 
     socket.current?.send(
       JSON.stringify({
         type: "call::end",
-        data: { callId: callInfo.id },
+        data: { callId: call.id },
       }),
     );
-  }
+  };
 
   function changeMuteStatus(status: boolean) {
     if (!callInfo) return;
@@ -208,12 +210,18 @@ export function ChatNetworkProvider(props: PropsWithChildren) {
           }
           break;
         }
-        case "all::call::ended":
+        case "all::call::ended": {
+          peerEndCall();
+          setCallInfo(null);
+          setTextMessages([]);
+          break;
+        }
         case "all::call::online-changed": {
-          if (data.type === "all::call::ended" || !data.data.isOnline) {
-            peerEndCall();
-            setCallInfo(null);
-            setTextMessages([]);
+          if (
+            data.data.callInfo.members.filter((mem: CallMember) => mem.online)
+              .length < 2
+          ) {
+            endCall(data.data.callInfo);
           }
           break;
         }

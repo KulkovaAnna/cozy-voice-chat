@@ -111,6 +111,27 @@ class FileManagerService {
     const stream = fs.createReadStream(meta.path);
     return { stream, meta };
   }
+
+  async cleanDownloads() {
+    const entries = await fs.promises
+      .readdir(this.#uploadDir, { withFileTypes: true })
+      .catch((err) => {
+        console.error('cleanDownloads readdir error:', err);
+        return [];
+      });
+
+    await Promise.all(
+      entries
+        .filter((entry) => entry.isFile())
+        .map((entry) =>
+          fs.promises
+            .unlink(path.join(this.#uploadDir, entry.name))
+            .catch(console.error),
+        ),
+    );
+
+    this.#fileMetadata.clear();
+  }
 }
 
 module.exports = FileManagerService;
