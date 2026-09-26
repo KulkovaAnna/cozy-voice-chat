@@ -23,6 +23,7 @@ export const memberAdapter = (serverMember: CallMemberDTO): CallMember => {
     isMuted: serverMember.isMuted,
     isSpeaking: serverMember.isSpeaking,
     online: serverMember.online,
+    isScreenSharing: serverMember.isScreenSharing,
   };
 };
 

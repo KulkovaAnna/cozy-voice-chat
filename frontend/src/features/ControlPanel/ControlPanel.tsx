@@ -4,14 +4,28 @@ import {
   EndCallIcon,
   MicOffIcon,
   MicOnIcon,
+  ShareScreenIcon,
+  StopShareScreenIcon,
   UnreadMessageIcon,
 } from "../../components/Icons";
 import { useChatNetwork } from "../../providers/ChatNetworkProvider";
 import { useTextChat } from "../../providers/TextChatProvider/useTextChat";
 import * as Styled from "./ControlPanel.styled";
 
-export const ControlPanel = () => {
-  const { endCall, changeMuteStatus, isMyUserMuted } = useChatNetwork();
+export interface ControlPanelProps {
+  compact?: boolean;
+}
+
+export const ControlPanel = (props: ControlPanelProps) => {
+  const {
+    endCall,
+    changeMuteStatus,
+    isMyUserMuted,
+    beginScreenShare,
+    endScreenShare,
+    isMyUserScreenSharing,
+    remoteScreenStream,
+  } = useChatNetwork();
   const { hasNewMessages, switchTextChatIsOpen } = useTextChat();
 
   const handleExit = () => {
@@ -23,7 +37,7 @@ export const ControlPanel = () => {
   };
 
   return (
-    <Styled.ControlPanel>
+    <Styled.ControlPanel compact={props.compact}>
       <IconButton
         icon={isMyUserMuted ? <MicOffIcon /> : <MicOnIcon />}
         onClick={handleMicState}
@@ -31,6 +45,18 @@ export const ControlPanel = () => {
       <IconButton
         icon={hasNewMessages ? <UnreadMessageIcon /> : <ChatIcon />}
         onClick={switchTextChatIsOpen}
+      />
+      <IconButton
+        title={
+          remoteScreenStream
+            ? "Другой участник сейчас демонстрирует экран"
+            : undefined
+        }
+        disabled={!!remoteScreenStream}
+        onClick={isMyUserScreenSharing ? endScreenShare : beginScreenShare}
+        icon={
+          isMyUserScreenSharing ? <StopShareScreenIcon /> : <ShareScreenIcon />
+        }
       />
       <IconButton icon={<EndCallIcon />} variant="error" onClick={handleExit} />
     </Styled.ControlPanel>

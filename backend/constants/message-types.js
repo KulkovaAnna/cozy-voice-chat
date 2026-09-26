@@ -12,6 +12,8 @@ const MESSAGE_TYPES = Object.freeze({
       CHANGE_MUTE_STATUS: 'call::mute',
       CHANGE_SPEAKING_STATUS: 'call::speaking',
       SEND_MESSAGE: 'call::send-message',
+      START_SCREEN_SHARING: 'call::start-screen-sharing',
+      STOP_SCREEN_SHARING: 'call::stop-screen-sharing',
     },
   },
   SEND: {
@@ -29,6 +31,8 @@ const MESSAGE_TYPES = Object.freeze({
         NEW_MESSAGE: 'all::call::new-message',
         FILE_RECEIVED: 'all::call::file-received',
         FILE_DELETED: 'all::call::file-deleted',
+        SCREEN_SHARING_STARTED: 'all::call::screen-share-started',
+        SCREEN_SHARING_STOPPED: 'all::call::screen-share-stopped',
       },
     },
     ME: {

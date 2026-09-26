@@ -6,6 +6,8 @@ import { HorizontalSlider } from "../../components/Slider";
 import type { UserProfile } from "../../types";
 import * as Styled from "./UserCard.styled";
 
+export type UserCardVariant = "standard" | "compact" | "avatar";
+
 interface UserCardProps {
   user: UserProfile;
   volume?: {
@@ -14,6 +16,7 @@ interface UserCardProps {
   };
   isSpeaking?: boolean;
   isMuted?: boolean;
+  variant?: UserCardVariant;
 }
 
 export const UserCard = ({
@@ -21,6 +24,7 @@ export const UserCard = ({
   isSpeaking,
   isMuted,
   volume,
+  variant = "standard",
 }: UserCardProps) => {
   const menuContent = (
     <>
@@ -37,9 +41,9 @@ export const UserCard = ({
   return (
     <Styled.Container>
       <ContextMenu menu={menuContent} isShow={volume != null}>
-        <Styled.UserCard isSpeaking={isSpeaking}>
+        <Styled.UserCard variant={variant} isSpeaking={isSpeaking}>
           <Styled.RelativeBlock>
-            <Avatar size={80} src={user.avatar} />
+            <Avatar size={variant === "compact" ? 40 : 80} src={user.avatar} />
             {isMuted && (
               <Styled.MutedIconDiv>
                 <MicOffIcon />

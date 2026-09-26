@@ -11,7 +11,10 @@ export type ChatNetworkContextType = {
   callOffer: CallOffer | null;
   callInfo: CallInfo | null;
   isMyUserMuted: boolean;
+  isMyUserScreenSharing: boolean;
   textMessages: TextMessage[];
+  localScreenStream: MediaStream | null;
+  remoteScreenStream: MediaStream | null;
   joinToLobby: VoidFunction;
   callToUser: (uid: string) => void;
   acceptCallOffer: VoidFunction;
@@ -19,6 +22,8 @@ export type ChatNetworkContextType = {
   endCall: VoidFunction;
   changeMuteStatus: (status: boolean) => void;
   sendTextMessage: (text: string) => void;
+  beginScreenShare: VoidFunction;
+  endScreenShare: VoidFunction;
 };
 
 export const ChatNetworkContext = createContext<ChatNetworkContextType>({
@@ -27,6 +32,11 @@ export const ChatNetworkContext = createContext<ChatNetworkContextType>({
   callInfo: null,
   isMyUserMuted: false,
   textMessages: [],
+  remoteScreenStream: null,
+  localScreenStream: null,
+  isMyUserScreenSharing: false,
+  beginScreenShare: () => {},
+  endScreenShare: () => {},
   joinToLobby: () => {},
   callToUser: () => {},
   acceptCallOffer: () => {},

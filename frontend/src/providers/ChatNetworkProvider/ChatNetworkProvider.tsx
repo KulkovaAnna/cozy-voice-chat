@@ -1,4 +1,5 @@
 import {
+  useCallback,
   useEffect,
   useMemo,
   useRef,
@@ -36,17 +37,30 @@ export function ChatNetworkProvider(props: PropsWithChildren) {
   const { user, updateUser } = useAuth();
 
   const {
+    call,
+    localScreenStream,
+    remoteScreenStream,
     initialize,
     callToUser: peerCallToUser,
     endCall: peerEndCall,
     switchMicState,
-    call,
+    startScreenShare,
+    stopScreenShare,
+    setOnRemoteScreenStream,
+    setOnLocalScreenStop,
   } = usePeer();
 
   const isMyUserMuted = useMemo(
     () =>
       callInfo?.members.find((mem) => mem.member.id === user.id)?.isMuted ||
       false,
+    [user, callInfo],
+  );
+
+  const isMyUserScreenSharing = useMemo(
+    () =>
+      callInfo?.members.find((mem) => mem.member.id === user.id)
+        ?.isScreenSharing || false,
     [user, callInfo],
   );
 
@@ -134,6 +148,40 @@ export function ChatNetworkProvider(props: PropsWithChildren) {
       }),
     );
   }
+
+  async function beginScreenShare() {
+    if (!callInfo) return;
+    const other = callInfo.members.find((m) => m.member.id !== user.id)?.member
+      .id;
+    if (!other) return;
+
+    const started = await startScreenShare(other);
+
+    if (started) {
+      socket.current?.send(
+        JSON.stringify({
+          type: "call::start-screen-sharing",
+          data: { callId: callInfo.id },
+        }),
+      );
+    }
+  }
+
+  const endScreenShare = useCallback(() => {
+    if (!callInfo) return;
+    socket.current?.send(
+      JSON.stringify({
+        type: "call::stop-screen-sharing",
+        data: { callId: callInfo.id, sharerId: user.id },
+      }),
+    );
+    stopScreenShare();
+  }, [callInfo, stopScreenShare, user.id]);
+
+  useEffect(() => {
+    setOnRemoteScreenStream(() => {});
+    setOnLocalScreenStop(endScreenShare);
+  }, [setOnRemoteScreenStream, setOnLocalScreenStop, endScreenShare]);
 
   useEffect(() => {
     if (call && !speechDetection.current) {
@@ -253,6 +301,14 @@ export function ChatNetworkProvider(props: PropsWithChildren) {
           ]);
           break;
         }
+        case "all::call::screen-share-started": {
+          setCallInfo(callInfoAdapter(data.data.callInfo));
+          break;
+        }
+        case "all::call::screen-share-stopped": {
+          setCallInfo(callInfoAdapter(data.data.callInfo));
+          break;
+        }
       }
     };
     socket.current.onclose = (e) => {
@@ -277,6 +333,11 @@ export function ChatNetworkProvider(props: PropsWithChildren) {
         callOffer,
         isMyUserMuted,
         textMessages,
+        isMyUserScreenSharing,
+        localScreenStream,
+        remoteScreenStream,
+        beginScreenShare,
+        endScreenShare,
         joinToLobby,
         callToUser,
         acceptCallOffer,

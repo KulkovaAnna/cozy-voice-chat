@@ -13,5 +13,7 @@ export * from "./MicOnIcon";
 export * from "./MoonIcon";
 export * from "./SaveIcon";
 export * from "./SendIcon";
+export * from "./ShareScreenIcon";
+export * from "./StopShareScreenIcon";
 export * from "./SunIcon";
 export * from "./UnreadMessageIcon";

@@ -169,6 +169,14 @@ class SignalingServer {
           this.handleSendCallMessage(ws, data.callId, data.text);
           break;
 
+        case MESSAGE_TYPES.RECEIVE.CALL.START_SCREEN_SHARING:
+          this.handleStartScreenSharing(ws, data.callId);
+          break;
+
+        case MESSAGE_TYPES.RECEIVE.CALL.STOP_SCREEN_SHARING:
+          this.handleStopScreenSharing(ws, data.callId);
+          break;
+
         default:
           console.warn(`Unknown message type: ${data.type}`);
       }
@@ -399,6 +407,38 @@ class SignalingServer {
       data: {
         client,
         isSpeaking: status,
+        callInfo: this.callManager.getCallById(callId),
+      },
+    });
+  }
+
+  /**
+   * @param {WebSocket} ws
+   * @param {string} callId
+   */
+  handleStartScreenSharing(ws, callId) {
+    const client = this.lobbyManager.getMemberByWs(ws);
+    this.callManager.changeScreenSharingStatus(callId, client.id, true);
+    this.broadcastToCall(callId, {
+      type: MESSAGE_TYPES.SEND.ALL.CALL.SCREEN_SHARING_STARTED,
+      data: {
+        client,
+        callInfo: this.callManager.getCallById(callId),
+      },
+    });
+  }
+
+  /**
+   * @param {WebSocket} ws
+   * @param {string} callId
+   */
+  handleStopScreenSharing(ws, callId) {
+    const client = this.lobbyManager.getMemberByWs(ws);
+    this.callManager.changeScreenSharingStatus(callId, client.id, false);
+    this.broadcastToCall(callId, {
+      type: MESSAGE_TYPES.SEND.ALL.CALL.SCREEN_SHARING_STOPPED,
+      data: {
+        client,
         callInfo: this.callManager.getCallById(callId),
       },
     });

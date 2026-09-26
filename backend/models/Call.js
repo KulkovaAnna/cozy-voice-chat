@@ -4,26 +4,22 @@ const Client = require('./Client');
 const Message = require('./Message');
 
 class Member {
-  /**
-   * @param {Client} client
-   */
+  /** @param {Client} client */
   constructor(client) {
-    /**
-     * @type {Client}
-     */
+    /** @type {Client} */
     this.client = client;
-    /**
-     * @type {boolean}
-     */
+
+    /** @type {boolean} */
     this.online = !!client.ws;
-    /**
-     * @type {boolean}
-     */
+
+    /** @type {boolean} */
     this.isMuted = false;
-    /**
-     * @type {boolean}
-     */
+
+    /** @type {boolean} */
     this.isSpeaking = false;
+
+    /** @type {boolean} */
+    this.isScreenSharing = false;
   }
 }
 

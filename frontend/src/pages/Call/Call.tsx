@@ -1,20 +1,25 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router";
-import { Card } from "../../components/Card";
 import { Column } from "../../components/Column";
-import { ControlPanel } from "../../features/ControlPanel";
-import { UserCard } from "../../features/UserCard";
+import {
+  ControlPanel,
+  ShareScreenVideo,
+  TextChat,
+  UserCard,
+} from "../../features";
 import { useAuth } from "../../providers/AuthProvider";
 import { useChatNetwork } from "../../providers/ChatNetworkProvider";
 import { TextChatProvider } from "../../providers/TextChatProvider";
-import { TextChat } from "../../features/TextChat";
+import { Row } from "../../components/Row";
+import { StyledCard } from "./Call.styles";
 
 export const Call = () => {
   const navigate = useNavigate();
-  const { callInfo } = useChatNetwork();
-
+  const { callInfo, remoteScreenStream, localScreenStream } = useChatNetwork();
   const { user } = useAuth();
   const [volume, setVolume] = useState(1);
+
+  const screenSharing = remoteScreenStream || localScreenStream;
 
   const audioRef = useRef<HTMLAudioElement>(null);
 
@@ -44,6 +49,7 @@ export const Call = () => {
             user={member}
             isSpeaking={isSpeaking}
             isMuted={isMuted}
+            variant={screenSharing ? "compact" : "standard"}
             volume={
               member.id !== user.id
                 ? { value: volume, onVolumeChange: handleVolumeChange }
@@ -51,18 +57,23 @@ export const Call = () => {
             }
           />
         )),
-    [callInfo, user, volume],
+    [callInfo, user, volume, screenSharing],
   );
+
+  const UserCards = screenSharing ? Row : Column;
 
   return (
     <TextChatProvider>
       <Column>
-        <Card>
-          <Column>{userCards}</Column>
-        </Card>
+        <StyledCard $compact={!!screenSharing}>
+          <UserCards>{userCards}</UserCards>
+        </StyledCard>
         <audio ref={audioRef} id="user-voice" />
-        <ControlPanel />
+        <ControlPanel compact={!!screenSharing} />
         <TextChat />
+        {screenSharing && (
+          <ShareScreenVideo height="60vh" width="70vw" stream={screenSharing} />
+        )}
       </Column>
     </TextChatProvider>
   );

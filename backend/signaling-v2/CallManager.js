@@ -80,6 +80,15 @@ class CallManager {
   }
 
   /**
+   * @param {string} callId
+   * @param {string} clientId
+   * @param {boolean} isSharing
+   */
+  changeScreenSharingStatus(callId, clientId, isSharing) {
+    this.getMemberById(callId, clientId).isScreenSharing = isSharing;
+  }
+
+  /**
    * Получить звонок, в котором участвует клиент
    * @param {string} clientId
    */

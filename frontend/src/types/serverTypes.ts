@@ -13,6 +13,7 @@ export type CallMemberDTO = {
   isMuted: boolean;
   isSpeaking: boolean;
   online: boolean;
+  isScreenSharing: boolean;
 };
 
 export type CallInfoDTO = {

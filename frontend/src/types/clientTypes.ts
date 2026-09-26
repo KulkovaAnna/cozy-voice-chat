@@ -10,6 +10,7 @@ export type CallMember = {
   isMuted: boolean;
   isSpeaking: boolean;
   online: boolean;
+  isScreenSharing: boolean;
 };
 
 export type CallOffer = {

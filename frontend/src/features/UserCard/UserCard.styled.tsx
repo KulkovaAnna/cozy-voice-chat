@@ -1,9 +1,38 @@
 import styled from "@emotion/styled";
 import { Card } from "../../components/Card";
 import { HorizontalSlider } from "../../components/Slider";
+import type { UserCardVariant } from "./UserCard";
+import type { Theme } from "../../theme";
+
+function getVariantStyles(variant: UserCardVariant, theme: Theme) {
+  switch (variant) {
+    case "standard":
+      return {
+        minWidth: 300,
+        minHeight: 150,
+        gap: theme.spacing.layout.small,
+      };
+    case "compact":
+      return {
+        minWidth: 150,
+        minHeight: 75,
+        gap: parseInt(theme.spacing.layout.small) / 2,
+        padding: parseInt(theme.spacing.layout.small) / 2,
+        p: {
+          fontSize: 14,
+        },
+      };
+    case "avatar":
+      return {
+        minWidth: 0,
+        minHeight: 0,
+      };
+  }
+}
 
 interface UserCardProps {
   isSpeaking?: boolean;
+  variant: UserCardVariant;
 }
 
 export const Container = styled.div({
@@ -25,14 +54,12 @@ export const Slider = styled(HorizontalSlider)({
 });
 
 export const UserCard = styled(Card)<UserCardProps>(
-  ({ isSpeaking, theme }) => ({
+  ({ isSpeaking, theme, variant }) => ({
     flexFlow: "column",
-    gap: "1rem",
     backgroundColor: theme?.colors.background.darker,
-    minWidth: "300px",
-    minHeight: "150px",
     borderColor: isSpeaking ? theme.colors.voice.speaking : "none",
     transition: theme.transitions.slow,
+    ...getVariantStyles(variant, theme),
   }),
 );
 
