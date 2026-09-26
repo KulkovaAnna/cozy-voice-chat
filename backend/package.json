@@ -2,12 +2,13 @@
   "name": "cozy-voice-chat-backend",
   "version": "1.0.0",
   "description": "Server for local voice chat",
-  "main": "server.js",
+  "main": "dist/server.js",
   "scripts": {
-    "start": "node server.js",
-    "start:ssl": "node https-server.js",
-    "dev": "nodemon server.js",
-    "dev:ssl": "nodemon https-server.js"
+    "build": "tsc",
+    "start": "node dist/server.js",
+    "start:ssl": "node dist/https-server.js",
+    "dev": "nodemon --watch src --ext ts --exec ts-node src/server.ts",
+    "dev:ssl": "nodemon --watch src --ext ts --exec ts-node src/https-server.ts"
   },
   "repository": {
     "type": "git",
@@ -35,7 +36,16 @@
     "ws": "^8.19.0"
   },
   "devDependencies": {
+    "@types/cors": "^2.8.19",
     "@types/express": "^5.0.6",
-    "nodemon": "^3.1.11"
+    "@types/lodash": "^4.17.20",
+    "@types/mime-types": "^3.0.1",
+    "@types/multer": "^2.0.0",
+    "@types/node": "^22.15.0",
+    "@types/uuid": "^10.0.0",
+    "@types/ws": "^8.18.1",
+    "nodemon": "^3.1.11",
+    "ts-node": "^10.9.2",
+    "typescript": "^5.8.3"
   }
 }

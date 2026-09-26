@@ -3,7 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Простой голосовой чат - Инструкция</title>
+    <title>Голосовой чат (signaling-v2) — Инструкция</title>
     <style>
       * {
         margin: 0;
@@ -14,7 +14,7 @@
         font-family: 'Segoe UI', sans-serif;
         line-height: 1.6;
         color: #333;
-        max-width: 800px;
+        max-width: 900px;
         margin: 0 auto;
         padding: 20px;
         background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
@@ -37,6 +37,10 @@
         padding-bottom: 10px;
         border-bottom: 2px solid #e2e8f0;
       }
+      h3 {
+        color: #2d3748;
+        margin: 20px 0 10px 0;
+      }
       .step {
         background: #f7fafc;
         border-left: 4px solid #4299e1;
@@ -52,6 +56,16 @@
         margin: 10px 0;
         font-family: 'Courier New', monospace;
         overflow-x: auto;
+        white-space: pre;
+        font-size: 14px;
+      }
+      code.inline {
+        background: #edf2f7;
+        color: #c53030;
+        padding: 2px 6px;
+        border-radius: 4px;
+        font-family: 'Courier New', monospace;
+        font-size: 0.9em;
       }
       .server-info {
         background: #c6f6d5;
@@ -66,6 +80,34 @@
         padding: 15px;
         border-radius: 5px;
         margin: 20px 0;
+      }
+      .info-note {
+        background: #bee3f8;
+        border: 1px solid #90cdf4;
+        padding: 15px;
+        border-radius: 5px;
+        margin: 20px 0;
+      }
+      table {
+        width: 100%;
+        border-collapse: collapse;
+        margin: 15px 0;
+        font-size: 14px;
+      }
+      th,
+      td {
+        border: 1px solid #e2e8f0;
+        padding: 8px 12px;
+        text-align: left;
+        vertical-align: top;
+      }
+      th {
+        background: #edf2f7;
+        color: #2d3748;
+      }
+      td code {
+        font-family: 'Courier New', monospace;
+        font-size: 13px;
       }
       .stats {
         display: grid;
@@ -125,83 +167,236 @@
   </head>
   <body>
     <div class="container">
-      <h1>🎤 Локальный голосовой чат</h1>
+      <h1>🎤 Голосовой чат — signaling v2 (TypeScript)</h1>
 
       <div class="server-info">
         <h3>Сервер запущен и готов к работе!</h3>
-        <p>Используйте WebSocket для подключения клиентов.</p>
+        <p>
+          WebSocket-эндпоинт: <code class="inline" id="ws-url">…</code> · REST
+          API файлов: <code class="inline">/files</code>
+        </p>
       </div>
 
-      <h2>📋 Сообщения для отправки:</h2>
+      <h2>🚀 Запуск сервера</h2>
+      <div class="step">
+        Проект собран на TypeScript (строгий режим). Скрипты из
+        <code class="inline">backend/package.json</code>:
+        <div class="code">
+          npm install # установка зависимостей npm run build # компиляция
+          TypeScript (src/ → dist/) npm start # запуск продакшен-сервера (node
+          dist/server.js) npm run dev # режим разработки (nodemon + ts-node) npm
+          run start:https# HTTPS-сервер (нужны сертификаты в security/certs)
+        </div>
+        Порт задаётся переменной окружения <code class="inline">PORT</code> (по
+        умолчанию <code class="inline">8080</code>).
+      </div>
+
+      <h2>📡 Протокол WebSocket: исходящие сообщения (client → server)</h2>
 
       <div class="step">
         <strong>1. Присоединиться к лобби</strong>
         <div class="code">
-          { "type": "lobby::join", "data:" {"personalInfo": {"name": "string",
-          "avatar": "string" | "undefined"}} }
+          { "type": "lobby::join", "data": { "personalInfo": { "name": "string",
+          "avatar": "string | undefined" } } }
         </div>
       </div>
 
       <div class="step">
         <strong>2. Начать звонок другому пользователю</strong>
         <div class="code">
-          {"type": "lobby::initiate-call", "data": {"receiverId": "string"}}
+          { "type": "lobby::initiate-call", "data": { "receiverId": "string" } }
         </div>
       </div>
 
       <div class="step">
         <strong>3. Принять звонок</strong>
         <div class="code">
-          { "type": "lobby::accept-offer", "data": {"offerId": "string"} }
+          { "type": "lobby::accept-offer", "data": { "offerId": "string" } }
         </div>
       </div>
 
       <div class="step">
         <strong>4. Отклонить звонок</strong>
         <div class="code">
-          { "type": "lobby::decline-offer", "data": {"offerId": "string"} }
+          { "type": "lobby::decline-offer", "data": { "offerId": "string" } }
         </div>
       </div>
 
       <div class="step">
         <strong>5. Закончить звонок</strong>
         <div class="code">
-          { "type": "call::end", "data": {"callId": "string"} }
+          { "type": "call::end", "data": { "callId": "string" } }
         </div>
       </div>
 
       <div class="step">
-        <strong>6. Поменять онлайн статус</strong>
+        <strong>6. Поменять online статус</strong>
         <div class="code">
-          { "type": "call::online", "data": {"callId": "string", "status":
-          boolean} }
+          { "type": "call::online", "data": { "callId": "string", "status": true
+          | false } }
         </div>
       </div>
 
       <div class="step">
         <strong>7. Поменять mute статус</strong>
         <div class="code">
-          { "type": "call::mute", "data": {"callId": "string", "status":
-          boolean} }
+          { "type": "call::mute", "data": { "callId": "string", "status": true |
+          false } }
         </div>
       </div>
 
       <div class="step">
         <strong>8. Поменять speaking статус</strong>
         <div class="code">
-          { "type": "call::speaking", "data": {"callId": "string", "status":
-          boolean} }
+          { "type": "call::speaking", "data": { "callId": "string", "status":
+          true | false } }
         </div>
       </div>
 
+      <div class="step">
+        <strong>9. Отправить текстовое сообщение в звонок</strong>
+        <div class="code">
+          { "type": "call::send-message", "data": { "callId": "string",
+          "message": "string" } }
+        </div>
+      </div>
+
+      <div class="step">
+        <strong>10. Начать / остановить демонстрацию экрана</strong>
+        <div class="code">
+          { "type": "call::start-screen-sharing", "data": { "callId": "string" }
+          } { "type": "call::stop-screen-sharing", "data": { "callId": "string"
+          } }
+        </div>
+      </div>
+
+      <h2>📥 Входящие уведомления (server → client)</h2>
+      <table>
+        <tr>
+          <th>Тип события</th>
+          <th>Когда приходит</th>
+        </tr>
+        <tr>
+          <td><code>me::lobby-joined</code></td>
+          <td>Подтверждение входа в лобби (с вашим clientId)</td>
+        </tr>
+        <tr>
+          <td><code>all::lobby::joined</code></td>
+          <td>В лобби присоединился новый участник</td>
+        </tr>
+        <tr>
+          <td><code>all::lobby::client-disconnected</code></td>
+          <td>Участник отключился</td>
+        </tr>
+        <tr>
+          <td><code>me::call-initiated</code></td>
+          <td>Звонок создан (ответ инициатору)</td>
+        </tr>
+        <tr>
+          <td><code>me::call-offer</code></td>
+          <td>Вам поступил входящий звонок (с offerId)</td>
+        </tr>
+        <tr>
+          <td><code>me::call-offer-accepted</code></td>
+          <td>Ваше предложение звонка принято</td>
+        </tr>
+        <tr>
+          <td><code>me::call-offer-declined</code></td>
+          <td>Ваше предложение звонка отклонено</td>
+        </tr>
+        <tr>
+          <td><code>all::call::started</code></td>
+          <td>Звонок начался для всех участников</td>
+        </tr>
+        <tr>
+          <td><code>all::call::ended</code></td>
+          <td>Звонок завершён</td>
+        </tr>
+        <tr>
+          <td><code>all::call::online-changed</code></td>
+          <td>Участник сменил online статус</td>
+        </tr>
+        <tr>
+          <td><code>all::call::mute-changed</code></td>
+          <td>Участник сменил mute статус</td>
+        </tr>
+        <tr>
+          <td><code>all::call::speaking-changed</code></td>
+          <td>Участник начал/перестал говорить</td>
+        </tr>
+        <tr>
+          <td><code>all::call::new-message</code></td>
+          <td>Новое текстовое сообщение в звонке</td>
+        </tr>
+        <tr>
+          <td><code>all::call::file-received</code></td>
+          <td>В звонок загружен файл (с fileId)</td>
+        </tr>
+        <tr>
+          <td><code>all::call::file-deleted</code></td>
+          <td>Файл удалён из звонка</td>
+        </tr>
+        <tr>
+          <td><code>all::call::screen-share-started</code></td>
+          <td>Участник начал демонстрацию экрана</td>
+        </tr>
+        <tr>
+          <td><code>all::call::screen-share-stopped</code></td>
+          <td>Участник остановил демонстрацию экрана</td>
+        </tr>
+      </table>
+
+      <h2>📁 REST API для файлов (<code class="inline">/files</code>)</h2>
+      <div class="step">
+        Файлы передаются вне WebSocket через HTTP (multer). Загрузка привязана к
+        активному звонку параметром <code class="inline">callId</code>.
+        <div class="code">
+          # Загрузка файла (multipart/form-data: file + callId) curl -F
+          "file=@document.pdf" -F "callId=CALL_ID"
+          http://localhost:8080/files/upload # Скачать файл curl -OJ
+          http://localhost:8080/files/download/FILE_ID # Открыть/просмотреть
+          файл (inline) http://localhost:8080/files/view/FILE_ID # Удалить файл
+          curl -X DELETE http://localhost:8080/files/delete/FILE_ID
+        </div>
+        После успешной загрузки всем участникам звонка рассылается событие
+        <code class="inline">all::call::file-received</code>, после удаления —
+        <code class="inline">all::call::file-deleted</code>.
+      </div>
+
+      <h2>🛡️ Безопасность</h2>
+      <div class="step">
+        <ul style="margin-left: 20px">
+          <li>
+            Подключение по WebSocket и запрос <code class="inline">/stats</code>
+            защищены авторизацией (AuthMiddleware, токены/секреты из
+            <code class="inline">.env</code>);
+          </li>
+          <li>
+            CORS ограничен списком допустимых origin-паттернов из конфига (<code
+              class="inline"
+              >src/config</code
+            >);
+          </li>
+          <li>
+            Действует rate limiter на входящие WebSocket-сообщения и HTTP
+            запросы;
+          </li>
+          <li>HTTP-заголовки безопасности устанавливает helmet.</li>
+        </ul>
+      </div>
+
       <div class="warning">
-        ⚠️ <strong>Внимание:</strong> Для использования в локальной сети.
+        ⚠️ <strong>Внимание:</strong> Сервер предназначен для использования в
+        локальной сети. Для продакшена запускайте HTTPS-версию (<code
+          class="inline"
+          >npm run start:https</code
+        >) с настоящими сертификатами.
       </div>
 
       <h2>📊 Статистика сервера</h2>
       <div class="stats" id="stats">
         <div class="stat-card">
-          <div class="stat-value" id="userCount">0</div>
+          <div class="stat-value" id="userCount">—</div>
           <div class="stat-label">Подключенных пользователей</div>
         </div>
       </div>
@@ -216,14 +411,22 @@
     </div>
 
     <script>
-      const serverUrl = `ws://${window.location.hostname}:${window.location.port || 8080}`;
+      const protocol = window.location.protocol === 'https:' ? 'wss' : 'ws';
+      const serverUrl = `${protocol}://${window.location.hostname}:${
+        window.location.port || (protocol === 'wss' ? 8443 : 8080)
+      }`;
+      document.getElementById('ws-url').textContent = serverUrl;
 
       async function refreshStats() {
         try {
           const response = await fetch('/stats');
+          if (!response.ok) {
+            document.getElementById('userCount').textContent = '🔒';
+            return;
+          }
           const stats = await response.json();
-          document.getElementById('roomCount').textContent = stats.totalRooms;
-          document.getElementById('userCount').textContent = stats.totalClients;
+          document.getElementById('userCount').textContent =
+            stats.totalClients ?? 0;
         } catch (error) {
           console.log('Не удалось получить статистику');
         }
