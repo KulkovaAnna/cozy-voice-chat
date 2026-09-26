@@ -184,14 +184,28 @@ export function ChatNetworkProvider(props: PropsWithChildren) {
   }, [setOnRemoteScreenStream, setOnLocalScreenStop, endScreenShare]);
 
   useEffect(() => {
-    if (call && !speechDetection.current) {
+    if (!call) {
+      if (speechDetection.current) {
+        speechDetection.current.stop();
+        speechDetection.current = null; // сброс, чтобы следующий звонок создал детектор заново
+      }
+      return;
+    }
+
+    if (!speechDetection.current) {
       speechDetection.current = new SpeechDetection({
         onUpdate: changeIsSpeakingState,
       });
-      speechDetection.current.start(call.localStream);
-    } else if (speechDetection) {
-      speechDetection.current?.stop();
     }
+
+    if (call.localStream) {
+      speechDetection.current.start(call.localStream); // start() внутри делает this.stop(), повторный вызов безопасен
+    }
+
+    return () => {
+      speechDetection.current?.stop();
+      speechDetection.current = null;
+    };
   }, [call]);
 
   useEffect(() => {
