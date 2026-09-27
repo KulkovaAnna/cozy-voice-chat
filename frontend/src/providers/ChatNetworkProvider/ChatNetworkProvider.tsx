@@ -1,38 +1,25 @@
 import {
   useCallback,
   useEffect,
-  useMemo,
   useRef,
   useState,
   type PropsWithChildren,
 } from "react";
-import { SpeechDetection } from "../../features/SpeechDetection";
 import { usePeer } from "../../hooks/usePeer";
-import type {
-  CallInfo,
-  CallMember,
-  CallOffer,
-  FileInfoDTO,
-  TextMessage,
-  UserDTO,
-  UserProfile,
-} from "../../types";
-import {
-  callInfoAdapter,
-  textMessageAdapter,
-  userAdapter,
-} from "../../utils/adapters";
+import type { TextMessage } from "../../types";
 import { useAuth } from "../AuthProvider";
 import { ChatNetworkContext } from "./ChatNetworkContext";
+import { useChatCall } from "./hooks/useChatCall";
+import { useChatLobby } from "./hooks/useChatLobby";
+import { useChatMessageRouter } from "./hooks/useChatMessageRouter";
+import { useChatMessages } from "./hooks/useChatMessages";
+import { useChatScreenShare } from "./hooks/useChatScreenShare";
+import { useChatSignaling } from "./hooks/useChatSignaling";
+import { useSpeechDetection } from "./hooks/useSpeechDetection";
 
 export function ChatNetworkProvider(props: PropsWithChildren) {
-  const [callOffer, setCallOffer] = useState<CallOffer | null>(null);
-  const [callInfo, setCallInfo] = useState<CallInfo | null>(null);
-  const socket = useRef<WebSocket | null>(null);
-  const [lobbyMembers, setLobbyMembers] = useState<Array<UserProfile>>([]);
+  const socketRef = useRef<WebSocket | null>(null);
   const [textMessages, setTextMessages] = useState<Array<TextMessage>>([]);
-
-  const speechDetection = useRef<SpeechDetection | null>(null);
 
   const { user, updateUser } = useAuth();
 
@@ -50,315 +37,101 @@ export function ChatNetworkProvider(props: PropsWithChildren) {
     setOnLocalScreenStop,
   } = usePeer();
 
-  const isMyUserMuted = useMemo(
-    () =>
-      callInfo?.members.find((mem) => mem.member.id === user.id)?.isMuted ||
-      false,
-    [user, callInfo],
+  const send = useCallback((type: string, data: Record<string, unknown>) => {
+    socketRef.current?.send(JSON.stringify({ type, data }));
+  }, []);
+
+  const peerRef = useRef({
+    callToUser: peerCallToUser,
+    endCall: peerEndCall,
+    switchMicState,
+  });
+
+  useEffect(() => {
+    peerRef.current = {
+      callToUser: peerCallToUser,
+      endCall: peerEndCall,
+      switchMicState,
+    };
+  }, [peerCallToUser, peerEndCall, switchMicState]);
+
+  const lobby = useChatLobby({ user, send });
+  const callHook = useChatCall({ user, send, peerRef });
+  const messages = useChatMessages({
+    send,
+    callInfoRef: callHook.callInfoRef,
+    setTextMessages,
+  });
+
+  const { beginScreenShare, endScreenShare } = useChatScreenShare({
+    send,
+    callInfo: callHook.callInfo,
+    user,
+    startScreenShare,
+    stopScreenShare,
+    setOnRemoteScreenStream,
+    setOnLocalScreenStop,
+  });
+
+  useSpeechDetection({
+    call,
+    onSpeakingChange: callHook.changeIsSpeakingState,
+  });
+
+  const onMeLobbyJoined = useCallback(
+    (meId: string) => {
+      updateUser({ id: meId });
+      initialize(meId);
+    },
+    [initialize, updateUser],
   );
 
-  const isMyUserScreenSharing = useMemo(
-    () =>
-      callInfo?.members.find((mem) => mem.member.id === user.id)
-        ?.isScreenSharing || false,
-    [user, callInfo],
-  );
+  const handleCallEnded = useCallback(() => {
+    callHook.handleCallEnded();
+    setTextMessages([]);
+  }, [callHook]);
 
-  const changeIsSpeakingState = (isSpeaking: boolean) => {
-    if (!callInfo) return;
+  const { route } = useChatMessageRouter({
+    handleLobbyJoined: lobby.handleLobbyJoined,
+    onMeLobbyJoined,
+    handleCallOffer: lobby.handleCallOffer,
+    handleCallOfferDeclined: lobby.handleCallOfferDeclined,
+    setCallOfferNull: lobby.clearCallOffer,
+    handleCallStarted: callHook.handleCallStarted,
+    handleCallEnded,
+    handleOnlineChanged: callHook.handleOnlineChanged,
+    handleCallStateChanged: callHook.handleCallStateChanged,
+    handleNewMessage: messages.handleNewMessage,
+    handleFileReceived: messages.handleFileReceived,
+  });
 
-    socket.current?.send(
-      JSON.stringify({
-        type: "call::speaking",
-        data: { callId: callInfo.id, status: isSpeaking },
-      }),
-    );
-  };
-
-  function acceptCallOffer() {
-    if (!callOffer) return;
-    socket.current?.send(
-      JSON.stringify({
-        type: "lobby::accept-offer",
-        data: { offerId: callOffer.id },
-      }),
-    );
-  }
-
-  function declineCallOffer() {
-    if (!callOffer) return;
-    socket.current?.send(
-      JSON.stringify({
-        type: "lobby::decline-offer",
-        data: { offerId: callOffer.id },
-      }),
-    );
-    setCallOffer(null);
-  }
-
-  function joinToLobby() {
-    socket.current?.send(
-      JSON.stringify({
-        type: "lobby::join",
-        data: { personalInfo: { name: user.name, avatar: user.avatar } },
-      }),
-    );
-  }
-
-  function callToUser(uid: string) {
-    socket.current?.send(
-      JSON.stringify({
-        type: "lobby::initiate-call",
-        data: { receiverId: uid },
-      }),
-    );
-  }
-
-  const endCall = (_callInfo?: CallInfo) => {
-    const call = _callInfo || callInfo;
-    if (!call) return;
-
-    socket.current?.send(
-      JSON.stringify({
-        type: "call::end",
-        data: { callId: call.id },
-      }),
-    );
-  };
-
-  function changeMuteStatus(status: boolean) {
-    if (!callInfo) return;
-
-    switchMicState(!status);
-    socket.current?.send(
-      JSON.stringify({
-        type: "call::mute",
-        data: { callId: callInfo.id, status },
-      }),
-    );
-  }
-
-  function sendTextMessage(msg: string) {
-    if (!callInfo) return;
-
-    socket.current?.send(
-      JSON.stringify({
-        type: "call::send-message",
-        data: { callId: callInfo.id, text: msg },
-      }),
-    );
-  }
-
-  async function beginScreenShare() {
-    if (!callInfo) return;
-    const other = callInfo.members.find((m) => m.member.id !== user.id)?.member
-      .id;
-    if (!other) return;
-
-    const started = await startScreenShare(other);
-
-    if (started) {
-      socket.current?.send(
-        JSON.stringify({
-          type: "call::start-screen-sharing",
-          data: { callId: callInfo.id },
-        }),
-      );
-    }
-  }
-
-  const endScreenShare = useCallback(() => {
-    if (!callInfo) return;
-    socket.current?.send(
-      JSON.stringify({
-        type: "call::stop-screen-sharing",
-        data: { callId: callInfo.id, sharerId: user.id },
-      }),
-    );
-    stopScreenShare();
-  }, [callInfo, stopScreenShare, user.id]);
-
-  useEffect(() => {
-    setOnRemoteScreenStream(() => {});
-    setOnLocalScreenStop(endScreenShare);
-  }, [setOnRemoteScreenStream, setOnLocalScreenStop, endScreenShare]);
-
-  useEffect(() => {
-    if (!call) {
-      if (speechDetection.current) {
-        speechDetection.current.stop();
-        speechDetection.current = null; // сброс, чтобы следующий звонок создал детектор заново
-      }
-      return;
-    }
-
-    if (!speechDetection.current) {
-      speechDetection.current = new SpeechDetection({
-        onUpdate: changeIsSpeakingState,
-      });
-    }
-
-    if (call.localStream) {
-      speechDetection.current.start(call.localStream); // start() внутри делает this.stop(), повторный вызов безопасен
-    }
-
-    return () => {
-      speechDetection.current?.stop();
-      speechDetection.current = null;
-    };
-  }, [call]);
-
-  useEffect(() => {
-    if (!user.name) return;
-
-    if (
-      socket.current?.readyState === WebSocket.OPEN ||
-      socket.current?.readyState === WebSocket.CONNECTING
-    )
-      return;
-    socket.current = new WebSocket(
-      `${import.meta.env.VITE_SSL === "true" ? "wss" : "ws"}://${import.meta.env.VITE_HOST_IP}:${import.meta.env.VITE_PORT}`,
-    );
-    socket.current.onopen = () => {
-      console.log("Successfully connected!");
-      joinToLobby();
-    };
-
-    socket.current.onmessage = (e) => {
-      const data = JSON.parse(e.data);
-
-      switch (data.type) {
-        case "all::lobby::joined":
-        case "all::lobby::client-disconnected": {
-          const currentLobbyMembers = data.data.lobbyInfo.members.map(
-            (member: UserDTO) => userAdapter(member),
-          );
-          setLobbyMembers(currentLobbyMembers);
-          break;
-        }
-        case "me::lobby-joined": {
-          const me = data.data.client;
-          updateUser({ id: me.id });
-          initialize(me.id!);
-          break;
-        }
-        case "me::call-offer":
-        case "me::call-initiated": {
-          const callOffer = data.data.callOffer;
-          setCallOffer({
-            id: callOffer.id,
-            initiator: userAdapter(callOffer.initiator),
-          });
-          break;
-        }
-        case "me::call-offer-declined": {
-          setCallOffer(null);
-          break;
-        }
-        case "all::call::started": {
-          setCallOffer(null);
-          const callInfoData = data.data.callInfo;
-          const currentCallInfo = callInfoAdapter(callInfoData);
-          setCallInfo(currentCallInfo);
-          const meString = localStorage.getItem("user");
-
-          if (!meString) return;
-
-          const me = JSON.parse(meString);
-
-          if (me.id === currentCallInfo.initiator.id) {
-            peerCallToUser(currentCallInfo.receiver.id!);
-          }
-          break;
-        }
-        case "all::call::ended": {
-          peerEndCall();
-          setCallInfo(null);
-          setTextMessages([]);
-          break;
-        }
-        case "all::call::online-changed": {
-          if (
-            data.data.callInfo.members.filter((mem: CallMember) => mem.online)
-              .length < 2
-          ) {
-            endCall(data.data.callInfo);
-          }
-          break;
-        }
-        case "all::call::mute-changed":
-        case "all::call::speaking-changed": {
-          setCallInfo(callInfoAdapter(data.data.callInfo));
-          break;
-        }
-        case "all::call::new-message": {
-          setTextMessages((prev) => [...prev, textMessageAdapter(data.data)]);
-          break;
-        }
-        case "all::call::file-received": {
-          const fileInfo: FileInfoDTO = data.data;
-          setTextMessages((prev) => [
-            ...prev,
-            {
-              id: "file-msg" + fileInfo.fileId,
-              message: "",
-              senderId: fileInfo.senderInfo.id,
-              timestamp: fileInfo.timestamp,
-              senderAvatar: fileInfo.senderInfo.avatar,
-              senderName: fileInfo.senderInfo.name,
-              attachment: {
-                id: fileInfo.fileId,
-                fileName: fileInfo.originalName,
-                fileSize: fileInfo.size,
-              },
-            },
-          ]);
-          break;
-        }
-        case "all::call::screen-share-started": {
-          setCallInfo(callInfoAdapter(data.data.callInfo));
-          break;
-        }
-        case "all::call::screen-share-stopped": {
-          setCallInfo(callInfoAdapter(data.data.callInfo));
-          break;
-        }
-      }
-    };
-    socket.current.onclose = (e) => {
-      if (e.wasClean) {
-        console.log(
-          `[close] Соединение закрыто чисто, код=${e.code} причина=${e.reason}`,
-        );
-      } else {
-        console.log("[close] Соединение прервано");
-      }
-    };
-    socket.current.onerror = (err) => {
-      console.error(err);
-    };
-  }, [user]);
+  useChatSignaling({
+    user,
+    socketRef,
+    joinToLobby: lobby.joinToLobby,
+    onMessage: route,
+  });
 
   return (
     <ChatNetworkContext
       value={{
-        lobbyMembers,
-        callInfo,
-        callOffer,
-        isMyUserMuted,
+        lobbyMembers: lobby.lobbyMembers,
+        callInfo: callHook.callInfo,
+        callOffer: lobby.callOffer,
+        isMyUserMuted: callHook.isMyUserMuted,
         textMessages,
-        isMyUserScreenSharing,
+        isMyUserScreenSharing: callHook.isMyUserScreenSharing,
         localScreenStream,
         remoteScreenStream,
         beginScreenShare,
         endScreenShare,
-        joinToLobby,
-        callToUser,
-        acceptCallOffer,
-        declineCallOffer,
-        endCall,
-        changeMuteStatus,
-        sendTextMessage,
+        joinToLobby: lobby.joinToLobby,
+        callToUser: lobby.callToUser,
+        acceptCallOffer: lobby.acceptCallOffer,
+        declineCallOffer: lobby.declineCallOffer,
+        endCall: callHook.endCall,
+        changeMuteStatus: callHook.changeMuteStatus,
+        sendTextMessage: messages.sendTextMessage,
       }}
     >
       {props.children}

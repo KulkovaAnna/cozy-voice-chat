@@ -43,3 +43,9 @@ export type FileInfoDTO = {
     avatar: string;
   };
 };
+
+export type ServerMessage = {
+  type: string;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  data: Record<string, any>;
+};
