@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import type { CallInfo, ServerMessage, UserProfile } from "../../../types";
-import { callInfoAdapter } from "../../../utils/adapters";
+
+import type { CallInfo, ServerMessage, UserProfile } from "@cvc/types";
+import { callInfoAdapter } from "@cvc/utils";
 
 type SendFn = (type: string, data: Record<string, unknown>) => void;
 

@@ -1,5 +1,6 @@
 import { useCallback } from "react";
-import type { ServerMessage } from "../../../types";
+
+import type { ServerMessage } from "@cvc/types";
 
 type RouterParams = {
   // Лобби

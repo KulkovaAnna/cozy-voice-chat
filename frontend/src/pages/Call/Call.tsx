@@ -1,16 +1,15 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router";
-import { Column } from "../../components/Column";
+
+import { Column, Row } from "@cvc/components";
 import {
   ControlPanel,
   ShareScreenVideo,
   TextChat,
   UserCard,
-} from "../../features";
-import { useAuth } from "../../providers/AuthProvider";
-import { useChatNetwork } from "../../providers/ChatNetworkProvider";
-import { TextChatProvider } from "../../providers/TextChatProvider";
-import { Row } from "../../components/Row";
+} from "@cvc/features";
+import { TextChatProvider, useAuth, useChatNetwork } from "@cvc/providers";
+
 import { StyledCard } from "./Call.styles";
 
 export const Call = () => {

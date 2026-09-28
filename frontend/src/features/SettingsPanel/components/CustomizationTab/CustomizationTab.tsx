@@ -1,6 +1,5 @@
-import { useThemeColor } from "../../../../providers/ThemeColorProvider";
-import { IconButton } from "../../../../components/IconButton";
-import { MoonIcon, SunIcon } from "../../../../components/Icons";
+import { IconButton, MoonIcon, SunIcon } from "@cvc/components";
+import { useThemeColor } from "@cvc/providers";
 import * as Styled from "./CustomizationTab.styles";
 
 export const CustomizationTab = () => {

@@ -1,8 +1,9 @@
-import { ThemeProvider } from "@emotion/react";
 import { type PropsWithChildren } from "react";
+
+import { useLocalStorage } from "@cvc/hooks";
+import { darkTheme, lightTheme } from "@cvc/theme";
+import { ThemeProvider } from "@emotion/react";
 import { ToastContainer } from "react-toastify";
-import useLocalStorage from "../../hooks/useLocalStorage";
-import { darkTheme, lightTheme } from "../../theme";
 import { ThemeColorContext } from "./ThemeColorContext";
 
 export function ThemeColorProvider(props: PropsWithChildren) {

@@ -1,6 +1,5 @@
-import { useChatNetwork } from "../../providers/ChatNetworkProvider";
-import { IconButton } from "../../components/IconButton";
-import { CallIcon } from "../../components/Icons";
+import { CallIcon, IconButton } from "@cvc/components";
+import { useChatNetwork } from "@cvc/providers";
 
 interface CallButtonProps {
   uid: string;

@@ -7,7 +7,7 @@ import type {
   CallInfo,
   MessageDto,
   TextMessage,
-} from "../types";
+} from "@cvc/types";
 
 export const userAdapter = (serverUser: UserDTO): UserProfile => {
   return {

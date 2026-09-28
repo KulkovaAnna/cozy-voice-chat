@@ -1,5 +1,7 @@
 import type { ReactElement } from "react";
-import { formatBytes } from "../../utils/formatBytes";
+
+import { formatBytes } from "@cvc/utils";
+
 import { FileUploadIcon } from "../Icons";
 import * as Styles from "./FileInfo.styles";
 

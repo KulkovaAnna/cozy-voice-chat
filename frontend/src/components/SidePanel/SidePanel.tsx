@@ -1,13 +1,15 @@
-import { debounce } from "lodash";
 import {
   useCallback,
   useEffect,
   useState,
   type PropsWithChildren,
 } from "react";
+
+import { debounce } from "lodash";
 import { createPortal } from "react-dom";
-import * as Styles from "./SidePanel.styles";
+
 import { CloseIcon } from "../Icons";
+import * as Styles from "./SidePanel.styles";
 
 export interface SidePanelProps {
   isOpen: boolean;

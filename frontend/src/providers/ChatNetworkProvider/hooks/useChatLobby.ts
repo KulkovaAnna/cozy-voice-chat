@@ -1,11 +1,12 @@
 import { useCallback, useState } from "react";
+
 import type {
   CallOffer,
   ServerMessage,
   UserDTO,
   UserProfile,
-} from "../../../types";
-import { userAdapter } from "../../../utils/adapters";
+} from "@cvc/types";
+import { userAdapter } from "@cvc/utils/adapters";
 
 type SendFn = (type: string, data: Record<string, unknown>) => void;
 

@@ -1,6 +1,7 @@
 import { Navigate } from "react-router";
-import { Lobby } from "../../features/Lobby";
-import { useAuth } from "../../providers/AuthProvider";
+
+import { Lobby } from "@cvc/features";
+import { useAuth } from "@cvc/providers";
 
 export const Home = () => {
   const { user } = useAuth();

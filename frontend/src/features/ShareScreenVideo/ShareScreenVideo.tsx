@@ -1,6 +1,7 @@
 import { useEffect, useRef } from "react";
+
+import { LoadingIcon } from "@cvc/components";
 import * as Styled from "./ShareScreenVideo.styles";
-import { LoadingIcon } from "../../components/Icons";
 
 export interface ShareScreenVideoProps {
   stream: MediaStream | null;

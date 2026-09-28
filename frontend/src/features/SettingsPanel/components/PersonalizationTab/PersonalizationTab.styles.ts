@@ -1,5 +1,5 @@
 import styled from "@emotion/styled";
-import { Button } from "../../../../components/Button";
+import { Button } from "@cvc/components";
 
 export const Row = styled.div`
   display: flex;

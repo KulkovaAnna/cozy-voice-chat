@@ -1,15 +1,14 @@
-import { IconButton } from "../../components/IconButton";
 import {
   ChatIcon,
   EndCallIcon,
+  IconButton,
   MicOffIcon,
   MicOnIcon,
   ShareScreenIcon,
   StopShareScreenIcon,
   UnreadMessageIcon,
-} from "../../components/Icons";
-import { useChatNetwork } from "../../providers/ChatNetworkProvider";
-import { useTextChat } from "../../providers/TextChatProvider/useTextChat";
+} from "@cvc/components";
+import { useChatNetwork, useTextChat } from "@cvc/providers";
 import * as Styled from "./ControlPanel.styled";
 
 export interface ControlPanelProps {

@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, type RefObject } from "react";
-import type { UserProfile } from "../../../types";
+import type { UserProfile } from "@cvc/types";
 
 type UseChatSignalingParams = {
   user: UserProfile;

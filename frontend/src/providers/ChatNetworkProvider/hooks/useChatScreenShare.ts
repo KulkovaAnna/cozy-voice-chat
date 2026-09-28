@@ -1,5 +1,5 @@
 import { useCallback, useEffect } from "react";
-import type { CallInfo, UserProfile } from "../../../types";
+import type { CallInfo, UserProfile } from "@cvc/types";
 
 type SendFn = (type: string, data: Record<string, unknown>) => void;
 

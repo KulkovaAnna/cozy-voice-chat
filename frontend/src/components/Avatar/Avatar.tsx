@@ -1,6 +1,8 @@
 import type { ButtonHTMLAttributes } from "react";
+
+import defaultAvatar from "@cvc/assets/default_ava.jpg";
+
 import * as Styled from "./Avatar.styled";
-import defaultAvatar from "../../assets/default_ava.jpg";
 
 interface AvatarProps extends ButtonHTMLAttributes<HTMLButtonElement> {
   src?: string;

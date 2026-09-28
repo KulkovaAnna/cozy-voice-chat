@@ -1,5 +1,5 @@
 import { createContext } from "react";
-import type { TextMessage } from "../../types";
+import type { TextMessage } from "@cvc/types";
 
 export type TextChatContextType = {
   textChatIsOpen: boolean;

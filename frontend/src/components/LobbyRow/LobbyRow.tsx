@@ -1,6 +1,7 @@
-import { CallButton } from "../../features/CallButton";
-import { useAuth } from "../../providers/AuthProvider";
-import type { UserProfile } from "../../types";
+import { CallButton } from "@cvc/features";
+import { useAuth } from "@cvc/providers";
+import type { UserProfile } from "@cvc/types";
+
 import { Avatar } from "../Avatar";
 import * as Styled from "./LobbyRow.styled";
 

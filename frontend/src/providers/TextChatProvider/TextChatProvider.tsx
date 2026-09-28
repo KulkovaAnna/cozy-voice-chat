@@ -1,10 +1,10 @@
 import { useEffect, useRef, useState, type PropsWithChildren } from "react";
 
-import { usePageVisibility } from "../../hooks/usePageVisibility";
+import { fetcher } from "@cvc/api";
+import { usePageVisibility } from "@cvc/hooks";
+import { toast } from "react-toastify";
 import { useChatNetwork } from "../ChatNetworkProvider";
 import { TextChatContext } from "./TextChatContext";
-import { toast } from "react-toastify";
-import { fetcher } from "../../api";
 
 export function TextChatProvider(props: PropsWithChildren) {
   const [isOpen, setIsOpen] = useState(false);

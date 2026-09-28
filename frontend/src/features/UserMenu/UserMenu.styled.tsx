@@ -1,5 +1,5 @@
 import styled from "@emotion/styled";
-import { Card } from "../../components/Card";
+import { Card } from "@cvc/components";
 
 export const UserMenu = styled(Card)({
   flexFlow: "column",

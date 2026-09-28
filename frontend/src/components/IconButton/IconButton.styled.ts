@@ -1,6 +1,6 @@
+import type { Theme } from "@cvc/theme";
 import styled from "@emotion/styled";
 import type { ButtonVariant } from "./IconButton";
-import type { Theme } from "../../theme";
 
 const getColor = (variant: ButtonVariant = "primary", theme: Theme) => {
   switch (variant) {

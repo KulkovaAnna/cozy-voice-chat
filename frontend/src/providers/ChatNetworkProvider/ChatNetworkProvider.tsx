@@ -5,17 +5,20 @@ import {
   useState,
   type PropsWithChildren,
 } from "react";
-import { usePeer } from "../../hooks/usePeer";
-import type { TextMessage } from "../../types";
+
+import { usePeer } from "@cvc/hooks";
+import type { TextMessage } from "@cvc/types";
 import { useAuth } from "../AuthProvider";
 import { ChatNetworkContext } from "./ChatNetworkContext";
-import { useChatCall } from "./hooks/useChatCall";
-import { useChatLobby } from "./hooks/useChatLobby";
-import { useChatMessageRouter } from "./hooks/useChatMessageRouter";
-import { useChatMessages } from "./hooks/useChatMessages";
-import { useChatScreenShare } from "./hooks/useChatScreenShare";
-import { useChatSignaling } from "./hooks/useChatSignaling";
-import { useSpeechDetection } from "./hooks/useSpeechDetection";
+import {
+  useChatCall,
+  useChatLobby,
+  useChatMessageRouter,
+  useChatMessages,
+  useChatScreenShare,
+  useChatSignaling,
+  useSpeechDetection,
+} from "./hooks";
 
 export function ChatNetworkProvider(props: PropsWithChildren) {
   const socketRef = useRef<WebSocket | null>(null);

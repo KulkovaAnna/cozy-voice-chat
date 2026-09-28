@@ -1,10 +1,9 @@
-import { useTheme } from "@emotion/react";
 import { useMemo } from "react";
+
+import { Audio, Button } from "@cvc/components";
+import { useAuth, useChatNetwork } from "@cvc/providers";
+import { useTheme } from "@emotion/react";
 import Modal from "react-modal";
-import { Audio } from "../../components/Audio";
-import { Button } from "../../components/Button";
-import { useAuth } from "../../providers/AuthProvider";
-import { useChatNetwork } from "../../providers/ChatNetworkProvider";
 import * as Styles from "./AcceptCallModal.styles";
 
 Modal.setAppElement("#root");

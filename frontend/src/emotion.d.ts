@@ -1,5 +1,5 @@
 import "@emotion/react";
-import { AppTheme } from "./theme";
+import { AppTheme } from "@cvc/theme";
 
 declare module "@emotion/react" {
   // eslint-disable-next-line @typescript-eslint/no-empty-object-type

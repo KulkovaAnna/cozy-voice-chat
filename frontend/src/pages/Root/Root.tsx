@@ -1,5 +1,6 @@
 import { Outlet } from "react-router";
-import { Header } from "../../features/Header";
+
+import { Header } from "@cvc/features";
 import { MainContainer } from "./Root.styled";
 
 export const Root = () => {

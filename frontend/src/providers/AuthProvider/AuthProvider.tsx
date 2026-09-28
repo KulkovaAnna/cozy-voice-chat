@@ -1,7 +1,8 @@
 import { type PropsWithChildren } from "react";
+
+import { useLocalStorage } from "@cvc/hooks";
+import type { UserProfile } from "@cvc/types";
 import { AuthContext } from "./AuthContext";
-import useLocalStorage from "../../hooks/useLocalStorage";
-import type { UserProfile } from "../../types";
 
 export function AuthProvider(props: PropsWithChildren) {
   const [user, setUser] = useLocalStorage("user", "{}");

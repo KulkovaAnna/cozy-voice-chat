@@ -1,7 +1,9 @@
 import React, { useState, useEffect } from "react";
 import { createPortal } from "react-dom";
-import { MenuContainer, TriggerContainter } from "./ContextMenu.styles"; // ваши стили
-import { useClickOutside } from "../../hooks/useClickOutside";
+
+import { useClickOutside } from "@cvc/hooks/useClickOutside";
+
+import { MenuContainer, TriggerContainer } from "./ContextMenu.styles";
 
 interface ContextMenuProps {
   children: React.ReactNode;
@@ -35,9 +37,9 @@ export const ContextMenu: React.FC<ContextMenuProps> = ({
 
   return (
     <>
-      <TriggerContainter onContextMenu={handleContextMenu}>
+      <TriggerContainer onContextMenu={handleContextMenu}>
         {children}
-      </TriggerContainter>
+      </TriggerContainer>
 
       {isShow &&
         visible &&

@@ -5,8 +5,9 @@ import type {
   MessageDto,
   ServerMessage,
   TextMessage,
-} from "../../../types";
-import { textMessageAdapter } from "../../../utils/adapters";
+} from "@cvc/types";
+
+import { textMessageAdapter } from "@cvc/utils";
 
 type SendFn = (type: string, data: Record<string, unknown>) => void;
 

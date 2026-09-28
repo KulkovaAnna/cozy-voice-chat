@@ -1,4 +1,4 @@
-import { useAuth } from "../../providers/AuthProvider";
+import { useAuth } from "@cvc/providers";
 
 export const UserName = () => {
   const { user } = useAuth();

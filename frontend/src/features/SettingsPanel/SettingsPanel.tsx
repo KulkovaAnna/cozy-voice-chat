@@ -1,11 +1,16 @@
-import { useTheme } from "@emotion/react";
 import { useState, type ReactNode } from "react";
+
+import {
+  BackArrowIcon,
+  BurgerMenuIcon,
+  IconButton,
+  SidePanel,
+} from "@cvc/components";
+import { useTheme } from "@emotion/react";
+
 import * as Styled from "./SettingsPanel.styled";
 import { TABS } from "./constants";
 import type { Tab } from "./types";
-import { BackArrowIcon, BurgerMenuIcon } from "../../components/Icons";
-import { IconButton } from "../../components/IconButton";
-import { SidePanel } from "../../components/SidePanel";
 
 interface SettingsPanelProps {
   onClose: () => void;

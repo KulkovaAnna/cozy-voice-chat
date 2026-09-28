@@ -10,4 +10,5 @@ export * from "./ShareScreenVideo";
 export * from "./SpeechDetection";
 export * from "./TextChat";
 export * from "./UserCard";
+export * from "./UserMenu";
 export * from "./WaitCallModal";

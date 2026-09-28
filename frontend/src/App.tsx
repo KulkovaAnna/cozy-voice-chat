@@ -1,8 +1,10 @@
-import { GlobalStyles } from "./theme/GlobalStyles";
-import { Root } from "./pages/Root";
-import { AuthProvider } from "./providers/AuthProvider";
-import { ChatNetworkProvider } from "./providers/ChatNetworkProvider";
-import { ThemeColorProvider } from "./providers/ThemeColorProvider";
+import { Root } from "@cvc/pages";
+import {
+  AuthProvider,
+  ChatNetworkProvider,
+  ThemeColorProvider,
+} from "@cvc/providers";
+import { GlobalStyles } from "@cvc/theme";
 
 function App() {
   return (

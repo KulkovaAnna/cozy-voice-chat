@@ -1,6 +1,6 @@
+import type { Theme } from "@cvc/theme";
 import { type CSSObject } from "@emotion/react";
 import styled from "@emotion/styled";
-import type { Theme } from "../../theme";
 
 const getStyles = (theme: Theme): CSSObject => ({
   color: theme.colors.text.primary,

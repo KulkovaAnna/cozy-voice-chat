@@ -1,6 +1,7 @@
-import { API_URLS } from "../../api/config";
-import type { TextMessage } from "../../types";
-import { isImageFile } from "../../utils/isImageFile";
+import { API_URLS } from "@cvc/api/config";
+import type { TextMessage } from "@cvc/types";
+import { isImageFile } from "@cvc/utils";
+
 import { Avatar } from "../Avatar";
 import { DownLoadFileIcon } from "../Icons";
 import * as Styles from "./Message.styles";

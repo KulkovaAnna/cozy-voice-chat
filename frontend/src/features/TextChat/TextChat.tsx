@@ -6,14 +6,19 @@ import {
   type FormEventHandler,
   type KeyboardEventHandler,
 } from "react";
-import { IconButton } from "../../components/IconButton";
-import { AttachmentIcon, LoadingIcon, SendIcon } from "../../components/Icons";
-import { Message } from "../../components/Message";
-import { SidePanel } from "../../components/SidePanel";
-import { useAuth } from "../../providers/AuthProvider";
-import { useTextChat } from "../../providers/TextChatProvider";
+
+import {
+  AttachmentIcon,
+  FileInfo,
+  IconButton,
+  LoadingIcon,
+  Message,
+  SendIcon,
+  SidePanel,
+} from "@cvc/components";
+import { useAuth, useTextChat } from "@cvc/providers";
+
 import * as Styles from "./TextChat.styles";
-import { FileInfo } from "../../components/FileInfo";
 
 export function TextChat() {
   const [text, setText] = useState("");

@@ -1,5 +1,6 @@
 import { createContext } from "react";
-import type { UserProfile } from "../../types";
+
+import type { UserProfile } from "@cvc/types";
 
 type AuthContextType = {
   user: UserProfile;

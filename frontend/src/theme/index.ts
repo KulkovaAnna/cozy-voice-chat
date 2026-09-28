@@ -215,3 +215,5 @@ export const darkTheme: AppTheme = {
 };
 
 export type Theme = AppTheme;
+
+export * from "./GlobalStyles";

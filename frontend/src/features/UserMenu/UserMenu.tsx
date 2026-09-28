@@ -1,10 +1,13 @@
-import { EditableNickname } from "../../components/EditableNickname";
-import { Row } from "../../components/Row";
-import { useThemeColor } from "../../providers/ThemeColorProvider";
+import {
+  EditableNickname,
+  IconButton,
+  MoonIcon,
+  Row,
+  SunIcon,
+} from "@cvc/components";
+import { useThemeColor } from "@cvc/providers";
 import { AvatarChanger } from "../AvatarChanger";
 import * as Styled from "./UserMenu.styled";
-import { IconButton } from "../../components/IconButton";
-import { MoonIcon, SunIcon } from "../../components/Icons";
 
 export const UserMenu = () => {
   const { isDarkMode, setIsDarkMode } = useThemeColor();

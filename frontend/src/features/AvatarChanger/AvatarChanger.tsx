@@ -1,9 +1,7 @@
+import { IconButton, Input, SaveIcon } from "@cvc/components";
+import { useAuth } from "@cvc/providers";
 import { useForm } from "react-hook-form";
-import { IconButton } from "../../components/IconButton";
-import { Input } from "../../components/Input";
-import { useAuth } from "../../providers/AuthProvider";
 import * as Styled from "./AvatarChanger.styled";
-import { SaveIcon } from "../../components/Icons";
 
 interface FormData {
   avatar: string;

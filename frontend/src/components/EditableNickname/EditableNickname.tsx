@@ -1,9 +1,11 @@
 import { useEffect, useState, type InputHTMLAttributes } from "react";
-import * as Styled from "./EditableNickname.styled";
-import { IconButton } from "../IconButton";
 import { useForm } from "react-hook-form";
-import { useAuth } from "../../providers/AuthProvider";
+
+import { useAuth } from "@cvc/providers";
+import { IconButton } from "../IconButton";
 import { EditIcon, SaveIcon } from "../Icons";
+
+import * as Styled from "./EditableNickname.styled";
 
 type EditableNicknameProps = InputHTMLAttributes<
   HTMLInputElement | HTMLTextAreaElement

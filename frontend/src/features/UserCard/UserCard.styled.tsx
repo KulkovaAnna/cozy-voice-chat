@@ -1,8 +1,7 @@
+import { Card, HorizontalSlider } from "@cvc/components";
+import type { Theme } from "@cvc/theme";
 import styled from "@emotion/styled";
-import { Card } from "../../components/Card";
-import { HorizontalSlider } from "../../components/Slider";
 import type { UserCardVariant } from "./UserCard";
-import type { Theme } from "../../theme";
 
 function getVariantStyles(variant: UserCardVariant, theme: Theme) {
   switch (variant) {

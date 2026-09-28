@@ -1,9 +1,8 @@
-import * as Styled from "./Header.styled";
-import { Avatar } from "../../components/Avatar";
+import { Avatar, UserName } from "@cvc/components";
+import { SettingsPanel } from "@cvc/features/SettingsPanel";
+import { useAuth } from "@cvc/providers";
 import { useSearchParams } from "react-router";
-import { SettingsPanel } from "../SettingsPanel";
-import { UserName } from "../../components/UserName";
-import { useAuth } from "../../providers/AuthProvider";
+import * as Styled from "./Header.styled";
 
 export const Header = () => {
   const [searchParams, setSearchParams] = useSearchParams();

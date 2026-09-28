@@ -4,7 +4,7 @@ import type {
   CallOffer,
   TextMessage,
   UserProfile,
-} from "../../types";
+} from "@cvc/types";
 
 export type ChatNetworkContextType = {
   lobbyMembers?: Array<UserProfile>;

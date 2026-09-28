@@ -1,9 +1,6 @@
+import { Button, Column, Form, Input } from "@cvc/components";
+import { useAuth } from "@cvc/providers";
 import { useForm } from "react-hook-form";
-import { Form } from "../../components/Form";
-import { useAuth } from "../../providers/AuthProvider";
-import { Column } from "../../components/Column";
-import { Input } from "../../components/Input";
-import { Button } from "../../components/Button";
 import { useNavigate } from "react-router";
 
 export const EnterUserNameForm = () => {

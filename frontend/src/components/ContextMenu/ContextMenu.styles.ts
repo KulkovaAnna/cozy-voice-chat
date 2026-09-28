@@ -24,6 +24,6 @@ export const MenuLabel = styled.span`
   font-weight: 500;
 `;
 
-export const TriggerContainter = styled.div`
+export const TriggerContainer = styled.div`
   display: "inline-block";
 `;

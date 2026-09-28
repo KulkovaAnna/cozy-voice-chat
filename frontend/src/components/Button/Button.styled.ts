@@ -1,6 +1,6 @@
+import { darken } from "@cvc/theme/utils";
 import styled from "@emotion/styled";
 import type { ButtonVariant } from "./Button";
-import { darken } from "../../theme/utils";
 
 interface ButtonProps {
   $variant?: ButtonVariant;
