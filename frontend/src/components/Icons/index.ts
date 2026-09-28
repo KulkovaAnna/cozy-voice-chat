@@ -1,4 +1,6 @@
+export * from "./AccountIcon";
 export * from "./AttachmentIcon";
+export * from "./BackArrowIcon";
 export * from "./CallIcon";
 export * from "./ChatIcon";
 export * from "./CloseIcon";
@@ -16,4 +18,5 @@ export * from "./SendIcon";
 export * from "./ShareScreenIcon";
 export * from "./StopShareScreenIcon";
 export * from "./SunIcon";
+export * from "./ThemeIcon";
 export * from "./UnreadMessageIcon";

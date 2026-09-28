@@ -1,25 +1,33 @@
 import styled from "@emotion/styled";
+import type { ButtonVariant } from "./Button";
+import { darken } from "../../theme/utils";
 
 interface ButtonProps {
-  primary: boolean;
+  $variant?: ButtonVariant;
 }
 
-export const Button = styled.button<ButtonProps>(({ theme, primary }) => ({
-  color: theme.colors.primary.contrast,
-  backgroundColor: primary
-    ? theme?.colors.primary.main
-    : theme.colors.secondary.main,
-  border: `4px solid transparent`,
-  borderRadius: "4px",
-  padding: "8px",
-  minWidth: "100px",
-  width: "100%",
-  maxWidth: "200px",
-  height: "45px",
-  "&:hover": {
-    cursor: "pointer",
-    backgroundColor: primary
-      ? theme.colors.primary.dark
-      : theme.colors.secondary.dark,
-  },
-}));
+export const Button = styled.button<ButtonProps>(({ theme, $variant }) => {
+  const bgColor =
+    $variant === "primary"
+      ? theme.colors.primary.main
+      : $variant === "secondary"
+        ? theme.colors.secondary.main
+        : $variant || theme.colors.primary.main;
+
+  return {
+    color: theme.colors.primary.contrast,
+    backgroundColor: bgColor,
+    border: `4px solid transparent`,
+    borderRadius: "4px",
+    padding: "8px",
+    minWidth: "100px",
+    width: "100%",
+    maxWidth: "200px",
+    height: "45px",
+    transition: theme.transitions.normal,
+    "&:hover": {
+      cursor: "pointer",
+      backgroundColor: darken(bgColor, 0.3),
+    },
+  };
+});

@@ -45,7 +45,7 @@ export function AcceptCallModal() {
     >
       <h2>{callOffer?.initiator.name} выходит на связь</h2>
       <Styles.ButtonsPanel>
-        <Button onClick={acceptCallOffer} isPrimary>
+        <Button onClick={acceptCallOffer} variant="primary">
           Принять
         </Button>
         <Button onClick={declineCallOffer}>Отклонить</Button>

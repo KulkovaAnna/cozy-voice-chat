@@ -16,6 +16,9 @@ const getStyles = (theme: Theme): CSSObject => ({
   height: "45px",
   boxSizing: "border-box",
   transition: "0.2s ease all",
+  ":disabled": {
+    backgroundColor: theme.colors.background.darker,
+  },
   "&:hover": {
     backgroundColor: theme.colors.background.darker,
   },

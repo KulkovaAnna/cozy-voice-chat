@@ -5,7 +5,7 @@ interface AvatarProps {
 }
 
 export const Avatar = styled.img<AvatarProps>(({ size }) => ({
-  minWidth: size ?? "100%",
+  width: size ?? "100%",
   height: size ?? "100%",
   borderRadius: "50%",
   objectFit: "cover" as const,

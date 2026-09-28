@@ -30,7 +30,7 @@ export const EnterUserNameForm = () => {
         {errors.userName && (
           <p>Никнейм обязателен для регистрации соединения.</p>
         )}
-        <Button type={"submit"} isPrimary>
+        <Button type="submit" variant="primary">
           Далее
         </Button>
       </Column>

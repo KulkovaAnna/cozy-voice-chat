@@ -20,7 +20,7 @@ export const EditableNickname = ({ ...props }: EditableNicknameProps) => {
   } = useAuth();
   const [isEdit, setIsEdit] = useState(false);
 
-  const { register, handleSubmit, setValue } = useForm<IForm>({
+  const { register, handleSubmit, setValue, setFocus } = useForm<IForm>({
     defaultValues: { name },
   });
 
@@ -33,6 +33,9 @@ export const EditableNickname = ({ ...props }: EditableNicknameProps) => {
   };
 
   const changeEditState = () => {
+    if (!isEdit) {
+      setFocus("name");
+    }
     setIsEdit(!isEdit);
   };
 
@@ -50,7 +53,7 @@ export const EditableNickname = ({ ...props }: EditableNicknameProps) => {
         />
         <IconButton
           onClick={changeEditState}
-          type="submit"
+          type={isEdit ? "button" : "submit"}
           icon={isEdit ? <SaveIcon /> : <EditIcon />}
         />
       </Styled.Form>
