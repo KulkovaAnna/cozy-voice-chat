@@ -1,1 +1,1 @@
-export * from "./ControlPanel";
+export { ControlPanel, type ControlPanelProps } from "./ControlPanel";

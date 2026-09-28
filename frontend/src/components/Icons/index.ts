@@ -1,6 +1,7 @@
 export * from "./AccountIcon";
 export * from "./AttachmentIcon";
 export * from "./BackArrowIcon";
+export * from "./BurgerMenuIcon";
 export * from "./CallIcon";
 export * from "./ChatIcon";
 export * from "./CloseIcon";

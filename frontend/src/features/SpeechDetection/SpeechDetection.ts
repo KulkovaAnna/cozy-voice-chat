@@ -35,9 +35,9 @@ export class SpeechDetection {
     this.stop();
 
     // Создаем новый аудио контекст
-    this.audioContext = new (
-      window.AudioContext || (window as any).webkitAudioContext
-    )();
+    this.audioContext =
+      new // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      (window.AudioContext || (window as any).webkitAudioContext)();
     this.analyser = this.audioContext.createAnalyser();
 
     // Подключаем поток к анализатору

@@ -1,1 +1,1 @@
-export * from "./EditableNickname";
+export { EditableNickname } from "./EditableNickname";
