@@ -11,6 +11,8 @@ import { CloseIcon } from "../Icons";
 
 export interface SidePanelProps {
   isOpen: boolean;
+  zIndex?: number;
+  noTopOffset?: boolean;
   onClose?: VoidFunction;
 }
 
@@ -27,6 +29,8 @@ export function SidePanel(props: PropsWithChildren<SidePanelProps>) {
 
   const debouncedResizeHandler = debounce(handleResize, 200);
 
+  const topOffset = props.noTopOffset ? 0 : headerHeight;
+
   useEffect(() => {
     window.addEventListener("resize", debouncedResizeHandler);
 
@@ -36,8 +40,12 @@ export function SidePanel(props: PropsWithChildren<SidePanelProps>) {
   }, [debouncedResizeHandler]);
 
   return createPortal(
-    <Styles.Container $topOffset={headerHeight} $isOpen={props.isOpen}>
-      <Styles.CloseButton $topOffset={headerHeight} onClick={props.onClose}>
+    <Styles.Container
+      $topOffset={topOffset}
+      $isOpen={props.isOpen}
+      $zIndex={props.zIndex}
+    >
+      <Styles.CloseButton $topOffset={topOffset} onClick={props.onClose}>
         <CloseIcon />
       </Styles.CloseButton>
       {props.children}

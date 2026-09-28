@@ -16,7 +16,7 @@ export const PersonalizationTab = () => {
 
   return (
     <>
-      <Styled.Row>
+      <Styled.AvatarRow>
         <Styled.Row>
           <Styled.AvatarPreview>
             <Avatar src={user.avatar} size={80} />
@@ -35,7 +35,7 @@ export const PersonalizationTab = () => {
             Удалить
           </Styled.DeleteButton>
         </Styled.Row>
-      </Styled.Row>
+      </Styled.AvatarRow>
       <Delimiter />
       <Styled.Row>
         <Styled.Block>

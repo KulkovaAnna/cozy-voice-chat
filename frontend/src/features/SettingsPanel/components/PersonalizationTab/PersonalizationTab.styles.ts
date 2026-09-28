@@ -8,6 +8,13 @@ export const Row = styled.div`
   align-items: center;
 `;
 
+export const AvatarRow = styled(Row)(({ theme }) => ({
+  [`@media screen and (max-width: ${theme.breakpoints.tablet})`]: {
+    flexDirection: "column",
+    alignItems: "start",
+  },
+}));
+
 export const Block = styled.div(({ theme }) => ({
   display: "flex",
   flexDirection: "column",

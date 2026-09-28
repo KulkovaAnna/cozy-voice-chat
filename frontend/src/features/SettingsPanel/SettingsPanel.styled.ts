@@ -26,21 +26,51 @@ export const Content = styled.div(({ theme }) => ({
   gap: theme.spacing.layout.small,
   padding: theme.spacing.layout.medium,
   boxSizing: "border-box",
-  maxWidth: "80vw",
+  maxWidth: 1200,
   width: "100%",
   margin: "0 auto",
-  [`@media screen and (max-width: ${theme.breakpoints.mobile})`]: {
+  [`@media screen and (max-width: ${theme.breakpoints.tablet})`]: {
     flexDirection: "column",
+    maxWidth: "unset",
+    padding: 0,
   },
 }));
 
 export const Nav = styled.nav(({ theme }) => ({
   display: "flex",
   flexDirection: "column",
-  minWidth: "280px",
+  minWidth: "220px",
   backgroundColor: theme.colors.background.card,
   borderRadius: theme.borderRadius.medium,
   overflow: "hidden",
+  [`@media screen and (max-width: ${theme.breakpoints.tablet})`]: {
+    display: "none",
+  },
+}));
+
+export const MobileHeader = styled.div(({ theme }) => ({
+  display: "none",
+  alignItems: "center",
+  justifyContent: "space-between",
+  gap: theme.spacing.unit,
+  backgroundColor: theme.colors.background.card,
+  [`@media screen and (max-width: ${theme.breakpoints.tablet})`]: {
+    display: "flex",
+  },
+}));
+
+export const MenuButton = styled.div(() => ({
+  display: "flex",
+  alignItems: "center",
+  flexShrink: 0,
+  padding: "0 16px",
+}));
+
+export const SideNav = styled.nav(({ theme }) => ({
+  display: "flex",
+  flexDirection: "column",
+  gap: theme.spacing.unit,
+  overflowY: "auto",
 }));
 
 export const NavItem = styled.button<{ active?: boolean }>(

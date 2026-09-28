@@ -1,6 +1,10 @@
 import styled from "@emotion/styled";
 
-export const Container = styled.div<{ $topOffset?: number; $isOpen?: boolean }>`
+export const Container = styled.div<{
+  $topOffset?: number;
+  $isOpen?: boolean;
+  $zIndex?: number;
+}>`
   position: fixed;
   right: 0;
   top: 0;
@@ -12,6 +16,7 @@ export const Container = styled.div<{ $topOffset?: number; $isOpen?: boolean }>`
   max-width: 375px;
   transition: ${({ theme }) => theme.transitions.fast} linear all;
   transform: translateX(${({ $isOpen }) => ($isOpen ? 0 : "100%")});
+  z-index: ${({ $zIndex }) => $zIndex ?? "auto"};
   @media screen and (max-width: ${({ theme }) => theme.breakpoints.mobile}) {
     max-width: unset;
   }
@@ -26,7 +31,7 @@ export const CloseButton = styled.button<{ $topOffset?: number }>`
   padding: 8px;
   display: none;
 
-  @media screen and (max-width: ${({ theme }) => theme.breakpoints.mobile}) {
+  @media screen and (max-width: ${({ theme }) => theme.breakpoints.tablet}) {
     display: block;
   }
 `;
