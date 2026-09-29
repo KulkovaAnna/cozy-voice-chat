@@ -11,7 +11,11 @@ export default class FileManagerController {
     this.fileManagerService = fileManagerService;
   }
 
-  async uploadFile(req: Request, res: Response, next: NextFunction): Promise<void> {
+  async uploadFile(
+    req: Request,
+    res: Response,
+    next: NextFunction,
+  ): Promise<void> {
     try {
       const senderIp = req.socket.remoteAddress ?? '';
       const callId = req.body?.callId as string | undefined;
@@ -46,7 +50,11 @@ export default class FileManagerController {
     }
   }
 
-  async downloadFile(req: Request, res: Response, next: NextFunction): Promise<void> {
+  async downloadFile(
+    req: Request,
+    res: Response,
+    next: NextFunction,
+  ): Promise<void> {
     try {
       const fileId = String(req.params.fileId);
       const userIp = req.socket.remoteAddress;
@@ -78,13 +86,19 @@ export default class FileManagerController {
    * Просмотр файла
    * GET /files/view
    */
-  async viewFile(req: Request, res: Response, next: NextFunction): Promise<void> {
+  async viewFile(
+    req: Request,
+    res: Response,
+    next: NextFunction,
+  ): Promise<void> {
     try {
       const fileId = String(req.params.fileId);
 
-      const { stream, meta } = await this.fileManagerService.getFileStream(fileId);
+      const { stream, meta } =
+        await this.fileManagerService.getFileStream(fileId);
 
-      const contentType = mime.lookup(meta.originalName) || 'application/octet-stream';
+      const contentType =
+        mime.lookup(meta.originalName) || 'application/octet-stream';
       res.setHeader('Content-Type', contentType);
 
       // Отправляем поток

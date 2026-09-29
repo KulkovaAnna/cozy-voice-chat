@@ -52,6 +52,7 @@
 - **rate-limiter-flexible** — защита от флуда
 - **winston** — логирование
 - **TypeScript** (`tsc` собирает в `dist/`), **nodemon** + **ts-node** для dev
+- **Vitest** + **Supertest** — тестирование (unit + интеграционные HTTP-тесты)
 
 > Примечание: в `backend/package.json` присутствует `socket.io`, но основной транспорт сигнализации — нативный `ws`.
 
@@ -76,6 +77,24 @@ app/modules/
 public/                # Статическая страница-инструкция (index.html)
 uploads/               # Каталоги для временных и итоговых файлов
 ```
+
+Тесты (`backend/tests/`):
+
+```
+tests/
+  unit/
+    file-manager.controller.test.ts  # Mock-тесты контроллера (uploadFile, downloadFile, viewFile)
+    file-manager.service.test.ts     # unit-тесты сервиса с моками fs/uuid
+    helpers.test.ts                  # validateIP, generateRoomCode/Id, omitDeep, getLocalIP
+    event-bus.test.ts                # подписка/рассылка file:uploaded и file:deleted
+    lobby-manager.test.ts            # addClient, офферы, поиск по ws/id/ip, removeMember, getStats
+    call-manager.test.ts             # startCall/endCall, статусы участников, сообщения
+    signaling-server.test.ts         # WS-протокол: join, call offer/accept/decline, mute, chat, screen sharing, disconnect
+  integration/
+    file-manager.routes.test.ts      # supertest: POST /files/upload, GET /files/download/:id, GET /files/view/:id
+```
+
+Конфигурация тестов: `backend/vitest.config.mts` (globals, environment: node, coverage: v8).
 
 Архитектурные особенности:
 
@@ -196,13 +215,16 @@ npm run dev
 
 **Backend (`backend/package.json`):**
 
-| Команда             | Действие                                               |
-| ------------------- | ------------------------------------------------------ |
-| `npm run build`     | Компиляция TypeScript в `dist/` (`tsc`)                |
-| `npm run start`     | Запуск собранного HTTP-сервера (`node dist/server.js`) |
-| `npm run start:ssl` | Запуск HTTPS-сервера (`node dist/https-server.js`)     |
-| `npm run dev`       | Dev-режим HTTP (nodemon + ts-node)                     |
-| `npm run dev:ssl`   | Dev-режим HTTPS (nodemon + ts-node)                    |
+| Команда                 | Действие                                               |
+| ----------------------- | ------------------------------------------------------ |
+| `npm run build`         | Компиляция TypeScript в `dist/` (`tsc`)                |
+| `npm run start`         | Запуск собранного HTTP-сервера (`node dist/server.js`) |
+| `npm run start:ssl`     | Запуск HTTPS-сервера (`node dist/https-server.js`)     |
+| `npm run dev`           | Dev-режим HTTP (nodemon + ts-node)                     |
+| `npm run dev:ssl`       | Dev-режим HTTPS (nodemon + ts-node)                    |
+| `npm test`              | Разовый запуск тестов (`vitest run`)                   |
+| `npm run test:watch`    | Тесты в watch-режиме (`vitest`)                        |
+| `npm run test:coverage` | Тесты с покрытием (`vitest run --coverage`)            |
 
 **Frontend (`frontend/package.json`):**
 
@@ -274,8 +296,13 @@ npm run dev
 
 ### Тестирование
 
-- Автоматические тесты в проекте **отсутствуют** (нет test-скриптов и тестовых фреймворков).
-- Проверка качества ограничена линтером (`npm run lint` во frontend, включая проверку границ слоёв через `eslint-plugin-boundaries`) и сборкой TypeScript (`npm run build`). TODO: при добавлении функциональности рассмотреть введение тестов (Vitest/Jest).
+- **Backend** покрыт автотестами на **Vitest** + **Supertest** (конфиг — `backend/vitest.config.mts`, скрипты `npm test`, `npm run test:watch`, `npm run test:coverage`).
+- Тесты лежат в `backend/tests/` и делятся на два слоя:
+  - `tests/unit/` — unit-тесты модулей: `FileManagerController`, `FileManagerService`, `Helpers`, `EventBus`, `LobbyManager`, `CallManager`, `SignalingServer` (WS-протокол эмулируется мок-сокетами без реального сервера).
+  - `tests/integration/` — HTTP-интеграционные тесты маршрутов file-manager через supertest (реальный Express-роутер, мок сервиса).
+- Внешние зависимости в unit-тестах мокируются: `fs`, `uuid`, `ws`, `config`, `AuthMiddleware`, `RateLimiter`, `event-bus` — через `vi.mock` / `vi.hoisted`.
+- **Frontend** тестов пока нет; проверка качества ограничена линтером (`npm run lint`, включая `eslint-plugin-boundaries`) и сборкой TypeScript (`npm run build`).
+- TODO: при добавлении функциональности в frontend рассмотреть введение тестов (Vitest + Testing Library).
 
 ### Практики и конвенции
 
