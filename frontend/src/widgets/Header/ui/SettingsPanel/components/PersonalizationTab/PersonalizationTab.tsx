@@ -1,7 +1,7 @@
-import { Avatar, EditableNickname } from "@cvc/components";
+import { Avatar } from "@cvc/components";
+import { AvatarChanger, EditableNickname } from "@cvc/features";
 import { useAuth } from "@cvc/providers";
 import { useTheme } from "@emotion/react";
-import { AvatarChanger } from "../../../AvatarChanger";
 import { Delimiter } from "../../SettingsPanel.styled";
 import * as Styled from "./PersonalizationTab.styles";
 

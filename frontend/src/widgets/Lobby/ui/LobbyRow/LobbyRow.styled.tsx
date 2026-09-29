@@ -1,5 +1,5 @@
 import styled from "@emotion/styled";
-import { Card } from "../Card";
+import { Card } from "@cvc/components";
 
 export const Container = styled(Card)(({ theme }) => ({
   position: "relative",

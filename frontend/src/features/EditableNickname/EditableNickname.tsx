@@ -1,9 +1,8 @@
 import { useEffect, useState, type InputHTMLAttributes } from "react";
 import { useForm } from "react-hook-form";
 
+import { EditIcon, IconButton, SaveIcon } from "@cvc/components";
 import { useAuth } from "@cvc/providers";
-import { IconButton } from "../IconButton";
-import { EditIcon, SaveIcon } from "../Icons";
 
 import * as Styled from "./EditableNickname.styled";
 

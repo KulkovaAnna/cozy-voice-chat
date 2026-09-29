@@ -1,5 +1,5 @@
 import styled from "@emotion/styled";
-import { Input } from "../Input";
+import { Input } from "@cvc/components";
 
 export const EditableNickname = styled(Input)(() => ({
   maxWidth: "300px",

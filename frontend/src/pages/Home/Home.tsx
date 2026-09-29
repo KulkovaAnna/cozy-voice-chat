@@ -1,7 +1,7 @@
 import { Navigate } from "react-router";
 
-import { Lobby } from "@cvc/features";
 import { useAuth } from "@cvc/providers";
+import { Lobby } from "@cvc/widgets";
 
 export const Home = () => {
   const { user } = useAuth();

@@ -1,8 +1,9 @@
-import { Avatar, UserName } from "@cvc/components";
-import { SettingsPanel } from "@cvc/features/SettingsPanel";
+import { Avatar } from "@cvc/components";
 import { useAuth } from "@cvc/providers";
 import { useSearchParams } from "react-router";
 import * as Styled from "./Header.styled";
+import { SettingsPanel } from "./ui/SettingsPanel";
+import { UserName } from "./ui/UserName";
 
 export const Header = () => {
   const [searchParams, setSearchParams] = useSearchParams();

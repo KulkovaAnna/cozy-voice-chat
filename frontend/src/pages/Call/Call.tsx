@@ -1,14 +1,9 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router";
 
-import { Column, Row } from "@cvc/components";
-import {
-  ControlPanel,
-  ShareScreenVideo,
-  TextChat,
-  UserCard,
-} from "@cvc/features";
+import { Column, Row, ShareScreenVideo } from "@cvc/components";
 import { TextChatProvider, useAuth, useChatNetwork } from "@cvc/providers";
+import { ControlPanel, TextChat, UserCard } from "@cvc/widgets";
 
 import { StyledCard } from "./Call.styles";
 

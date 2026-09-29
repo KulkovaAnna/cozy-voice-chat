@@ -2,7 +2,7 @@ import { useEffect, useRef } from "react";
 
 import type { MediaConnection } from "peerjs";
 
-import { SpeechDetection } from "@cvc/features";
+import { SpeechDetection } from "@cvc/utils";
 
 type UseSpeechDetectionParams = {
   call: MediaConnection | null;

@@ -2,10 +2,9 @@ import {
   Avatar,
   ContextMenu,
   HorizontalSlider,
+  MenuLabel,
   MicOffIcon,
 } from "@cvc/components";
-//TODO: почему оно тянется хрен пойми откуда
-import { MenuLabel } from "@cvc/components/ContextMenu/ContextMenu.styles";
 import type { UserProfile } from "@cvc/types";
 import * as Styled from "./UserCard.styled";
 

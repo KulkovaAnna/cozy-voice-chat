@@ -1,4 +1,4 @@
-import { AccountIcon, ThemeIcon } from "@cvc/components/Icons";
+import { AccountIcon, ThemeIcon } from "@cvc/components";
 import { CustomizationTab, PersonalizationTab } from "./components";
 import type { TabConfig } from "./types";
 

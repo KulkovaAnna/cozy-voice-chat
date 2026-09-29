@@ -1,11 +1,11 @@
 import { useMemo } from "react";
 
-import { Card, Column, LobbyRow } from "@cvc/components";
+import { Card, Column } from "@cvc/components";
+import { AcceptCallModal, WaitCallModal } from "@cvc/features";
 import { useAuth, useChatNetwork } from "@cvc/providers";
 import type { UserProfile } from "@cvc/types";
 import { Navigate } from "react-router";
-import { AcceptCallModal } from "../AcceptCallModal";
-import { WaitCallModal } from "../WaitCallModal";
+import { LobbyRow } from "./ui/LobbyRow";
 
 export function Lobby() {
   const { lobbyMembers, callInfo } = useChatNetwork();
