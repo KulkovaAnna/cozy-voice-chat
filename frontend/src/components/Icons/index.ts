@@ -4,6 +4,7 @@ export * from "./BackArrowIcon";
 export * from "./BurgerMenuIcon";
 export * from "./CallIcon";
 export * from "./ChatIcon";
+export * from "./ChevronUpIcon";
 export * from "./CloseIcon";
 export * from "./DownLoadFileIcon";
 export * from "./EditIcon";

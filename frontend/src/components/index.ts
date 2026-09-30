@@ -14,3 +14,4 @@ export { Row } from "./Row";
 export * from "./ShareScreenVideo";
 export * from "./SidePanel";
 export * from "./Slider";
+export * from "./Select";
