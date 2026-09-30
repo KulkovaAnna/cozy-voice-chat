@@ -1,5 +1,9 @@
-import { AccountIcon, ThemeIcon } from "@cvc/components";
-import { CustomizationTab, PersonalizationTab } from "./components";
+import { AccountIcon, MicOnIcon, ThemeIcon } from "@cvc/components";
+import {
+  CustomizationTab,
+  MicrophoneTab,
+  PersonalizationTab,
+} from "./components";
 import type { TabConfig } from "./types";
 
 export const TABS: TabConfig[] = [
@@ -16,5 +20,12 @@ export const TABS: TabConfig[] = [
     description: "Кастомизация вашего приложения",
     Component: CustomizationTab,
     Icon: ThemeIcon,
+  },
+  {
+    id: "microphone",
+    label: "Микрофон",
+    description: "Настройки устройства ввода голоса",
+    Component: MicrophoneTab,
+    Icon: MicOnIcon,
   },
 ];

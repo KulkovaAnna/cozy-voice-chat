@@ -1,4 +1,4 @@
-export type Tab = "customization" | "personalization";
+export type Tab = "customization" | "microphone" | "personalization";
 
 export interface TabConfig {
   id: Tab;

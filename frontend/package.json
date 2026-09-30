@@ -8,6 +8,8 @@
     "build": "tsc -b && vite build",
     "lint": "eslint .",
     "preview": "vite preview --host",
+    "test": "vitest run",
+    "test:watch": "vitest",
     "peerServer:start": "npx peerjs --port 9000 --path /peerjs --sslkey ../cert/192.168.31.231-key.pem --sslcert ../cert/192.168.31.231.pem"
   },
   "dependencies": {
@@ -39,6 +41,7 @@
     "globals": "^16.5.0",
     "typescript": "~5.9.3",
     "typescript-eslint": "^8.46.4",
-    "vite": "^7.2.4"
+    "vite": "^7.2.4",
+    "vitest": "^2.1.9"
   }
 }

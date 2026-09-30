@@ -6,11 +6,13 @@ import { SpeechDetection } from "@cvc/utils";
 
 type UseSpeechDetectionParams = {
   call: MediaConnection | null;
+  localAudioStream: MediaStream | null;
   onSpeakingChange: (isSpeaking: boolean) => void;
 };
 
 export function useSpeechDetection({
   call,
+  localAudioStream,
   onSpeakingChange,
 }: UseSpeechDetectionParams) {
   const speechDetection = useRef<SpeechDetection | null>(null);
@@ -22,7 +24,9 @@ export function useSpeechDetection({
   }, [onSpeakingChange]);
 
   useEffect(() => {
-    if (!call) {
+    const stream = localAudioStream ?? call?.localStream ?? null;
+
+    if (!call || !stream) {
       if (speechDetection.current) {
         speechDetection.current.stop();
         speechDetection.current = null;
@@ -37,13 +41,11 @@ export function useSpeechDetection({
       });
     }
 
-    if (call.localStream) {
-      speechDetection.current.start(call.localStream);
-    }
+    speechDetection.current.start(stream);
 
     return () => {
       speechDetection.current?.stop();
       speechDetection.current = null;
     };
-  }, [call]);
+  }, [call, localAudioStream]);
 }

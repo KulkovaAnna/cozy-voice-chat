@@ -1,6 +1,9 @@
 import Peer, { type MediaConnection } from "peerjs";
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { toast } from "react-toastify";
+
+import { buildAudioConstraints, DEFAULT_DEVICE_ID } from "@cvc/utils";
+import { get, subscribe } from "@cvc/utils/settingsStore";
 
 export type CallKind = "audio" | "screen";
 
@@ -10,12 +13,23 @@ export interface PeerCall {
   remoteStream: MediaStream | null;
 }
 
+function getLocalAudioStream(): Promise<MediaStream> {
+  return navigator.mediaDevices.getUserMedia({
+    audio: buildAudioConstraints(
+      get().audio.inputDeviceId ?? DEFAULT_DEVICE_ID,
+    ),
+  });
+}
+
 export function usePeer() {
   const peer = useRef<Peer | undefined>(undefined);
   const callRef = useRef<MediaConnection | null>(null);
   const screenCallRef = useRef<MediaConnection | null>(null);
 
   const [currentCall, setCurrentCall] = useState<MediaConnection | null>(null);
+  const [localAudioStream, setLocalAudioStream] = useState<MediaStream | null>(
+    null,
+  );
   const [localScreenStream, setLocalScreenStream] =
     useState<MediaStream | null>(null);
   const [remoteScreenStream, setRemoteScreenStream] =
@@ -61,10 +75,10 @@ export function usePeer() {
       }
 
       // Обычный аудио-звонок
-      navigator.mediaDevices
-        .getUserMedia({ audio: true })
+      getLocalAudioStream()
         .then((stream) => {
           call.answer(stream);
+          setLocalAudioStream(stream);
           handleCall(call);
         })
         .catch((err) => console.error("Failed to get local stream", err));
@@ -72,12 +86,15 @@ export function usePeer() {
   }
 
   function callToUser(userId: string) {
-    navigator.mediaDevices.getUserMedia({ audio: true }).then((stream) => {
-      const call = peer.current?.call(userId, stream, {
-        metadata: { kind: "audio" },
-      });
-      if (call) handleCall(call);
-    });
+    getLocalAudioStream()
+      .then((stream) => {
+        setLocalAudioStream(stream);
+        const call = peer.current?.call(userId, stream, {
+          metadata: { kind: "audio" },
+        });
+        if (call) handleCall(call);
+      })
+      .catch((err) => console.error("Failed to get local stream", err));
   }
 
   function handleCall(call: MediaConnection) {
@@ -184,12 +201,58 @@ export function usePeer() {
     });
   }
 
+  // Меняем микрофон «на лету» в активном звонке: берём новый трек и подменяем
+  // его у RTCRtpSender (без re-negotiation), старый останавливаем.
+  const switchInputDevice = useCallback(async (deviceId: string) => {
+    const call = callRef.current;
+    const sender = call?.peerConnection
+      ?.getSenders()
+      .find((s) => s.track?.kind === "audio");
+
+    if (!call || !sender) return;
+
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({
+        audio: buildAudioConstraints(deviceId),
+      });
+      const newTrack = stream.getAudioTracks()[0];
+
+      if (!newTrack) return;
+
+      const previousEnabled = sender.track?.enabled ?? true;
+
+      await sender.replaceTrack(newTrack);
+      newTrack.enabled = previousEnabled;
+
+      // Новый локальный трек — обновляем стрим, чтобы подписчики (распознавание
+      // речи) переподписались на него.
+      setLocalAudioStream(new MediaStream([newTrack]));
+
+      const oldTrack = sender.track;
+
+      if (oldTrack && oldTrack !== newTrack) {
+        oldTrack.stop();
+      }
+    } catch (err) {
+      console.error("Failed to switch input device", err);
+    }
+  }, []);
+
+  // При смене устройства в настройках — переприменяем трек активного звонка
+  useEffect(() => {
+    return subscribe((settings) => {
+      void switchInputDevice(settings.audio.inputDeviceId ?? DEFAULT_DEVICE_ID);
+    });
+  }, [switchInputDevice]);
+
   function endCall() {
     callRef.current?.localStream
       ?.getAudioTracks()
       .forEach((track) => track.stop());
+    localAudioStream?.getTracks().forEach((track) => track.stop());
     callRef.current?.close();
     callRef.current = null;
+    setLocalAudioStream(null);
     setCurrentCall(null);
 
     // При завершении звонка — заодно гасим шаринг, если был
@@ -198,10 +261,12 @@ export function usePeer() {
 
   return {
     call: currentCall,
+    localAudioStream,
     callToUser,
     initialize,
     endCall,
     switchMicState,
+    switchInputDevice,
     startScreenShare,
     stopScreenShare,
     localScreenStream,

@@ -28,6 +28,7 @@ export function ChatNetworkProvider(props: PropsWithChildren) {
 
   const {
     call,
+    localAudioStream,
     localScreenStream,
     remoteScreenStream,
     initialize,
@@ -78,6 +79,7 @@ export function ChatNetworkProvider(props: PropsWithChildren) {
 
   useSpeechDetection({
     call,
+    localAudioStream,
     onSpeakingChange: callHook.changeIsSpeakingState,
   });
 
