@@ -1,4 +1,5 @@
 import { useState, type ReactNode } from "react";
+import { useSearchParams } from "react-router";
 
 import {
   BackArrowIcon,
@@ -18,14 +19,24 @@ interface SettingsPanelProps {
 
 export const SettingsPanel = ({ onClose }: SettingsPanelProps) => {
   const theme = useTheme();
-  const [activeTab, setActiveTab] = useState<Tab>(TABS[0].id);
+  const [searchParams, setSearchParams] = useSearchParams();
   const [isMenuOpen, setIsMenuOpen] = useState(false);
+
+  const activeTab = (searchParams.get("tab") as Tab) || TABS[0].id;
 
   const activeTabInfo = TABS.find((t) => t.id === activeTab) || TABS[0];
 
   const selectTab = (id: Tab) => {
-    setActiveTab(id);
+    searchParams.set("tab", id);
+    setSearchParams(searchParams);
     setIsMenuOpen(false);
+  };
+
+  const handleClose = () => {
+    searchParams.delete("tab");
+    searchParams.delete("settings");
+    setSearchParams(searchParams);
+    onClose();
   };
 
   const navItems: ReactNode = TABS.map(({ id, label, Icon }) => (
@@ -44,7 +55,7 @@ export const SettingsPanel = ({ onClose }: SettingsPanelProps) => {
       <Styled.Content>
         <Styled.Nav>
           <Styled.Title>
-            <Styled.BackButton onClick={onClose}>
+            <Styled.BackButton onClick={handleClose}>
               <BackArrowIcon />
             </Styled.BackButton>
             Настройки
@@ -53,7 +64,7 @@ export const SettingsPanel = ({ onClose }: SettingsPanelProps) => {
         </Styled.Nav>
         <Styled.MobileHeader>
           <Styled.Title>
-            <Styled.BackButton onClick={onClose}>
+            <Styled.BackButton onClick={handleClose}>
               <BackArrowIcon />
             </Styled.BackButton>
             Настройки
