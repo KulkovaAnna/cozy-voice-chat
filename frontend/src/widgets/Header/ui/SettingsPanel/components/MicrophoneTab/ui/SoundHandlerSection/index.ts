@@ -1,0 +1,1 @@
+export { SoundHandlerSection } from "./SoundHandlerSection";

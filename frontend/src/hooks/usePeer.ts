@@ -14,9 +14,11 @@ export interface PeerCall {
 }
 
 function getLocalAudioStream(): Promise<MediaStream> {
+  const store = get();
   return navigator.mediaDevices.getUserMedia({
     audio: buildAudioConstraints(
-      get().audio.inputDeviceId ?? DEFAULT_DEVICE_ID,
+      store.audio.inputDeviceId ?? DEFAULT_DEVICE_ID,
+      store.audio,
     ),
   });
 }
@@ -201,47 +203,57 @@ export function usePeer() {
     });
   }
 
-  // Меняем микрофон «на лету» в активном звонке: берём новый трек и подменяем
-  // его у RTCRtpSender (без re-negotiation), старый останавливаем.
-  const switchInputDevice = useCallback(async (deviceId: string) => {
+  const switchInputDevice = useCallback(async () => {
     const call = callRef.current;
     const sender = call?.peerConnection
       ?.getSenders()
       .find((s) => s.track?.kind === "audio");
 
-    if (!call || !sender) return;
+    if (!call || !sender?.track) return;
+
+    const { audio } = get();
+    const oldTrack = sender.track;
+    const previousEnabled = oldTrack.enabled;
 
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({
-        audio: buildAudioConstraints(deviceId),
-      });
-      const newTrack = stream.getAudioTracks()[0];
+      oldTrack.stop();
 
+      const stream = await navigator.mediaDevices.getUserMedia({
+        audio: buildAudioConstraints(
+          audio.inputDeviceId ?? DEFAULT_DEVICE_ID,
+          audio,
+        ),
+      });
+
+      const newTrack = stream.getAudioTracks()[0];
       if (!newTrack) return;
 
-      const previousEnabled = sender.track?.enabled ?? true;
-
-      await sender.replaceTrack(newTrack);
       newTrack.enabled = previousEnabled;
-
-      // Новый локальный трек — обновляем стрим, чтобы подписчики (распознавание
-      // речи) переподписались на него.
+      await sender.replaceTrack(newTrack);
       setLocalAudioStream(new MediaStream([newTrack]));
-
-      const oldTrack = sender.track;
-
-      if (oldTrack && oldTrack !== newTrack) {
-        oldTrack.stop();
-      }
     } catch (err) {
-      console.error("Failed to switch input device", err);
+      console.error("Failed to re-apply audio settings", err);
+      // Фолбэк: не дали выбранное устройство/констрейнты — хотя бы вернём звук
+      try {
+        const fallback = await navigator.mediaDevices.getUserMedia({
+          audio: true,
+        });
+        const track = fallback.getAudioTracks()[0];
+        if (track) {
+          track.enabled = previousEnabled;
+          await sender.replaceTrack(track);
+          setLocalAudioStream(new MediaStream([track]));
+        }
+      } catch (fallbackErr) {
+        console.error("Fallback getUserMedia failed", fallbackErr);
+      }
     }
   }, []);
 
   // При смене устройства в настройках — переприменяем трек активного звонка
   useEffect(() => {
-    return subscribe((settings) => {
-      void switchInputDevice(settings.audio.inputDeviceId ?? DEFAULT_DEVICE_ID);
+    return subscribe(() => {
+      void switchInputDevice();
     });
   }, [switchInputDevice]);
 

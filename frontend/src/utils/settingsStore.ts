@@ -32,6 +32,18 @@ export function migrate(raw: AppSettings | null): AppSettings {
       typeof raw.audio?.inputDeviceId === "string"
         ? raw.audio.inputDeviceId
         : null,
+    noiseSuppression:
+      typeof raw.audio?.noiseSuppression === "boolean"
+        ? raw.audio.noiseSuppression
+        : DEFAULT_SETTINGS.audio.noiseSuppression,
+    echoCancellation:
+      typeof raw.audio?.echoCancellation === "boolean"
+        ? raw.audio.echoCancellation
+        : DEFAULT_SETTINGS.audio.echoCancellation,
+    autoGainControl:
+      typeof raw.audio?.autoGainControl === "boolean"
+        ? raw.audio.autoGainControl
+        : DEFAULT_SETTINGS.audio.autoGainControl,
   };
 
   return {

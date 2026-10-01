@@ -15,3 +15,4 @@ export * from "./ShareScreenVideo";
 export * from "./SidePanel";
 export * from "./Slider";
 export * from "./Select";
+export * from "./Toggle";

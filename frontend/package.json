@@ -10,7 +10,7 @@
     "preview": "vite preview --host",
     "test": "vitest run",
     "test:watch": "vitest",
-    "peerServer:start": "npx peerjs --port 9000 --path /peerjs --sslkey ../cert/192.168.31.231-key.pem --sslcert ../cert/192.168.31.231.pem"
+    "ps:start": "npx peerjs --port 9000 --path /peerjs --sslkey ../cert/192.168.31.231-key.pem --sslcert ../cert/192.168.31.231.pem"
   },
   "dependencies": {
     "@emotion/react": "^11.14.0",

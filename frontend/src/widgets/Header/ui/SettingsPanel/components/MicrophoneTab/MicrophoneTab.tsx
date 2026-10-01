@@ -1,47 +1,39 @@
-import { Button, Select } from "@cvc/components";
 import { useMicrophones, useSettingActions, useSettings } from "@cvc/hooks";
 
+import { Delimiter } from "../../SettingsPanel.styled";
+import { Section } from "../Section";
 import * as Styles from "./MicrophoneTab.styles";
+import { MicSelectSection, SoundHandlerSection } from "./ui";
 
 export const MicrophoneTab = () => {
-  const selectedId = useSettings().audio.inputDeviceId;
-  const { setInputDeviceId } = useSettingActions();
-  const { devices, permission, requestPermission } = useMicrophones(selectedId);
+  const { inputDeviceId, noiseSuppression, echoCancellation, autoGainControl } =
+    useSettings().audio;
+  const { setInputDeviceId, setAudio } = useSettingActions();
+  const { devices, permission, requestPermission } =
+    useMicrophones(inputDeviceId);
 
   return (
     <Styles.Block>
-      <Styles.Hint>
-        {permission === "denied"
-          ? "Нет доступа к микрофону. Разрешите доступ в браузере, чтобы выбрать устройство."
-          : "Выберите устройство, которое будет использоваться в голосовом чате"}
-      </Styles.Hint>
+      <Section title="Устройство записи звука">
+        <MicSelectSection
+          devices={devices}
+          inputDeviceId={inputDeviceId}
+          onChange={setInputDeviceId}
+          permission={permission}
+          onRequestPermission={requestPermission}
+        />
+      </Section>
 
-      <Select
-        value={selectedId ?? "auto"}
-        onChange={setInputDeviceId}
-        disabled={devices.length === 0}
-        aria-label="Микрофон"
-        options={
-          devices.length === 0
-            ? [{ value: "default", label: "Устройства не найдены" }]
-            : [
-                { value: "auto", label: "Автовыбор (системный микрофон)" },
-                ...devices.map((device) => ({
-                  value: device.deviceId,
-                  label:
-                    device.label || `Микрофон ${device.deviceId.slice(0, 6)}`,
-                })),
-              ]
-        }
-      />
+      <Delimiter />
 
-      {permission !== "granted" && (
-        <Styles.Actions>
-          <Button variant="secondary" onClick={requestPermission}>
-            Разрешить доступ
-          </Button>
-        </Styles.Actions>
-      )}
+      <Section title="Обработка звука">
+        <SoundHandlerSection
+          autoGainControl={autoGainControl}
+          echoCancellation={echoCancellation}
+          noiseSuppression={noiseSuppression}
+          onChange={setAudio}
+        />
+      </Section>
     </Styles.Block>
   );
 };

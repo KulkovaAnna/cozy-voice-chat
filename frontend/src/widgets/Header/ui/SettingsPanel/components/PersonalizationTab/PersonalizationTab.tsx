@@ -4,6 +4,7 @@ import { useAuth } from "@cvc/providers";
 import { useTheme } from "@emotion/react";
 import { Delimiter } from "../../SettingsPanel.styled";
 import * as Styled from "./PersonalizationTab.styles";
+import { Section } from "../Section";
 
 export const PersonalizationTab = () => {
   const { user, updateUser } = useAuth();
@@ -15,33 +16,34 @@ export const PersonalizationTab = () => {
 
   return (
     <>
-      <Styled.AvatarRow>
-        <Styled.Row>
-          <Styled.AvatarPreview>
-            <Avatar src={user.avatar} size={80} />
-          </Styled.AvatarPreview>
-          <Styled.Block>
-            <h4>Аватар профиля</h4>
-            <Styled.SubText>PNG, JPG, GIF</Styled.SubText>
-          </Styled.Block>
-        </Styled.Row>
-        <Styled.Row>
-          <AvatarChanger />
-          <Styled.DeleteButton
-            onClick={deleteAvatar}
-            variant={theme.colors.status.error}
-          >
-            Удалить
-          </Styled.DeleteButton>
-        </Styled.Row>
-      </Styled.AvatarRow>
+      <Section title="Аватар">
+        <Styled.AvatarRow>
+          <Styled.Row>
+            <Styled.AvatarPreview>
+              <Avatar src={user.avatar} size={80} />
+            </Styled.AvatarPreview>
+            <Styled.Block>
+              <h4>Аватар профиля</h4>
+              <Styled.SubText>PNG, JPG, GIF</Styled.SubText>
+            </Styled.Block>
+          </Styled.Row>
+          <Styled.Row>
+            <AvatarChanger />
+            <Styled.DeleteButton
+              onClick={deleteAvatar}
+              variant={theme.colors.status.error}
+            >
+              Удалить
+            </Styled.DeleteButton>
+          </Styled.Row>
+        </Styled.AvatarRow>
+      </Section>
+
       <Delimiter />
-      <Styled.Row>
-        <Styled.Block>
-          <h4>Имя</h4>
-          <EditableNickname />
-        </Styled.Block>
-      </Styled.Row>
+
+      <Section title="Имя">
+        <EditableNickname />
+      </Section>
     </>
   );
 };

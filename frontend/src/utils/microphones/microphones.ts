@@ -51,12 +51,14 @@ export function hasPermissionFromDevices(devices: AudioDevice[]): boolean {
   return devices.some((device) => device.deviceId.length > 0);
 }
 
+import { get } from "../settingsStore";
+
 export async function playMicrophoneTest(
   deviceId: string,
   durationMs = 1200,
 ): Promise<void> {
   const stream = await navigator.mediaDevices.getUserMedia({
-    audio: buildAudioConstraints(deviceId),
+    audio: buildAudioConstraints(deviceId, get().audio),
   });
 
   try {
@@ -103,23 +105,25 @@ async function playBlob(blob: Blob): Promise<void> {
   source.start();
 }
 
-export function buildAudioConstraints(deviceId: string): MediaTrackConstraints {
+export function buildAudioConstraints(
+  deviceId: string,
+  audio: {
+    noiseSuppression: boolean;
+    echoCancellation: boolean;
+    autoGainControl: boolean;
+  },
+): MediaTrackConstraints {
+  const base: MediaTrackConstraints = {
+    noiseSuppression: audio.noiseSuppression,
+    echoCancellation: audio.echoCancellation,
+    autoGainControl: audio.autoGainControl,
+  };
+
   if (deviceId === DEFAULT_DEVICE_ID) {
-    return {
-      // TODO: на будущее, когда будем добавлять настройки шумодава
-      // autoGainControl: false,
-      // echoCancellation: true,
-      // noiseSuppression: false,
-    };
+    return base;
   }
 
-  return {
-    // TODO: на будущее, когда будем добавлять настройки шумодава
-    // autoGainControl: false,
-    // deviceId: { exact: deviceId },
-    // echoCancellation: true,
-    // noiseSuppression: false,
-  };
+  return { ...base, deviceId: { exact: deviceId } };
 }
 
 export function getPreferredDevice(devices: AudioDevice[]): AudioDevice | null {

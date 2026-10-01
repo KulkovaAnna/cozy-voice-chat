@@ -77,8 +77,14 @@ describe("getAudioDevices", () => {
 });
 
 describe("buildAudioConstraints", () => {
+  const audio = {
+    noiseSuppression: false,
+    echoCancellation: true,
+    autoGainControl: false,
+  };
+
   it("returns plain constraints for the default device", () => {
-    expect(buildAudioConstraints("default")).toEqual({
+    expect(buildAudioConstraints("default", audio)).toEqual({
       autoGainControl: false,
       echoCancellation: true,
       noiseSuppression: false,
@@ -86,7 +92,7 @@ describe("buildAudioConstraints", () => {
   });
 
   it("pins the exact deviceId for a concrete device", () => {
-    expect(buildAudioConstraints("mic-1")).toEqual({
+    expect(buildAudioConstraints("mic-1", audio)).toEqual({
       autoGainControl: false,
       deviceId: { exact: "mic-1" },
       echoCancellation: true,
