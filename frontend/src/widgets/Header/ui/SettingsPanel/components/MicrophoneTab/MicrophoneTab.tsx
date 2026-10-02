@@ -1,6 +1,6 @@
 import { useMicrophones, useSettingActions, useSettings } from "@cvc/hooks";
 
-import { Delimiter } from "../../SettingsPanel.styled";
+import { Delimiter } from "@cvc/components";
 import { Section } from "../Section";
 import * as Styles from "./MicrophoneTab.styles";
 import { MicSelectSection, SoundHandlerSection } from "./ui";

@@ -9,7 +9,7 @@ import {
   UnreadMessageIcon,
 } from "@cvc/components";
 import { useChatNetwork, useTextChat } from "@cvc/providers";
-import * as Styled from "./ControlPanel.styled";
+import * as Styles from "./ControlPanel.styles";
 
 export interface ControlPanelProps {
   compact?: boolean;
@@ -36,7 +36,7 @@ export const ControlPanel = (props: ControlPanelProps) => {
   };
 
   return (
-    <Styled.ControlPanel compact={props.compact}>
+    <Styles.ControlPanel compact={props.compact}>
       <IconButton
         icon={isMyUserMuted ? <MicOffIcon /> : <MicOnIcon />}
         onClick={handleMicState}
@@ -58,6 +58,6 @@ export const ControlPanel = (props: ControlPanelProps) => {
         }
       />
       <IconButton icon={<EndCallIcon />} variant="error" onClick={handleExit} />
-    </Styled.ControlPanel>
+    </Styles.ControlPanel>
   );
 };

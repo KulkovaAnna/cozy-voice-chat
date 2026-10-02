@@ -5,7 +5,7 @@ import { Column, Row, ShareScreenVideo } from "@cvc/components";
 import { TextChatProvider, useAuth, useChatNetwork } from "@cvc/providers";
 import { ControlPanel, TextChat, UserCard } from "@cvc/widgets";
 
-import { StyledCard } from "./Call.styles";
+import * as Styles from "./Call.styles";
 
 export const Call = () => {
   const navigate = useNavigate();
@@ -59,9 +59,9 @@ export const Call = () => {
   return (
     <TextChatProvider>
       <Column>
-        <StyledCard $compact={!!screenSharing}>
+        <Styles.StyledCard $compact={!!screenSharing}>
           <UserCards>{userCards}</UserCards>
-        </StyledCard>
+        </Styles.StyledCard>
         <audio ref={audioRef} id="user-voice" />
         <ControlPanel compact={!!screenSharing} />
         <TextChat />

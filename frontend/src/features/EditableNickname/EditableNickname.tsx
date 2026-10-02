@@ -4,7 +4,7 @@ import { useForm } from "react-hook-form";
 import { EditIcon, IconButton, SaveIcon } from "@cvc/components";
 import { useAuth } from "@cvc/providers";
 
-import * as Styled from "./EditableNickname.styled";
+import * as Styles from "./EditableNickname.styles";
 
 type EditableNicknameProps = InputHTMLAttributes<
   HTMLInputElement | HTMLTextAreaElement
@@ -46,8 +46,8 @@ export const EditableNickname = ({ ...props }: EditableNicknameProps) => {
 
   return (
     name && (
-      <Styled.Form onSubmit={handleSubmit(submit, handleError)}>
-        <Styled.EditableNickname
+      <Styles.Form onSubmit={handleSubmit(submit, handleError)}>
+        <Styles.EditableNickname
           disabled={!isEdit}
           {...props}
           {...register("name", { required: true })}
@@ -57,7 +57,7 @@ export const EditableNickname = ({ ...props }: EditableNicknameProps) => {
           type={isEdit ? "button" : "submit"}
           icon={isEdit ? <SaveIcon /> : <EditIcon />}
         />
-      </Styled.Form>
+      </Styles.Form>
     )
   );
 };

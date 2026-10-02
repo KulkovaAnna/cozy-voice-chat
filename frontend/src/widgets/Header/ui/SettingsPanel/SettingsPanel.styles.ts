@@ -111,13 +111,6 @@ export const SectionHeader = styled.div(({ theme }) => ({
   gap: parseInt(theme.spacing.layout.small) / 4,
 }));
 
-export const Delimiter = styled.div(({ theme }) => ({
-  height: "1px",
-  backgroundColor: theme.colors.text.secondary,
-  width: "100%",
-  borderRadius: theme.borderRadius.medium,
-}));
-
 export const SectionTitle = styled.h3(({ theme }) => ({
   margin: 0,
   color: theme.colors.text.primary,

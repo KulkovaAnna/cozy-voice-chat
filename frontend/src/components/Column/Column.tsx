@@ -1,4 +1,4 @@
-import * as Styled from "./Column.styled";
+import * as Styles from "./Column.styles";
 
 interface ColumnProps {
   align?: "flex-start" | "center" | "flex-end";
@@ -8,8 +8,8 @@ interface ColumnProps {
 
 export const Column = ({ align, hasLine, children }: ColumnProps) => {
   return (
-    <Styled.Column align={align} hasLine={hasLine}>
+    <Styles.Column align={align} hasLine={hasLine}>
       {children}
-    </Styled.Column>
+    </Styles.Column>
   );
 };

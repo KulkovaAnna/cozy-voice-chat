@@ -1,7 +1,7 @@
 import { IconButton, Input, SaveIcon } from "@cvc/components";
 import { useAuth } from "@cvc/providers";
 import { useForm } from "react-hook-form";
-import * as Styled from "./AvatarChanger.styled";
+import * as Styles from "./AvatarChanger.styles";
 
 interface FormData {
   avatar: string;
@@ -16,12 +16,12 @@ export const AvatarChanger = () => {
   };
 
   return (
-    <Styled.FormRow onSubmit={handleSubmit(submit)}>
+    <Styles.FormRow onSubmit={handleSubmit(submit)}>
       <Input
         placeholder="Новый URL аватара..."
         {...register("avatar", { required: true })}
       />
       <IconButton icon={<SaveIcon />} type="submit" />
-    </Styled.FormRow>
+    </Styles.FormRow>
   );
 };

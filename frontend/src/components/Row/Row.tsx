@@ -1,10 +1,10 @@
 import type { PropsWithChildren } from "react";
-import * as Styled from "./Row.styled";
+import * as Styles from "./Row.styles";
 
 interface RowProps {
   withScroll?: boolean;
 }
 
 export const Row = ({ children, withScroll }: PropsWithChildren<RowProps>) => {
-  return <Styled.Row $withScroll={withScroll}>{children}</Styled.Row>;
+  return <Styles.Row $withScroll={withScroll}>{children}</Styles.Row>;
 };

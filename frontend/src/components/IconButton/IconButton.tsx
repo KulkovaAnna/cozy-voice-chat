@@ -1,5 +1,5 @@
 import React, { type JSX } from "react";
-import * as Styled from "./IconButton.styled";
+import * as Styles from "./IconButton.styles";
 
 export type ButtonVariant = "primary" | "secondary" | "error";
 interface IconButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
@@ -13,8 +13,8 @@ export const IconButton = ({
   ...props
 }: IconButtonProps) => {
   return (
-    <Styled.IconButton variant={variant} {...props}>
+    <Styles.IconButton variant={variant} {...props}>
       {icon}
-    </Styled.IconButton>
+    </Styles.IconButton>
   );
 };

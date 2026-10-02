@@ -1,5 +1,5 @@
 import { forwardRef, type ForwardedRef, type InputHTMLAttributes } from "react";
-import * as Styled from "./Input.styled";
+import * as Styles from "./Input.styles";
 
 type InputProps = InputHTMLAttributes<HTMLInputElement> &
   InputHTMLAttributes<HTMLTextAreaElement> & {
@@ -11,11 +11,11 @@ export const Input = forwardRef<
   InputProps
 >(({ isTextarea, ...props }, ref) => {
   return isTextarea ? (
-    <Styled.Textarea
+    <Styles.Textarea
       ref={ref as ForwardedRef<HTMLTextAreaElement>}
       {...props}
     />
   ) : (
-    <Styled.Input ref={ref as ForwardedRef<HTMLInputElement>} {...props} />
+    <Styles.Input ref={ref as ForwardedRef<HTMLInputElement>} {...props} />
   );
 });

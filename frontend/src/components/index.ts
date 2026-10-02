@@ -4,6 +4,7 @@ export { Button } from "./Button";
 export { Card } from "./Card";
 export { Column } from "./Column";
 export * from "./ContextMenu";
+export { Delimiter } from "./Delimiter";
 export * from "./FileInfo";
 export { Form } from "./Form";
 export { IconButton, type ButtonVariant } from "./IconButton";

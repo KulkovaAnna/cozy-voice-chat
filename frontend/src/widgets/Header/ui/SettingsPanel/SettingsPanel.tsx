@@ -4,12 +4,13 @@ import { useSearchParams } from "react-router";
 import {
   BackArrowIcon,
   BurgerMenuIcon,
+  Delimiter,
   IconButton,
   SidePanel,
 } from "@cvc/components";
 import { useTheme } from "@emotion/react";
 
-import * as Styled from "./SettingsPanel.styled";
+import * as Styles from "./SettingsPanel.styles";
 import { TABS } from "./constants";
 import type { Tab } from "./types";
 
@@ -40,36 +41,36 @@ export const SettingsPanel = ({ onClose }: SettingsPanelProps) => {
   };
 
   const navItems: ReactNode = TABS.map(({ id, label, Icon }) => (
-    <Styled.NavItem
+    <Styles.NavItem
       key={id}
       active={activeTab === id}
       onClick={() => selectTab(id)}
     >
       <Icon />
       {label}
-    </Styled.NavItem>
+    </Styles.NavItem>
   ));
 
   return (
-    <Styled.Overlay role="dialog" aria-modal="true" aria-label="Настройки">
-      <Styled.Content>
-        <Styled.Nav>
-          <Styled.Title>
-            <Styled.BackButton onClick={handleClose}>
+    <Styles.Overlay role="dialog" aria-modal="true" aria-label="Настройки">
+      <Styles.Content>
+        <Styles.Nav>
+          <Styles.Title>
+            <Styles.BackButton onClick={handleClose}>
               <BackArrowIcon />
-            </Styled.BackButton>
+            </Styles.BackButton>
             Настройки
-          </Styled.Title>
+          </Styles.Title>
           {navItems}
-        </Styled.Nav>
-        <Styled.MobileHeader>
-          <Styled.Title>
-            <Styled.BackButton onClick={handleClose}>
+        </Styles.Nav>
+        <Styles.MobileHeader>
+          <Styles.Title>
+            <Styles.BackButton onClick={handleClose}>
               <BackArrowIcon />
-            </Styled.BackButton>
+            </Styles.BackButton>
             Настройки
-          </Styled.Title>
-          <Styled.MenuButton>
+          </Styles.Title>
+          <Styles.MenuButton>
             <IconButton
               icon={<BurgerMenuIcon />}
               aria-label="Меню настроек"
@@ -77,30 +78,30 @@ export const SettingsPanel = ({ onClose }: SettingsPanelProps) => {
               aria-expanded={isMenuOpen}
               onClick={() => setIsMenuOpen(true)}
             />
-          </Styled.MenuButton>
-        </Styled.MobileHeader>
-        <Styled.Section>
-          <Styled.SectionHeader>
-            <Styled.SectionTitle>{activeTabInfo.label}</Styled.SectionTitle>
-            <Styled.SectionDescription>
+          </Styles.MenuButton>
+        </Styles.MobileHeader>
+        <Styles.Section>
+          <Styles.SectionHeader>
+            <Styles.SectionTitle>{activeTabInfo.label}</Styles.SectionTitle>
+            <Styles.SectionDescription>
               {activeTabInfo.description}
-            </Styled.SectionDescription>
-          </Styled.SectionHeader>
-          <Styled.Delimiter />
+            </Styles.SectionDescription>
+          </Styles.SectionHeader>
+          <Delimiter />
           <activeTabInfo.Component />
-        </Styled.Section>
-      </Styled.Content>
+        </Styles.Section>
+      </Styles.Content>
       <SidePanel
         isOpen={isMenuOpen}
         onClose={() => setIsMenuOpen(false)}
         zIndex={theme.zIndex.modal + 1}
         noTopOffset
       >
-        <Styled.SideNav>
-          <Styled.Title>Настройки</Styled.Title>
+        <Styles.SideNav>
+          <Styles.Title>Настройки</Styles.Title>
           {navItems}
-        </Styled.SideNav>
+        </Styles.SideNav>
       </SidePanel>
-    </Styled.Overlay>
+    </Styles.Overlay>
   );
 };

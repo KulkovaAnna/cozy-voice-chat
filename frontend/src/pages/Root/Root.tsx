@@ -1,15 +1,15 @@
 import { Outlet } from "react-router";
 
 import { Header } from "@cvc/widgets";
-import { MainContainer } from "./Root.styled";
+import * as Styles from "./Root.styles";
 
 export const Root = () => {
   return (
     <>
       <Header />
-      <MainContainer>
+      <Styles.MainContainer>
         <Outlet />
-      </MainContainer>
+      </Styles.MainContainer>
     </>
   );
 };

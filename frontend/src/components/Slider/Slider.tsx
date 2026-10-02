@@ -1,5 +1,5 @@
 import { useRef, useState, useCallback, useEffect } from "react";
-import { SliderContainer, Track, Thumb } from "./Slider.styles";
+import * as Styles from "./Slider.styles";
 
 interface HorizontalSliderProps {
   value: number;
@@ -99,7 +99,7 @@ export function HorizontalSlider(props: HorizontalSliderProps) {
   ]);
 
   return (
-    <SliderContainer
+    <Styles.SliderContainer
       id={props.id}
       ref={containerRef}
       style={{ width: width ?? "100%" }}
@@ -108,8 +108,8 @@ export function HorizontalSlider(props: HorizontalSliderProps) {
       className={className}
       thumbSize={thumbSize}
     >
-      <Track volume={value} />
-      <Thumb progress={progress} size={thumbSize} />
-    </SliderContainer>
+      <Styles.Track volume={value} />
+      <Styles.Thumb progress={progress} size={thumbSize} />
+    </Styles.SliderContainer>
   );
 }

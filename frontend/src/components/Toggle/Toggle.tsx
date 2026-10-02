@@ -1,10 +1,4 @@
-import {
-  ToggleContainer,
-  HiddenInput,
-  Track,
-  Thumb,
-  Label,
-} from "./Toggle.styles";
+import * as Styles from "./Toggle.styles";
 
 interface ToggleProps {
   checked: boolean;
@@ -18,18 +12,18 @@ export function Toggle(props: ToggleProps) {
   const { checked, onChange, label, disabled, id } = props;
 
   return (
-    <ToggleContainer disabled={disabled}>
-      {label && <Label>{label}</Label>}
-      <HiddenInput
+    <Styles.ToggleContainer disabled={disabled}>
+      {label && <Styles.Label>{label}</Styles.Label>}
+      <Styles.HiddenInput
         id={id}
         type="checkbox"
         checked={checked}
         disabled={disabled}
         onChange={(e) => onChange(e.target.checked)}
       />
-      <Track checked={checked}>
-        <Thumb checked={checked} />
-      </Track>
-    </ToggleContainer>
+      <Styles.Track checked={checked}>
+        <Styles.Thumb checked={checked} />
+      </Styles.Track>
+    </Styles.ToggleContainer>
   );
 }

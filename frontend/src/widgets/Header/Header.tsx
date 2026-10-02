@@ -1,7 +1,7 @@
 import { Avatar } from "@cvc/components";
 import { useAuth } from "@cvc/providers";
 import { useSearchParams } from "react-router";
-import * as Styled from "./Header.styled";
+import * as Styles from "./Header.styles";
 import { SettingsPanel } from "./ui/SettingsPanel";
 import { UserName } from "./ui/UserName";
 
@@ -25,19 +25,19 @@ export const Header = () => {
   };
 
   return (
-    <Styled.Header id="page-header">
-      <Styled.SiteLogo>
+    <Styles.Header id="page-header">
+      <Styles.SiteLogo>
         <img height={44} width={44} src="/coza.svg" />
         <h1>Cozy Voice Chat</h1>
-      </Styled.SiteLogo>
-      <Styled.RightPanel>
+      </Styles.SiteLogo>
+      <Styles.RightPanel>
         <UserName />
-        <Styled.InvisibleButton onClick={openSettings} size={40}>
+        <Styles.InvisibleButton onClick={openSettings} size={40}>
           <Avatar key="avatar" src={user.avatar} size={40} />
-        </Styled.InvisibleButton>
-      </Styled.RightPanel>
+        </Styles.InvisibleButton>
+      </Styles.RightPanel>
 
       {isSettingsOpen && <SettingsPanel onClose={closeSettings} />}
-    </Styled.Header>
+    </Styles.Header>
   );
 };

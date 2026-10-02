@@ -3,7 +3,7 @@ import { createPortal } from "react-dom";
 
 import { useClickOutside } from "@cvc/hooks/useClickOutside";
 
-import { MenuContainer, TriggerContainer } from "./ContextMenu.styles";
+import * as Styles from "./ContextMenu.styles";
 
 interface ContextMenuProps {
   children: React.ReactNode;
@@ -37,21 +37,21 @@ export const ContextMenu: React.FC<ContextMenuProps> = ({
 
   return (
     <>
-      <TriggerContainer onContextMenu={handleContextMenu}>
+      <Styles.TriggerContainer onContextMenu={handleContextMenu}>
         {children}
-      </TriggerContainer>
+      </Styles.TriggerContainer>
 
       {isShow &&
         visible &&
         createPortal(
-          <MenuContainer
+          <Styles.MenuContainer
             id={id}
             x={position.x}
             y={position.y}
             onContextMenu={handlePreventDefault}
           >
             {menu}
-          </MenuContainer>,
+          </Styles.MenuContainer>,
           document.body,
         )}
     </>

@@ -3,7 +3,7 @@ import { CallButton } from "@cvc/features";
 import { useAuth } from "@cvc/providers";
 import type { UserProfile } from "@cvc/types";
 
-import * as Styled from "./LobbyRow.styled";
+import * as Styles from "./LobbyRow.styles";
 
 interface LobbyRowProps {
   currentUser: UserProfile;
@@ -12,14 +12,14 @@ interface LobbyRowProps {
 export function LobbyRow({ currentUser }: LobbyRowProps) {
   const { user } = useAuth();
   return (
-    <Styled.Container>
-      <Styled.InnerContainer>
+    <Styles.Container>
+      <Styles.InnerContainer>
         <Avatar src={currentUser.avatar} size={40} />
-        <Styled.LabelEllipsis>{currentUser.name}</Styled.LabelEllipsis>
-      </Styled.InnerContainer>
+        <Styles.LabelEllipsis>{currentUser.name}</Styles.LabelEllipsis>
+      </Styles.InnerContainer>
       {(currentUser.id && currentUser.id !== user.id && (
         <CallButton uid={currentUser.id} />
-      )) || <Styled.Label>Это&nbsp;ты</Styled.Label>}
-    </Styled.Container>
+      )) || <Styles.Label>Это&nbsp;ты</Styles.Label>}
+    </Styles.Container>
   );
 }

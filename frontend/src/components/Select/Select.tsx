@@ -1,7 +1,7 @@
 import { useEffect, useId, useMemo, useRef, useState } from "react";
 
 import { ChevronUpIcon } from "../Icons";
-import * as S from "./Select.styles";
+import * as Styles from "./Select.styles";
 import type {
   SelectBaseOption,
   SelectOption,
@@ -164,7 +164,7 @@ export const Select = ({
     const selected = option.value === value;
 
     return (
-      <S.Option
+      <Styles.Option
         key={option.value}
         id={`${listId}-option-${index}`}
         role="option"
@@ -176,13 +176,13 @@ export const Select = ({
         onClick={() => commitOption(option)}
       >
         {option.label}
-      </S.Option>
+      </Styles.Option>
     );
   };
 
   return (
-    <S.Root ref={rootRef} className={className}>
-      <S.Trigger
+    <Styles.Root ref={rootRef} className={className}>
+      <Styles.Trigger
         ref={triggerRef}
         id={id}
         type="button"
@@ -201,16 +201,16 @@ export const Select = ({
         onKeyDown={handleKeyDown}
       >
         {selectedOption ? (
-          <S.Value>{selectedOption.label}</S.Value>
+          <Styles.Value>{selectedOption.label}</Styles.Value>
         ) : (
-          <S.Placeholder>{placeholder}</S.Placeholder>
+          <Styles.Placeholder>{placeholder}</Styles.Placeholder>
         )}
-        <S.ChevronWrap $open={open}>
+        <Styles.ChevronWrap $open={open}>
           <ChevronUpIcon />
-        </S.ChevronWrap>
-      </S.Trigger>
+        </Styles.ChevronWrap>
+      </Styles.Trigger>
 
-      <S.Options
+      <Styles.Options
         ref={optionsRef}
         id={listId}
         role="listbox"
@@ -220,15 +220,15 @@ export const Select = ({
       >
         {options.map((option) =>
           isGroup(option) ? (
-            <S.Group key={option.label} role="group" aria-label={option.label}>
-              <S.GroupLabel>{option.label}</S.GroupLabel>
+            <Styles.Group key={option.label} role="group" aria-label={option.label}>
+              <Styles.GroupLabel>{option.label}</Styles.GroupLabel>
               {option.options.map(renderOption)}
-            </S.Group>
+            </Styles.Group>
           ) : (
             renderOption(option)
           ),
         )}
-      </S.Options>
-    </S.Root>
+      </Styles.Options>
+    </Styles.Root>
   );
 };

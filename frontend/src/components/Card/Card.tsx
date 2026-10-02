@@ -1,4 +1,4 @@
-import * as Styled from "./Card.styled";
+import * as Styles from "./Card.styles";
 
 interface CardProps {
   hasGlow?: boolean;
@@ -14,8 +14,8 @@ export const Card = ({
   ...props
 }: CardProps) => {
   return (
-    <Styled.Card $direction={direction} $hasGlow={hasGlow} {...props}>
+    <Styles.Card $direction={direction} $hasGlow={hasGlow} {...props}>
       {children}
-    </Styled.Card>
+    </Styles.Card>
   );
 };

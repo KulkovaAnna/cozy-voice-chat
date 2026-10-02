@@ -6,7 +6,7 @@ import {
   MicOffIcon,
 } from "@cvc/components";
 import type { UserProfile } from "@cvc/types";
-import * as Styled from "./UserCard.styled";
+import * as Styles from "./UserCard.styles";
 
 export type UserCardVariant = "standard" | "compact" | "avatar";
 
@@ -41,20 +41,20 @@ export const UserCard = ({
     </>
   );
   return (
-    <Styled.Container>
+    <Styles.Container>
       <ContextMenu menu={menuContent} isShow={volume != null}>
-        <Styled.UserCard variant={variant} isSpeaking={isSpeaking}>
-          <Styled.RelativeBlock>
+        <Styles.UserCard variant={variant} isSpeaking={isSpeaking}>
+          <Styles.RelativeBlock>
             <Avatar size={variant === "compact" ? 40 : 80} src={user.avatar} />
             {isMuted && (
-              <Styled.MutedIconDiv>
+              <Styles.MutedIconDiv>
                 <MicOffIcon />
-              </Styled.MutedIconDiv>
+              </Styles.MutedIconDiv>
             )}
-          </Styled.RelativeBlock>
+          </Styles.RelativeBlock>
           <p>{user.name}</p>
-        </Styled.UserCard>
+        </Styles.UserCard>
       </ContextMenu>
-    </Styled.Container>
+    </Styles.Container>
   );
 };

@@ -2,7 +2,7 @@ import type { ButtonHTMLAttributes } from "react";
 
 import defaultAvatar from "@cvc/assets/default_ava.jpg";
 
-import * as Styled from "./Avatar.styled";
+import * as Styles from "./Avatar.styles";
 
 interface AvatarProps extends ButtonHTMLAttributes<HTMLButtonElement> {
   src?: string;
@@ -11,7 +11,7 @@ interface AvatarProps extends ButtonHTMLAttributes<HTMLButtonElement> {
 
 export const Avatar = ({ src, size }: AvatarProps) => {
   return (
-    <Styled.Avatar
+    <Styles.Avatar
       src={src || defaultAvatar}
       size={size}
       onError={(e) => {

@@ -1,5 +1,5 @@
 import React from "react";
-import * as Styled from "./Button.styled";
+import * as Styles from "./Button.styles";
 
 export type ButtonVariant = "primary" | "secondary" | string;
 
@@ -10,8 +10,8 @@ interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
 
 export const Button = ({ variant, children, ...props }: ButtonProps) => {
   return (
-    <Styled.Button $variant={variant} {...props}>
+    <Styles.Button $variant={variant} {...props}>
       {children}
-    </Styled.Button>
+    </Styles.Button>
   );
 };
