@@ -5,6 +5,8 @@ interface RowProps {
   withScroll?: boolean;
 }
 
-export const Row = ({ children, withScroll }: PropsWithChildren<RowProps>) => {
-  return <Styles.Row $withScroll={withScroll}>{children}</Styles.Row>;
+export const Row = (props: PropsWithChildren<RowProps>) => {
+  return (
+    <Styles.Row $withScroll={props.withScroll}>{props.children}</Styles.Row>
+  );
 };

@@ -21,13 +21,8 @@ interface UserCardProps {
   variant?: UserCardVariant;
 }
 
-export const UserCard = ({
-  user,
-  isSpeaking,
-  isMuted,
-  volume,
-  variant = "standard",
-}: UserCardProps) => {
+export const UserCard = (props: UserCardProps) => {
+  const { user, isSpeaking, isMuted, volume, variant = "standard" } = props;
   const menuContent = (
     <>
       <MenuLabel>Громкость</MenuLabel>

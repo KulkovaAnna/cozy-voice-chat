@@ -9,16 +9,16 @@ interface LobbyRowProps {
   currentUser: UserProfile;
 }
 
-export function LobbyRow({ currentUser }: LobbyRowProps) {
+export function LobbyRow(props: LobbyRowProps) {
   const { user } = useAuth();
   return (
     <Styles.Container>
       <Styles.InnerContainer>
-        <Avatar src={currentUser.avatar} size={40} />
-        <Styles.LabelEllipsis>{currentUser.name}</Styles.LabelEllipsis>
+        <Avatar src={props.currentUser.avatar} size={40} />
+        <Styles.LabelEllipsis>{props.currentUser.name}</Styles.LabelEllipsis>
       </Styles.InnerContainer>
-      {(currentUser.id && currentUser.id !== user.id && (
-        <CallButton uid={currentUser.id} />
+      {(props.currentUser.id && props.currentUser.id !== user.id && (
+        <CallButton uid={props.currentUser.id} />
       )) || <Styles.Label>Это&nbsp;ты</Styles.Label>}
     </Styles.Container>
   );

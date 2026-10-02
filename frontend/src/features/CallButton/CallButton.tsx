@@ -4,10 +4,10 @@ import { useChatNetwork } from "@cvc/providers";
 interface CallButtonProps {
   uid: string;
 }
-export function CallButton({ uid }: CallButtonProps) {
+export function CallButton(props: CallButtonProps) {
   const { callToUser } = useChatNetwork();
   const handleClick = () => {
-    callToUser(uid);
+    callToUser(props.uid);
   };
 
   return <IconButton onClick={handleClick} icon={<CallIcon />} />;

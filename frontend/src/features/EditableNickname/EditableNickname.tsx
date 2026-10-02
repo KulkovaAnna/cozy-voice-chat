@@ -14,7 +14,7 @@ interface IForm {
   name: string;
 }
 
-export const EditableNickname = ({ ...props }: EditableNicknameProps) => {
+export const EditableNickname = (props: EditableNicknameProps) => {
   const {
     user: { name },
     updateUser,

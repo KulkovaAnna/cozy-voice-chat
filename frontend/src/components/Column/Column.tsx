@@ -6,10 +6,10 @@ interface ColumnProps {
   children?: React.ReactNode;
 }
 
-export const Column = ({ align, hasLine, children }: ColumnProps) => {
+export const Column = (props: ColumnProps) => {
   return (
-    <Styles.Column align={align} hasLine={hasLine}>
-      {children}
+    <Styles.Column align={props.align} hasLine={props.hasLine}>
+      {props.children}
     </Styles.Column>
   );
 };

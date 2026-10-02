@@ -9,11 +9,11 @@ interface AvatarProps extends ButtonHTMLAttributes<HTMLButtonElement> {
   size?: number;
 }
 
-export const Avatar = ({ src, size }: AvatarProps) => {
+export const Avatar = (props: AvatarProps) => {
   return (
     <Styles.Avatar
-      src={src || defaultAvatar}
-      size={size}
+      src={props.src || defaultAvatar}
+      size={props.size}
       onError={(e) => {
         (e.target as HTMLImageElement).src = defaultAvatar;
       }}

@@ -4,6 +4,7 @@ interface FormProps extends React.FormHTMLAttributes<HTMLFormElement> {
   children?: React.ReactNode;
 }
 
-export const Form = ({ children, ...props }: FormProps) => {
-  return <Styles.Form {...props}>{children}</Styles.Form>;
+export const Form = (props: FormProps) => {
+  const { children, ...rest } = props;
+  return <Styles.Form {...rest}>{children}</Styles.Form>;
 };

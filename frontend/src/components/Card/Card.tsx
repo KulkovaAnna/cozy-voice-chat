@@ -7,14 +7,10 @@ interface CardProps {
   direction?: "row" | "column";
 }
 
-export const Card = ({
-  hasGlow = false,
-  children,
-  direction = "row",
-  ...props
-}: CardProps) => {
+export const Card = (props: CardProps) => {
+  const { hasGlow = false, children, direction = "row", ...rest } = props;
   return (
-    <Styles.Card $direction={direction} $hasGlow={hasGlow} {...props}>
+    <Styles.Card $direction={direction} $hasGlow={hasGlow} {...rest}>
       {children}
     </Styles.Card>
   );

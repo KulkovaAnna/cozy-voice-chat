@@ -12,16 +12,17 @@ import type {
 const isGroup = (option: SelectOption): option is SelectOptionGroup =>
   "options" in option;
 
-export const Select = ({
-  options,
-  value,
-  onChange,
-  placeholder = "—",
-  disabled = false,
-  className,
-  id,
-  "aria-label": ariaLabel,
-}: SelectProps) => {
+export const Select = (props: SelectProps) => {
+  const {
+    options,
+    value,
+    onChange,
+    placeholder = "—",
+    disabled = false,
+    className,
+    id,
+    "aria-label": ariaLabel,
+  } = props;
   const [open, setOpen] = useState(false);
   const [activeIndex, setActiveIndex] = useState(0);
 
@@ -220,7 +221,11 @@ export const Select = ({
       >
         {options.map((option) =>
           isGroup(option) ? (
-            <Styles.Group key={option.label} role="group" aria-label={option.label}>
+            <Styles.Group
+              key={option.label}
+              role="group"
+              aria-label={option.label}
+            >
               <Styles.GroupLabel>{option.label}</Styles.GroupLabel>
               {option.options.map(renderOption)}
             </Styles.Group>

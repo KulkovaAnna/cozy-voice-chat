@@ -1,7 +1,7 @@
 import { useTheme } from "@emotion/react";
 import type { IconProps } from "./types";
 
-export const EndCallIcon = ({ color }: IconProps) => {
+export const EndCallIcon = (props: IconProps) => {
   const theme = useTheme();
 
   return (
@@ -11,7 +11,7 @@ export const EndCallIcon = ({ color }: IconProps) => {
       height="24px"
       viewBox="0 0 24 24"
       width="24px"
-      fill={color || theme.colors.primary.contrast}
+      fill={props.color || theme.colors.primary.contrast}
     >
       <rect fill="none" height="24" width="24" />
       <g>

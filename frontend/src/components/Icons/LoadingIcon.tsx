@@ -1,7 +1,7 @@
 import { useTheme } from "@emotion/react";
 import type { IconProps } from "./types";
 
-export const LoadingIcon = ({ color, ...rest }: IconProps) => {
+export const LoadingIcon = (props: IconProps) => {
   const theme = useTheme();
   return (
     <svg
@@ -10,7 +10,7 @@ export const LoadingIcon = ({ color, ...rest }: IconProps) => {
       preserveAspectRatio="xMidYMid"
       width="200"
       height="200"
-      style={{ shapeRendering: "auto", display: "block", ...rest.styles }}
+      style={{ shapeRendering: "auto", display: "block", ...props.styles }}
     >
       <g>
         <g transform="rotate(0 50 50)">
@@ -21,7 +21,7 @@ export const LoadingIcon = ({ color, ...rest }: IconProps) => {
             ry="6"
             width="6"
             height="12"
-            fill={color || theme.colors.primary.contrast}
+            fill={props.color || theme.colors.primary.contrast}
           >
             <animate
               attributeName="opacity"
@@ -41,7 +41,7 @@ export const LoadingIcon = ({ color, ...rest }: IconProps) => {
             ry="6"
             width="6"
             height="12"
-            fill={color || theme.colors.primary.contrast}
+            fill={props.color || theme.colors.primary.contrast}
           >
             <animate
               attributeName="opacity"
@@ -61,7 +61,7 @@ export const LoadingIcon = ({ color, ...rest }: IconProps) => {
             ry="6"
             width="6"
             height="12"
-            fill={color || theme.colors.primary.contrast}
+            fill={props.color || theme.colors.primary.contrast}
           >
             <animate
               attributeName="opacity"
@@ -81,7 +81,7 @@ export const LoadingIcon = ({ color, ...rest }: IconProps) => {
             ry="6"
             width="6"
             height="12"
-            fill={color || theme.colors.primary.contrast}
+            fill={props.color || theme.colors.primary.contrast}
           >
             <animate
               attributeName="opacity"
@@ -101,7 +101,7 @@ export const LoadingIcon = ({ color, ...rest }: IconProps) => {
             ry="6"
             width="6"
             height="12"
-            fill={color || theme.colors.primary.contrast}
+            fill={props.color || theme.colors.primary.contrast}
           >
             <animate
               attributeName="opacity"
@@ -121,7 +121,7 @@ export const LoadingIcon = ({ color, ...rest }: IconProps) => {
             ry="6"
             width="6"
             height="12"
-            fill={color || theme.colors.primary.contrast}
+            fill={props.color || theme.colors.primary.contrast}
           >
             <animate
               attributeName="opacity"
@@ -141,7 +141,7 @@ export const LoadingIcon = ({ color, ...rest }: IconProps) => {
             ry="6"
             width="6"
             height="12"
-            fill={color || theme.colors.primary.contrast}
+            fill={props.color || theme.colors.primary.contrast}
           >
             <animate
               attributeName="opacity"
@@ -161,7 +161,7 @@ export const LoadingIcon = ({ color, ...rest }: IconProps) => {
             ry="6"
             width="6"
             height="12"
-            fill={color || theme.colors.primary.contrast}
+            fill={props.color || theme.colors.primary.contrast}
           >
             <animate
               attributeName="opacity"
@@ -181,7 +181,7 @@ export const LoadingIcon = ({ color, ...rest }: IconProps) => {
             ry="6"
             width="6"
             height="12"
-            fill={color || theme.colors.primary.contrast}
+            fill={props.color || theme.colors.primary.contrast}
           >
             <animate
               attributeName="opacity"
@@ -201,7 +201,7 @@ export const LoadingIcon = ({ color, ...rest }: IconProps) => {
             ry="6"
             width="6"
             height="12"
-            fill={color || theme.colors.primary.contrast}
+            fill={props.color || theme.colors.primary.contrast}
           >
             <animate
               attributeName="opacity"
@@ -221,7 +221,7 @@ export const LoadingIcon = ({ color, ...rest }: IconProps) => {
             ry="6"
             width="6"
             height="12"
-            fill={color || theme.colors.primary.contrast}
+            fill={props.color || theme.colors.primary.contrast}
           >
             <animate
               attributeName="opacity"
@@ -241,7 +241,7 @@ export const LoadingIcon = ({ color, ...rest }: IconProps) => {
             ry="6"
             width="6"
             height="12"
-            fill={color || theme.colors.primary.contrast}
+            fill={props.color || theme.colors.primary.contrast}
           >
             <animate
               attributeName="opacity"

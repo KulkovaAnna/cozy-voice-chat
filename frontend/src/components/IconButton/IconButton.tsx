@@ -7,13 +7,10 @@ interface IconButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> 
   variant?: ButtonVariant;
 }
 
-export const IconButton = ({
-  icon,
-  variant = "primary",
-  ...props
-}: IconButtonProps) => {
+export const IconButton = (props: IconButtonProps) => {
+  const { icon, variant = "primary", ...rest } = props;
   return (
-    <Styles.IconButton variant={variant} {...props}>
+    <Styles.IconButton variant={variant} {...rest}>
       {icon}
     </Styles.IconButton>
   );

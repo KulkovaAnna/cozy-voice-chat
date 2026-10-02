@@ -9,13 +9,11 @@ type InputProps = InputHTMLAttributes<HTMLInputElement> &
 export const Input = forwardRef<
   HTMLInputElement | HTMLTextAreaElement,
   InputProps
->(({ isTextarea, ...props }, ref) => {
+>((props, ref) => {
+  const { isTextarea, ...rest } = props;
   return isTextarea ? (
-    <Styles.Textarea
-      ref={ref as ForwardedRef<HTMLTextAreaElement>}
-      {...props}
-    />
+    <Styles.Textarea ref={ref as ForwardedRef<HTMLTextAreaElement>} {...rest} />
   ) : (
-    <Styles.Input ref={ref as ForwardedRef<HTMLInputElement>} {...props} />
+    <Styles.Input ref={ref as ForwardedRef<HTMLInputElement>} {...rest} />
   );
 });

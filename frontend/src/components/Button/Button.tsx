@@ -8,9 +8,10 @@ interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
   children?: React.ReactNode;
 }
 
-export const Button = ({ variant, children, ...props }: ButtonProps) => {
+export const Button = (props: ButtonProps) => {
+  const { variant, children, ...rest } = props;
   return (
-    <Styles.Button $variant={variant} {...props}>
+    <Styles.Button $variant={variant} {...rest}>
       {children}
     </Styles.Button>
   );

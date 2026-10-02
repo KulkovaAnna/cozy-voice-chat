@@ -12,12 +12,8 @@ interface ContextMenuProps {
   isShow: boolean;
 }
 
-export const ContextMenu: React.FC<ContextMenuProps> = ({
-  children,
-  menu,
-  id = "custom-context-menu",
-  isShow,
-}) => {
+export const ContextMenu: React.FC<ContextMenuProps> = (props) => {
+  const { children, menu, id = "custom-context-menu", isShow } = props;
   const [position, setPosition] = useState({ x: 0, y: 0 });
   const { visible, openMenu, closeMenu } = useClickOutside(id);
   const handleContextMenu = (e: React.MouseEvent) => {

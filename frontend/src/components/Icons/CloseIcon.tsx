@@ -1,7 +1,8 @@
 import { useTheme } from "@emotion/react";
 import type { IconProps } from "./types";
 
-export const CloseIcon = ({ color, ...rest }: IconProps) => {
+export const CloseIcon = (props: IconProps) => {
+  const { color, ...rest } = props;
   const theme = useTheme();
 
   return (

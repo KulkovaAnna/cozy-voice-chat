@@ -18,7 +18,7 @@ interface SettingsPanelProps {
   onClose: () => void;
 }
 
-export const SettingsPanel = ({ onClose }: SettingsPanelProps) => {
+export const SettingsPanel = (props: SettingsPanelProps) => {
   const theme = useTheme();
   const [searchParams, setSearchParams] = useSearchParams();
   const [isMenuOpen, setIsMenuOpen] = useState(false);
@@ -37,7 +37,7 @@ export const SettingsPanel = ({ onClose }: SettingsPanelProps) => {
     searchParams.delete("tab");
     searchParams.delete("settings");
     setSearchParams(searchParams);
-    onClose();
+    props.onClose();
   };
 
   const navItems: ReactNode = TABS.map(({ id, label, Icon }) => (
