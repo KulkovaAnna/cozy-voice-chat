@@ -3,7 +3,7 @@ import { useNavigate } from "react-router";
 
 import { Column, Row, ShareScreenVideo } from "@cvc/components";
 import { TextChatProvider, useAuth, useChatNetwork } from "@cvc/providers";
-import { ControlPanel, TextChat, UserCard } from "@cvc/widgets";
+import { ControlPanel, PiPWidget, TextChat, UserCard } from "@cvc/widgets";
 
 import * as Styles from "./Call.styles";
 
@@ -68,6 +68,7 @@ export const Call = () => {
         {screenSharing && (
           <ShareScreenVideo height="60vh" width="70vw" stream={screenSharing} />
         )}
+        <PiPWidget />
       </Column>
     </TextChatProvider>
   );
