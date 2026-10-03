@@ -15,6 +15,7 @@
 - Обмен файлами: файлы хранятся на машине хоста и удаляются после завершения звонка.
 - Регулировка громкости собеседника, статусы mute / speaking.
 - Демонстрация экрана (Screen Sharing).
+- Picture-in-Picture оверлей: always-on-top окно (Document PiP API) с аватарами участников, подсветкой говорящего, кнопками мута и завершения звонка. Открывается автоматически при потере фокуса таба (mediaSession-действие `enterpictureinpicture`, Chrome/Edge 120+), закрывается при возврате на таб.
 - Кастомизация профиля (имя, аватар), тёмная и светлая темы, мобильный адаптив.
 - HTTPS «из коробки» (нужен для Screen Sharing и PiP API).
 - Базовая безопасность: rate limiting, CORS, helmet, валидация origins.
@@ -25,7 +26,7 @@
 
 - После смены имени/аватарки изменения не видны собеседнику до перезагрузки страницы (сигнал обновления профиля не реализован).
 - Данные пользователя хранятся в `localStorage` браузера, на сервере не сохраняются.
-- В разработке: виджет Picture-in-Picture с контролами звука.
+- PiP работает только в Chromium-браузерах (Document PiP API + mediaSession `enterpictureinpicture`, Chrome/Edge 120+); в Firefox/Safari окно не появится. При первом автооткрытии браузер может запросить разрешение.
 
 ---
 
@@ -115,7 +116,7 @@ api/                   # config.ts (API_URLS), fetcher.ts
 pages/                 # Слой pages: Root (роутинг), Login, Home, Call
 widgets/               # Слой widgets: композиционные блоки
                        #   Header (ui: UserName, SettingsPanel), Lobby (ui: LobbyRow),
-                       #   ControlPanel, TextChat, UserCard
+                       #   ControlPanel, TextChat, UserCard, PiPWidget
 features/              # Слой features: прикладные фичи
                        #   AcceptCallModal, WaitCallModal, CallButton, AvatarChanger,
                        #   EditableNickname, EnterUserNameForm
@@ -123,8 +124,9 @@ components/            # Слой components: презентационный UI-
                        #   Avatar, Button, Card, Column, Row, Input, Icons, Message,
                        #   SidePanel, Slider, ShareScreenVideo, ...
 providers/             # Слой providers: AuthProvider, ChatNetworkProvider,
-                       #   TextChatProvider, ThemeColorProvider
-hooks/                 # Слой hooks: usePeer, useLocalStorage, useClickOutside, usePageVisibility
+                       #   TextChatProvider, ThemeColorProvider, PiPProvider
+hooks/                 # Слой hooks: usePeer, useLocalStorage, useClickOutside,
+                       #   usePageVisibility, useDocumentPictureInPicture
 theme/                 # Слой theme: тема и GlobalStyles (Emotion)
 types/                 # Слой types: общие типы
 utils/                 # Слой utils: утилиты + класс-сервис SpeechDetection
@@ -154,11 +156,16 @@ app → pages → widgets → features → {components, providers} → hooks →
 
 Архитектурные особенности:
 
-- **Провайдеры-композиция** в `app/App.tsx`: `ThemeColorProvider` → `AuthProvider` → `ChatNetworkProvider`.
+- **Провайдеры-композиция** в `app/App.tsx`: `ThemeColorProvider` → `AuthProvider` → `ChatNetworkProvider` → `PiPProvider`.
 - **ChatNetworkProvider** — ядро сетевого слоя. Объединяет хуки (`useChatLobby`, `useChatCall`, `useChatMessages`, `useChatScreenShare`, `useChatSignaling`, `useChatMessageRouter`, `useSpeechDetection`) и `usePeer`, управляет WebSocket-соединением и раздаёт состояние/методы через `ChatNetworkContext`.
 - **usePeer** — обёртка над PeerJS: инициализация, звонок пользователю, завершение звонка, mute, screen sharing.
-- **Алиас импортов**: `@cvc/*` → `./src/*` (настроен в `vite.config.ts` и `tsconfig.app.json`).
+- **Aliас импортов**: `@cvc/*` → `./src/*` (настроен в `vite.config.ts` и `tsconfig.app.json`).
 - **Профиль пользователя** хранится в `localStorage` (AuthProvider + `useLocalStorage`).
+- **Picture-in-Picture (PiP)** — реализован на трёх частях:
+  - `hooks/useDocumentPictureInPicture.ts` — обёртка над Document Picture-in-Picture API: `open`/`openAuto`/`close`, копирование `<style>`/`<link>` из `<head>` основного документа в окно PiP и их синхронизация через `MutationObserver` (Emotion инжектит правила лениво). `openAuto` помечает окно «автооткрытым» — такое окно автоматически закрывается при возврате фокуса/видимости таба (слушатели `focus`/`blur` окна + `usePageVisibility`).
+  - `providers/PiPProvider` — контекст `{ isSupported, isOpen, pipWindow, open, openAuto, close }`; на время активного звонка регистрирует mediaSession-действие `enterpictureinpicture`, которое браузер само вызывает при переключении с таба (открытие без user-жеста; Chrome 120+, условие — активный захват микрофона через `getUserMedia`).
+  - `widgets/PiPWidget` — рендерится на странице `Call`, контент монтируется через `createPortal` в `pipWindow.document.body` (портал сохраняет все контексты). Показывает аватары участников с подсветкой говорящего и бейджем mute, кнопки мута и завершения звонка; закрывает окно при завершении звонка.
+  - Важные нюансы: `onClick`-обработчики внутри портала работают штатно (React 19 корректно пробрасывает события через порталы в другой document); кнопка завершения звонка вызывается обёрткой `() => endCall()` — прямой `onClick={endCall}` передал бы React-событие первым аргументом в `endCall(nextCallInfo?: CallInfo)` и сломал `callId`.
 
 ---
 
