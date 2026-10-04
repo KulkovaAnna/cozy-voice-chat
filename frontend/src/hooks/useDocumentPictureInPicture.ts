@@ -27,12 +27,42 @@ function getDocumentPictureInPictureApi() {
   return api ?? null;
 }
 
+// В dev-режиме Emotion инжектит правила текстом в <style> — работает textContent.
+// В prod-сборке правила добавляются через CSSStyleSheet.insertRule/replaceSync,
+// поэтому textContent пустой и содержимое доступно только через sheet.cssRules.
+function getStyleText(style: HTMLStyleElement): string {
+  const rules = (() => {
+    try {
+      return style.sheet?.cssRules ?? null;
+    } catch {
+      // Cross-origin stylesheet — правила недоступны, копируем как есть.
+      return null;
+    }
+  })();
+  if (rules && rules.length > 0) {
+    let text = "";
+    for (let i = 0; i < rules.length; i += 1) {
+      text += rules[i].cssText;
+    }
+    return text;
+  }
+  return style.textContent ?? "";
+}
+
 // Копирует все стилевые теги основного документа в окно PiP.
 // Emotion инжектит правила в <head> основного документа, поэтому без
 // копирования портал в окно PiP отрендерится без стилей.
-function copyStyles(target: Document) {
-  document.querySelectorAll("head style").forEach((style) => {
-    target.head.appendChild(style.cloneNode(true));
+// CloneNode не переносит правила из CSSStyleSheet — используем getStyleText.
+function copyStyles(
+  target: Document,
+  styleClones: WeakMap<HTMLStyleElement, HTMLStyleElement>,
+) {
+  document.querySelectorAll("head style").forEach((node) => {
+    if (!(node instanceof HTMLStyleElement)) return;
+    const clone = target.createElement("style");
+    clone.textContent = getStyleText(node);
+    styleClones.set(node, clone);
+    target.head.appendChild(clone);
   });
   document
     .querySelectorAll<HTMLLinkElement>('head link[rel="stylesheet"]')
@@ -72,16 +102,19 @@ export function useDocumentPictureInPicture(
   );
 
   // Повторная синхронизация содержимого уже скопированного <style>:
-  // в dev-режиме Emotion дописывает правила текстом в существующие теги.
+  // в dev-режиме Emotion дописывает правила текстом в существующие теги,
+  // в prod-режиме — через CSSStyleSheet.insertRule (textContent при этом пуст).
   const syncStyleTag = useCallback((source: HTMLStyleElement) => {
     const pip = pipWindowRef.current;
     if (!pip) return;
+    const text = getStyleText(source);
     const clone = styleClonesRef.current.get(source);
     if (clone) {
-      clone.textContent = source.textContent;
+      if (clone.textContent !== text) clone.textContent = text;
       return;
     }
-    const newClone = source.cloneNode(true) as HTMLStyleElement;
+    const newClone = pip.document.createElement("style");
+    newClone.textContent = text;
     styleClonesRef.current.set(source, newClone);
     pip.document.head.appendChild(newClone);
   }, []);
@@ -152,7 +185,7 @@ export function useDocumentPictureInPicture(
       });
       observerRef.current = observer;
 
-      copyStyles(win.document);
+      copyStyles(win.document, styleClonesRef.current);
       setPipWindow(win);
     } catch {
       // Браузер может отказать: нет user activation или лимит окон.
