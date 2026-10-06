@@ -1,15 +1,13 @@
-import { useTheme } from "@emotion/react";
 import type { IconProps } from "./types";
 
 export const PictureInPictureIcon = (props: IconProps) => {
-  const theme = useTheme();
   return (
     <svg
       xmlns="http://www.w3.org/2000/svg"
       height="24px"
       viewBox="0 0 24 24"
       width="24px"
-      fill={props.color || theme.colors.primary.contrast}
+      fill={props.color || "currentColor"}
     >
       <path d="M0 0h24v24H0V0z" fill="none" />
       <path d="M19 7h-8v6h8V7zm2-4H3c-1.1 0-2 .9-2 2v14c0 1.1.9 1.98 2 1.98l18 .02c1.1 0 2-.88 2-1.98V5c0-1.1-.9-2-2-2zm0 16.01H3V4.98h18v14.03z" />

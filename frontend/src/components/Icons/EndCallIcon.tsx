@@ -1,9 +1,6 @@
-import { useTheme } from "@emotion/react";
 import type { IconProps } from "./types";
 
 export const EndCallIcon = (props: IconProps) => {
-  const theme = useTheme();
-
   return (
     <svg
       xmlns="http://www.w3.org/2000/svg"
@@ -11,7 +8,7 @@ export const EndCallIcon = (props: IconProps) => {
       height="24px"
       viewBox="0 0 24 24"
       width="24px"
-      fill={props.color || theme.colors.primary.contrast}
+      fill={props.color || "currentColor"}
     >
       <rect fill="none" height="24" width="24" />
       <g>

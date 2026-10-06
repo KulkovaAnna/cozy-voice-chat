@@ -1,8 +1,6 @@
-import { useTheme } from "@emotion/react";
 import type { IconProps } from "./types";
 
 export const LoadingIcon = (props: IconProps) => {
-  const theme = useTheme();
   return (
     <svg
       xmlns="http://www.w3.org/2000/svg"
@@ -21,7 +19,7 @@ export const LoadingIcon = (props: IconProps) => {
             ry="6"
             width="6"
             height="12"
-            fill={props.color || theme.colors.primary.contrast}
+            fill={props.color || "currentColor"}
           >
             <animate
               attributeName="opacity"
@@ -41,7 +39,7 @@ export const LoadingIcon = (props: IconProps) => {
             ry="6"
             width="6"
             height="12"
-            fill={props.color || theme.colors.primary.contrast}
+            fill={props.color || "currentColor"}
           >
             <animate
               attributeName="opacity"
@@ -61,7 +59,7 @@ export const LoadingIcon = (props: IconProps) => {
             ry="6"
             width="6"
             height="12"
-            fill={props.color || theme.colors.primary.contrast}
+            fill={props.color || "currentColor"}
           >
             <animate
               attributeName="opacity"
@@ -81,7 +79,7 @@ export const LoadingIcon = (props: IconProps) => {
             ry="6"
             width="6"
             height="12"
-            fill={props.color || theme.colors.primary.contrast}
+            fill={props.color || "currentColor"}
           >
             <animate
               attributeName="opacity"
@@ -101,7 +99,7 @@ export const LoadingIcon = (props: IconProps) => {
             ry="6"
             width="6"
             height="12"
-            fill={props.color || theme.colors.primary.contrast}
+            fill={props.color || "currentColor"}
           >
             <animate
               attributeName="opacity"
@@ -121,7 +119,7 @@ export const LoadingIcon = (props: IconProps) => {
             ry="6"
             width="6"
             height="12"
-            fill={props.color || theme.colors.primary.contrast}
+            fill={props.color || "currentColor"}
           >
             <animate
               attributeName="opacity"
@@ -141,7 +139,7 @@ export const LoadingIcon = (props: IconProps) => {
             ry="6"
             width="6"
             height="12"
-            fill={props.color || theme.colors.primary.contrast}
+            fill={props.color || "currentColor"}
           >
             <animate
               attributeName="opacity"
@@ -161,7 +159,7 @@ export const LoadingIcon = (props: IconProps) => {
             ry="6"
             width="6"
             height="12"
-            fill={props.color || theme.colors.primary.contrast}
+            fill={props.color || "currentColor"}
           >
             <animate
               attributeName="opacity"
@@ -181,7 +179,7 @@ export const LoadingIcon = (props: IconProps) => {
             ry="6"
             width="6"
             height="12"
-            fill={props.color || theme.colors.primary.contrast}
+            fill={props.color || "currentColor"}
           >
             <animate
               attributeName="opacity"
@@ -201,7 +199,7 @@ export const LoadingIcon = (props: IconProps) => {
             ry="6"
             width="6"
             height="12"
-            fill={props.color || theme.colors.primary.contrast}
+            fill={props.color || "currentColor"}
           >
             <animate
               attributeName="opacity"
@@ -221,7 +219,7 @@ export const LoadingIcon = (props: IconProps) => {
             ry="6"
             width="6"
             height="12"
-            fill={props.color || theme.colors.primary.contrast}
+            fill={props.color || "currentColor"}
           >
             <animate
               attributeName="opacity"
@@ -241,7 +239,7 @@ export const LoadingIcon = (props: IconProps) => {
             ry="6"
             width="6"
             height="12"
-            fill={props.color || theme.colors.primary.contrast}
+            fill={props.color || "currentColor"}
           >
             <animate
               attributeName="opacity"

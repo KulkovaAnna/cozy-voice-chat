@@ -1,9 +1,7 @@
-import { useTheme } from "@emotion/react";
 import type { IconProps } from "./types";
 
 export const CloseIcon = (props: IconProps) => {
   const { color, ...rest } = props;
-  const theme = useTheme();
 
   return (
     <svg
@@ -11,7 +9,7 @@ export const CloseIcon = (props: IconProps) => {
       height="24px"
       viewBox="0 0 24 24"
       width="24px"
-      fill={color || theme.colors.primary.contrast}
+      fill={color || "currentColor"}
       {...rest}
     >
       <path d="M0 0h24v24H0V0z" fill="none" />

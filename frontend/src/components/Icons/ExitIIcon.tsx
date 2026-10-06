@@ -1,8 +1,6 @@
-import { useTheme } from "@emotion/react";
 import type { IconProps } from "./types";
 
 export const ExitIcon = (props: IconProps) => {
-  const theme = useTheme();
   return (
     <svg
       width="24"
@@ -13,7 +11,7 @@ export const ExitIcon = (props: IconProps) => {
     >
       <path
         d="M10.09 15.59L11.5 17L16.5 12L11.5 7L10.09 8.41L12.67 11H3V13H12.67L10.09 15.59ZM19 3H5C3.89 3 3 3.9 3 5V9H5V5H19V19H5V15H3V19C3 20.1 3.89 21 5 21H19C20.1 21 21 20.1 21 19V5C21 3.9 20.1 3 19 3Z"
-        fill={props.color || theme.colors.primary.contrast}
+        fill={props.color || "currentColor"}
       />
     </svg>
   );
