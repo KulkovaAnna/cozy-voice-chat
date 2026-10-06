@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState, type PropsWithChildren } from "react";
 
 import { fetcher } from "@cvc/api";
-import { usePageVisibility } from "@cvc/hooks";
+import { usePageVisibility, useChatEmojiReaction } from "@cvc/hooks";
 import { toast } from "react-toastify";
 import { useChatNetwork } from "../ChatNetworkProvider";
 import { TextChatContext } from "./TextChatContext";
@@ -12,6 +12,7 @@ export function TextChatProvider(props: PropsWithChildren) {
 
   const isTabVisible = usePageVisibility();
   const { textMessages, callInfo, sendTextMessage } = useChatNetwork();
+  const emojiReaction = useChatEmojiReaction(textMessages);
 
   const lastMessagesLength = useRef(0);
 
@@ -28,7 +29,6 @@ export function TextChatProvider(props: PropsWithChildren) {
       textMessages.length > lastMessagesLength.current &&
       (!isOpen || !isTabVisible)
     ) {
-      // eslint-disable-next-line react-hooks/set-state-in-effect
       setHasNewMessages(true);
     }
     lastMessagesLength.current = textMessages.length;
@@ -68,6 +68,7 @@ export function TextChatProvider(props: PropsWithChildren) {
         switchTextChatIsOpen: switchOpen,
         sendTextMessage,
         sendFile,
+        emojiReaction,
       }}
     >
       {props.children}

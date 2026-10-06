@@ -8,6 +8,7 @@ export * from "./ChevronUpIcon";
 export * from "./CloseIcon";
 export * from "./DownLoadFileIcon";
 export * from "./EditIcon";
+export * from "./EmojiIcon";
 export * from "./EndCallIcon";
 export * from "./ExitIIcon";
 export * from "./FileUploadIcon";

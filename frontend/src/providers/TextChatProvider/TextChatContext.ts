@@ -1,6 +1,8 @@
 import { createContext } from "react";
 import type { TextMessage } from "@cvc/types";
 
+import type { EmojiReaction } from "@cvc/hooks";
+
 export type TextChatContextType = {
   textChatIsOpen: boolean;
   messages: TextMessage[];
@@ -9,6 +11,7 @@ export type TextChatContextType = {
   readMessages: VoidFunction;
   sendTextMessage: (msg: string) => void;
   sendFile: (file: File) => Promise<{ fileId: string }>;
+  emojiReaction: EmojiReaction | null;
 };
 
 export const TextChatContext = createContext<TextChatContextType>({
@@ -19,4 +22,5 @@ export const TextChatContext = createContext<TextChatContextType>({
   readMessages: () => {},
   sendTextMessage: () => {},
   sendFile: async () => ({ fileId: "" }),
+  emojiReaction: null,
 });

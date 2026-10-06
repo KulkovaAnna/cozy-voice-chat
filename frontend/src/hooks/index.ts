@@ -1,3 +1,4 @@
+export * from "./useChatEmojiReaction";
 export * from "./useClickOutside";
 export * from "./useDocumentPictureInPicture";
 export * from "./useLocalStorage";

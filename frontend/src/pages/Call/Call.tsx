@@ -1,9 +1,9 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router";
 
-import { Column, Row, ShareScreenVideo } from "@cvc/components";
+import { Column, ShareScreenVideo } from "@cvc/components";
 import { TextChatProvider, useAuth, useChatNetwork } from "@cvc/providers";
-import { ControlPanel, PiPWidget, TextChat, UserCard } from "@cvc/widgets";
+import { ControlPanel, PiPWidget, TextChat, UserCardsList } from "@cvc/widgets";
 
 import * as Styles from "./Call.styles";
 
@@ -33,34 +33,25 @@ export const Call = () => {
     }
   }, [volume]);
 
-  const userCards = useMemo(
+  const sortedMembers = useMemo(
     () =>
-      callInfo?.members
-        ?.sort((a) => (a.member.id === user.id ? -1 : 1))
-        .map(({ member, isSpeaking, isMuted }) => (
-          <UserCard
-            key={member.id}
-            user={member}
-            isSpeaking={isSpeaking}
-            isMuted={isMuted}
-            variant={screenSharing ? "compact" : "standard"}
-            volume={
-              member.id !== user.id
-                ? { value: volume, onVolumeChange: handleVolumeChange }
-                : undefined
-            }
-          />
-        )),
-    [callInfo, user, volume, screenSharing],
+      [...(callInfo?.members ?? [])].sort((a) =>
+        a.member.id === user.id ? -1 : 1,
+      ),
+    [callInfo, user],
   );
-
-  const UserCards = screenSharing ? Row : Column;
 
   return (
     <TextChatProvider>
       <Column>
         <Styles.StyledCard $compact={!!screenSharing}>
-          <UserCards>{userCards}</UserCards>
+          <UserCardsList
+            members={sortedMembers}
+            myId={user.id ?? ""}
+            volume={volume}
+            onVolumeChange={handleVolumeChange}
+            compact={!!screenSharing}
+          />
         </Styles.StyledCard>
         <audio ref={audioRef} id="user-voice" />
         <ControlPanel compact={!!screenSharing} />

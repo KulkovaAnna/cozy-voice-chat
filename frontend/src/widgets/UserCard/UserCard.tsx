@@ -19,10 +19,19 @@ interface UserCardProps {
   isSpeaking?: boolean;
   isMuted?: boolean;
   variant?: UserCardVariant;
+  /** Одиночная эмодзи из сообщения: показывается поверх аватара и исчезает вместе с реакцией. */
+  emojiReaction?: string | null;
 }
 
 export const UserCard = (props: UserCardProps) => {
-  const { user, isSpeaking, isMuted, volume, variant = "standard" } = props;
+  const {
+    user,
+    isSpeaking,
+    isMuted,
+    volume,
+    emojiReaction,
+    variant = "standard",
+  } = props;
   const menuContent = (
     <>
       <MenuLabel>Громкость</MenuLabel>
@@ -45,6 +54,11 @@ export const UserCard = (props: UserCardProps) => {
               <Styles.MutedIconDiv>
                 <MicOffIcon />
               </Styles.MutedIconDiv>
+            )}
+            {emojiReaction && (
+              <Styles.EmojiOverlay $variant={variant}>
+                {emojiReaction}
+              </Styles.EmojiOverlay>
             )}
           </Styles.RelativeBlock>
           <p>{user.name}</p>

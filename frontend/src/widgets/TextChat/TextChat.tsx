@@ -16,6 +16,7 @@ import {
   SendIcon,
   SidePanel,
 } from "@cvc/components";
+import { EmojiPicker } from "@cvc/features";
 import { useAuth, useTextChat } from "@cvc/providers";
 
 import * as Styles from "./TextChat.styles";
@@ -91,6 +92,27 @@ export function TextChat() {
     setFile(e.target.files?.[0] || null);
   };
 
+  // Вставляет выбранную эмодзи в позицию курсора (или в конец, если курсора нет).
+  const handleEmojiSelect = (emoji: string) => {
+    const input = inputRef.current;
+    if (!input) {
+      setText((prev) => prev + emoji);
+      return;
+    }
+
+    const start = input.selectionStart ?? text.length;
+    const end = input.selectionEnd ?? text.length;
+    const caret = start + emoji.length;
+
+    setText(text.slice(0, start) + emoji + text.slice(end));
+
+    requestAnimationFrame(() => {
+      input.focus();
+      input.setSelectionRange(caret, caret);
+      handleInputResize();
+    });
+  };
+
   useEffect(() => {
     if (msgRef.current) {
       msgRef.current.scrollTo({
@@ -135,6 +157,8 @@ export function TextChat() {
                 multiple={false}
               />
             </Styles.AttachmentWrapper>
+
+            <EmojiPicker onSelect={handleEmojiSelect} />
 
             <Styles.InputWrapper>
               <Styles.StyledInput
