@@ -15,7 +15,7 @@
 - Обмен файлами: файлы хранятся на машине хоста и удаляются после завершения звонка.
 - Регулировка громкости собеседника, статусы mute / speaking.
 - Демонстрация экрана (Screen Sharing).
-- Picture-in-Picture оверлей: always-on-top окно (Document PiP API) с аватарами участников, подсветкой говорящего, кнопками мута и завершения звонка. Открывается автоматически при потере фокуса таба (mediaSession-действие `enterpictureinpicture`, Chrome/Edge 120+), закрывается при возврате на таб.
+- Picture-in-Picture оверлей: always-on-top окно (Document PiP API) с аватарами участников, подсветкой говорящего, кнопками мута и завершения звонка. Открывается автоматически при потере фокуса таба (mediaSession-действие `enterpictureinpicture`, Chrome/Edge 120+), закрывается при возврате на таб. Автопоявление можно отключить в настройках (вкладка «Интерфейс» панели настроек).
 - Кастомизация профиля (имя, аватар), тёмная и светлая темы, мобильный адаптив.
 - HTTPS «из коробки» (нужен для Screen Sharing и PiP API).
 - Базовая безопасность: rate limiting, CORS, helmet, валидация origins.
@@ -163,9 +163,10 @@ app → pages → widgets → features → {components, providers} → hooks →
 - **Профиль пользователя** хранится в `localStorage` (AuthProvider + `useLocalStorage`).
 - **Picture-in-Picture (PiP)** — реализован на трёх частях:
   - `hooks/useDocumentPictureInPicture.ts` — обёртка над Document Picture-in-Picture API: `open`/`openAuto`/`close`, копирование `<style>`/`<link>` из `<head>` основного документа в окно PiP и их синхронизация через `MutationObserver` (Emotion инжектит правила лениво). `openAuto` помечает окно «автооткрытым» — такое окно автоматически закрывается при возврате фокуса/видимости таба (слушатели `focus`/`blur` окна + `usePageVisibility`).
-  - `providers/PiPProvider` — контекст `{ isSupported, isOpen, pipWindow, open, openAuto, close }`; на время активного звонка регистрирует mediaSession-действие `enterpictureinpicture`, которое браузер само вызывает при переключении с таба (открытие без user-жеста; Chrome 120+, условие — активный захват микрофона через `getUserMedia`).
+  - `providers/PiPProvider` — контекст `{ isSupported, isOpen, pipWindow, open, openAuto, close }`; на время активного звонка регистрирует mediaSession-действие `enterpictureinpicture`, которое браузер само вызывает при переключении с таба (открытие без user-жеста; Chrome 120+, условие — активный захват микрофона через `getUserMedia`). Читает `settings.pip.autoOpen` и пропускает регистрацию действия, если пользователь отключил автопоявление.
   - `widgets/PiPWidget` — рендерится на странице `Call`, контент монтируется через `createPortal` в `pipWindow.document.body` (портал сохраняет все контексты). Показывает аватары участников с подсветкой говорящего и бейджем mute, кнопки мута и завершения звонка; закрывает окно при завершении звонка.
   - Важные нюансы: `onClick`-обработчики внутри портала работают штатно (React 19 корректно пробрасывает события через порталы в другой document); кнопка завершения звонка вызывается обёрткой `() => endCall()` — прямой `onClick={endCall}` передал бы React-событие первым аргументом в `endCall(nextCallInfo?: CallInfo)` и сломал `callId`.
+- **Настройки приложения (`AppSettings`)** — хранятся в `localStorage` (`app.settings`) через `utils/settingsStore.ts` (версия `v3`). Секции: `audio` (устройство ввода, noiseSuppression, echoCancellation, autoGainControl), `pip` (`autoOpen` — автопоявление PiP-окна). Панель настроек в хедере: вкладки «Профиль», «Кастомизация», «Интерфейс» (PiP), «Микрофон». Типы в `types/settings.ts`, действия — `useSettingActions()` из `hooks/useSettings.ts`.
 
 ---
 

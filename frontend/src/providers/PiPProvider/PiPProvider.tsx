@@ -1,6 +1,6 @@
 import { useEffect, type PropsWithChildren } from "react";
 
-import { useDocumentPictureInPicture } from "@cvc/hooks";
+import { useDocumentPictureInPicture, useSettings } from "@cvc/hooks";
 import { useChatNetwork } from "../ChatNetworkProvider";
 import { PiPContext } from "./PiPContext";
 
@@ -14,16 +14,18 @@ const ENTER_PICTURE_IN_PICTURE =
 export function PiPProvider(props: PropsWithChildren) {
   const pip = useDocumentPictureInPicture();
   const { callInfo } = useChatNetwork();
+  const { autoOpen } = useSettings().pip;
 
-  const { isSupported, openAuto } = pip;
+  const { isSupported, isOpen, openAuto, close } = pip;
   const isInCall = !!callInfo?.id;
 
   // Пока идёт звонок, регистрируем mediaSession-действие "enterpictureinpicture".
   // Браузер сам вызывает его, когда пользователь переключается на другой таб или
   // окно, — это позволяет открыть PiP-окно без пользовательского жеста
   // (Chrome 120+; условие — активный захват микрофона через getUserMedia).
+  // Пропускаем регистрацию, если пользователь отключил автопоявление в настройках.
   useEffect(() => {
-    if (!isSupported || !isInCall) return;
+    if (!isSupported || !isInCall || !autoOpen) return;
 
     const mediaSession = navigator.mediaSession;
     if (!mediaSession) return;
@@ -44,7 +46,12 @@ export function PiPProvider(props: PropsWithChildren) {
         // Действие уже снято вместе с документом.
       }
     };
-  }, [isSupported, isInCall, openAuto]);
+  }, [isSupported, isInCall, autoOpen, openAuto]);
+
+  // Пользователь отключил настройку, а окно уже открыто — закрываем сразу.
+  useEffect(() => {
+    if (!autoOpen && isOpen) close();
+  }, [autoOpen, isOpen, close]);
 
   return <PiPContext value={pip}>{props.children}</PiPContext>;
 }

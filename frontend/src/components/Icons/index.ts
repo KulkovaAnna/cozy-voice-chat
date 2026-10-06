@@ -15,6 +15,7 @@ export * from "./LoadingIcon";
 export * from "./MicOffIcon";
 export * from "./MicOnIcon";
 export * from "./MoonIcon";
+export * from "./PictureInPictureIcon";
 export * from "./SaveIcon";
 export * from "./SendIcon";
 export * from "./ShareScreenIcon";

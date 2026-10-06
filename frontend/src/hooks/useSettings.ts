@@ -1,6 +1,10 @@
 import { useCallback, useSyncExternalStore } from "react";
 
-import type { AppSettings, AudioSettings } from "../types/settings";
+import type {
+  AppSettings,
+  AudioSettings,
+  PiPSettings,
+} from "../types/settings";
 import * as settingsStore from "../utils/settingsStore";
 
 export function useSetting<T>(selector: (state: AppSettings) => T): T {
@@ -31,5 +35,9 @@ export function useSettingActions() {
     settingsStore.set({ inputDeviceId });
   }, []);
 
-  return { setAudio, setInputDeviceId };
+  const setPip = useCallback((patch: Partial<PiPSettings>) => {
+    settingsStore.setPip(patch);
+  }, []);
+
+  return { setAudio, setInputDeviceId, setPip };
 }

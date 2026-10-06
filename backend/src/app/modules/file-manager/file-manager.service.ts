@@ -3,7 +3,12 @@ import * as path from 'path';
 import { v4 as uuidv4 } from 'uuid';
 import type { Request } from 'express';
 import type { CallManagerLike, LobbyManagerLike } from './file-manager.types';
-import type { DownloadResult, FileMetadata, UploadResult, ViewResult } from './file-manager.types';
+import type {
+  DownloadResult,
+  FileMetadata,
+  UploadResult,
+  ViewResult,
+} from './file-manager.types';
 import type { HttpError } from '../../../types';
 
 type MulterFile = NonNullable<Request['file']>;
@@ -20,7 +25,9 @@ export default class FileManagerService {
 
   constructor(callManager: CallManagerLike, lobbyManager: LobbyManagerLike) {
     // Создаём папку, если её нет
-    fs.promises.mkdir(this.#uploadDir, { recursive: true }).catch(console.error);
+    fs.promises
+      .mkdir(this.#uploadDir, { recursive: true })
+      .catch(console.error);
     this.callManager = callManager;
     this.lobbyManager = lobbyManager;
   }
@@ -31,7 +38,11 @@ export default class FileManagerService {
    * @param senderIp - IP отправителя
    * @param callId - идентификатор звонка
    */
-  async uploadFile(file: MulterFile, senderIp: string, callId: string): Promise<UploadResult> {
+  async uploadFile(
+    file: MulterFile,
+    senderIp: string,
+    callId: string,
+  ): Promise<UploadResult> {
     const sender = this.lobbyManager.getMemberByIp(senderIp);
     const call = this.callManager.getCallById(callId);
     if (!sender) {

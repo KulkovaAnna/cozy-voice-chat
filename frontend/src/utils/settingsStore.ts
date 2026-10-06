@@ -3,6 +3,7 @@ import {
   SETTINGS_VERSION,
   type AppSettings,
   type AudioSettings,
+  type PiPSettings,
 } from "../types/settings";
 
 const STORAGE_KEY = "app.settings";
@@ -46,9 +47,17 @@ export function migrate(raw: AppSettings | null): AppSettings {
         : DEFAULT_SETTINGS.audio.autoGainControl,
   };
 
+  const pip: PiPSettings = {
+    autoOpen:
+      typeof raw.pip?.autoOpen === "boolean"
+        ? raw.pip.autoOpen
+        : DEFAULT_SETTINGS.pip.autoOpen,
+  };
+
   return {
     version: SETTINGS_VERSION,
     audio,
+    pip,
   };
 }
 
@@ -91,6 +100,16 @@ export function set(patch: Partial<AudioSettings>): void {
   state = {
     ...state,
     audio: { ...state.audio, ...patch },
+  };
+
+  schedulePersist();
+  emit();
+}
+
+export function setPip(patch: Partial<PiPSettings>): void {
+  state = {
+    ...state,
+    pip: { ...state.pip, ...patch },
   };
 
   schedulePersist();
