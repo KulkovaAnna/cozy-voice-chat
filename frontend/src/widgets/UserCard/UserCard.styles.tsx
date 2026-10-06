@@ -74,4 +74,5 @@ export const MutedIconDiv = styled.div(({ theme }) => ({
   right: 0,
   borderRadius: "50%",
   backgroundColor: theme.colors.primary.light,
+  color: theme.colors.primary.contrast,
 }));

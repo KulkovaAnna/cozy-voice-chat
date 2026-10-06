@@ -130,4 +130,5 @@ export const BackButton = styled.button(() => ({
   border: "none",
   backgroundColor: "transparent",
   cursor: "pointer",
+  color: "inherit",
 }));
