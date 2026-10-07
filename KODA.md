@@ -17,6 +17,7 @@
 - Демонстрация экрана (Screen Sharing).
 - Picture-in-Picture оверлей: always-on-top окно (Document PiP API) с аватарами участников, подсветкой говорящего, кнопками мута и завершения звонка. Открывается автоматически при потере фокуса таба (mediaSession-действие `enterpictureinpicture`, Chrome/Edge 120+), закрывается при возврате на таб. Автопоявление можно отключить в настройках (вкладка «Интерфейс» панели настроек).
 - Кастомизация профиля (имя, аватар), тёмная и светлая темы, мобильный адаптив.
+- Живое обновление профиля: смена имени/аватара мгновенно рассылается участникам лобби и звонка (`lobby::update-profile` → `all::lobby::profile-updated` / `all::call::profile-updated`), без перезагрузки страницы.
 - HTTPS «из коробки» (нужен для Screen Sharing и PiP API).
 - Базовая безопасность: rate limiting, CORS, helmet, валидация origins.
 
@@ -24,7 +25,6 @@
 
 Известные ограничения (из README):
 
-- После смены имени/аватарки изменения не видны собеседнику до перезагрузки страницы (сигнал обновления профиля не реализован).
 - Данные пользователя хранятся в `localStorage` браузера, на сервере не сохраняются.
 - PiP работает только в Chromium-браузерах (Document PiP API + mediaSession `enterpictureinpicture`, Chrome/Edge 120+); в Firefox/Safari окно не появится. При первом автооткрытии браузер может запросить разрешение.
 
@@ -101,7 +101,7 @@ tests/
 
 - **Композиция в конструкторе** `VoiceChatServer`: создаются `LobbyManager`, `CallManager`, `FileManagerService`, `FileManagerController`, `FileManagerRoutes` и `SignalingServer`.
 - **SignalingServer** — центральный обработчик WS-сообщений. Разбирает сообщения по `MESSAGE_TYPES` и вызывает обработчики лобби/звонка. Наследует event-bus: подписан на `file:uploaded` / `file:deleted` и рассылает уведомления в звонок.
-- **LobbyManager** — управление участниками лобби и офферами звонков.
+- **LobbyManager** — управление участниками лобби и офферами звонков. Включая обновление профиля (`updatePersonalInfo`): нормализует имя/аватар через `PersonalInfo`, ограничивает длину имени (50 символов) и аватара (1 МБ).
 - **CallManager** — состояние активных звонков (участники, mute/speaking/online, screen sharing, сообщения).
 - **Соглашения именования сообщений**: строковые типы вида `lobby::join`, `call::end`, `all::call::started`, `me::lobby-joined` (см. `constants/message-types.ts`).
 - **HTTP-маршруты**: `GET /` (инструкция с IP), `GET /stats` (требует auth), `GET /health`, файловые маршруты под `/files` (`POST /upload`, `GET /download/:fileId`, `GET /view/:fileId`).
@@ -161,6 +161,7 @@ app → pages → widgets → features → {components, providers} → hooks →
 - **usePeer** — обёртка над PeerJS: инициализация, звонок пользователю, завершение звонка, mute, screen sharing.
 - **Aliас импортов**: `@cvc/*` → `./src/*` (настроен в `vite.config.ts` и `tsconfig.app.json`).
 - **Профиль пользователя** хранится в `localStorage` (AuthProvider + `useLocalStorage`).
+- **Живое обновление профиля** — при изменении `user.name` / `user.avatar` после входа в лобби `ChatNetworkProvider` автоматически отправляет `lobby::update-profile` (эффект с дедупликацией через `lastSentProfileRef`: первое срабатывание после получения `id` только фиксирует профиль, т.к. он уже отправлен при `lobby::join`). Сервер обновляет `personalInfo` клиента и рассылает `all::lobby::profile-updated` (всем в лобби, с `lobbyInfo`) и `all::call::profile-updated` (участникам звонка, с `callInfo`), если клиент в звонке. Роутер направляет первое в `handleLobbyJoined` (обновление списка лобби), второе — в `handleCallProfileUpdated` (обновление `callInfo` с проверкой совпадения `callId`). Метод `updateProfile` также проброшен через `ChatNetworkContext`.
 - **Picture-in-Picture (PiP)** — реализован на трёх частях:
   - `hooks/useDocumentPictureInPicture.ts` — обёртка над Document Picture-in-Picture API: `open`/`openAuto`/`close`, копирование `<style>`/`<link>` из `<head>` основного документа в окно PiP и их синхронизация через `MutationObserver` (Emotion инжектит правила лениво). `openAuto` помечает окно «автооткрытым» — такое окно автоматически закрывается при возврате фокуса/видимости таба (слушатели `focus`/`blur` окна + `usePageVisibility`).
   - `providers/PiPProvider` — контекст `{ isSupported, isOpen, pipWindow, open, openAuto, close }`; на время активного звонка регистрирует mediaSession-действие `enterpictureinpicture`, которое браузер само вызывает при переключении с таба (открытие без user-жеста; Chrome 120+, условие — активный захват микрофона через `getUserMedia`). Читает `settings.pip.autoOpen` и пропускает регистрацию действия, если пользователь отключил автопоявление.

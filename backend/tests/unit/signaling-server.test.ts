@@ -364,6 +364,63 @@ describe('SignalingServer', () => {
     });
   });
 
+  // ─── lobby::update-profile ────────────────────────────────────
+  describe('lobby::update-profile', () => {
+    it('should update personalInfo and broadcast all::lobby::profile-updated', async () => {
+      const ws1 = await simulateConnection('10.0.0.1');
+      sendMessage(ws1, 'lobby::join', { personalInfo: { name: 'Alice' } });
+
+      const ws2 = await simulateConnection('10.0.0.2');
+      sendMessage(ws2, 'lobby::join', { personalInfo: { name: 'Bob' } });
+
+      sendMessage(ws2, 'lobby::update-profile', {
+        personalInfo: { name: 'Bobby', avatar: 'new-avatar' },
+      });
+
+      const bob = lobby.getMemberByIp('10.0.0.2')!;
+      expect(bob.personalInfo.name).toBe('Bobby');
+      expect(bob.personalInfo.avatar).toBe('new-avatar');
+
+      const updatedMsg = getSent(ws1).find(
+        (m: any) => m.type === 'all::lobby::profile-updated',
+      );
+      expect(updatedMsg).toBeDefined();
+      expect(updatedMsg.data.client.id).toBe(bob.id);
+      expect(updatedMsg.data.client.personalInfo.name).toBe('Bobby');
+      expect(updatedMsg.data.lobbyInfo.members).toHaveLength(2);
+    });
+
+    it('should broadcast all::call::profile-updated when client is in a call', async () => {
+      const { ws1, ws2, alice } = await setupCall();
+
+      sendMessage(ws1, 'lobby::update-profile', {
+        personalInfo: { name: 'Alice2' },
+      });
+
+      const callMsg = getSent(ws2).find(
+        (m: any) => m.type === 'all::call::profile-updated',
+      );
+      expect(callMsg).toBeDefined();
+      expect(callMsg.data.client.id).toBe(alice.id);
+      expect(callMsg.data.callInfo).toBeDefined();
+
+      // Данные участника в звонке тоже обновились
+      const member = callMgr.getMemberById(callMsg.data.callInfo.id, alice.id);
+      expect(member.client.personalInfo.name).toBe('Alice2');
+    });
+
+    it('should send error when client is not in the lobby', async () => {
+      const ws = await simulateConnection('10.0.0.1');
+      sendMessage(ws, 'lobby::update-profile', {
+        personalInfo: { name: 'Ghost' },
+      });
+
+      const err = getSent(ws).find((m: any) => m.type === 'error');
+      expect(err).toBeDefined();
+      expect(err.data.message).toContain('Вы не в лобби');
+    });
+  });
+
   // ─── call::end ────────────────────────────────────────────────
   describe('call::end', () => {
     it('should broadcast all::call::ended and remove call', async () => {

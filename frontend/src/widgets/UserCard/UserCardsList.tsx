@@ -1,7 +1,7 @@
 import { Column, Row } from "@cvc/components";
 import { useTextChat } from "@cvc/providers";
 import type { CallMember } from "@cvc/types";
-import { UserCard } from "../UserCard";
+import { UserCard } from "./UserCard";
 
 export type UserCardsListProps = {
   members: CallMember[];
@@ -11,10 +11,6 @@ export type UserCardsListProps = {
   compact: boolean;
 };
 
-/**
- * Список карточек участников звонка.
- * Читает реакцию из контекста чата, поэтому должен рендериться внутри TextChatProvider.
- */
 export function UserCardsList(props: UserCardsListProps) {
   const { members, myId, volume, onVolumeChange, compact } = props;
   const { emojiReaction } = useTextChat();

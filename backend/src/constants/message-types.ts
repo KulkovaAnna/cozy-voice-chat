@@ -5,6 +5,7 @@ export const MESSAGE_TYPES = Object.freeze({
       INITIATE_CALL: 'lobby::initiate-call',
       ACCEPT_OFFER: 'lobby::accept-offer',
       DECLINE_OFFER: 'lobby::decline-offer',
+      UPDATE_PROFILE: 'lobby::update-profile',
     },
     CALL: {
       END_CALL: 'call::end',
@@ -21,6 +22,7 @@ export const MESSAGE_TYPES = Object.freeze({
       LOBBY: {
         JOINED: 'all::lobby::joined',
         CLIENT_DISCONNECTED: 'all::lobby::client-disconnected',
+        PROFILE_UPDATED: 'all::lobby::profile-updated',
       },
       CALL: {
         CALL_STARTED: 'all::call::started',
@@ -33,6 +35,7 @@ export const MESSAGE_TYPES = Object.freeze({
         FILE_DELETED: 'all::call::file-deleted',
         SCREEN_SHARING_STARTED: 'all::call::screen-share-started',
         SCREEN_SHARING_STOPPED: 'all::call::screen-share-stopped',
+        PROFILE_UPDATED: 'all::call::profile-updated',
       },
     },
     ME: {

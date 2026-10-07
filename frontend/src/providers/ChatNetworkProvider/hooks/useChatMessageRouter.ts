@@ -14,6 +14,7 @@ type RouterParams = {
   handleCallEnded: VoidFunction;
   handleOnlineChanged: (data: ServerMessage) => void;
   handleCallStateChanged: (data: ServerMessage) => void;
+  handleCallProfileUpdated: (data: ServerMessage) => void;
   // Сообщения
   handleNewMessage: (data: ServerMessage) => void;
   handleFileReceived: (data: ServerMessage) => void;
@@ -26,7 +27,8 @@ export function useChatMessageRouter(params: RouterParams) {
 
       switch (data.type) {
         case "all::lobby::joined":
-        case "all::lobby::client-disconnected": {
+        case "all::lobby::client-disconnected":
+        case "all::lobby::profile-updated": {
           params.handleLobbyJoined(data);
           break;
         }
@@ -76,6 +78,10 @@ export function useChatMessageRouter(params: RouterParams) {
         }
         case "all::call::screen-share-stopped": {
           params.handleCallStateChanged(data);
+          break;
+        }
+        case "all::call::profile-updated": {
+          params.handleCallProfileUpdated(data);
           break;
         }
       }

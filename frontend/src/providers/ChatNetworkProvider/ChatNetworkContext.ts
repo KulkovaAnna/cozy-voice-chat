@@ -1,10 +1,5 @@
 import { createContext } from "react";
-import type {
-  CallInfo,
-  CallOffer,
-  TextMessage,
-  UserProfile,
-} from "@cvc/types";
+import type { CallInfo, CallOffer, TextMessage, UserProfile } from "@cvc/types";
 
 export type ChatNetworkContextType = {
   lobbyMembers?: Array<UserProfile>;
@@ -19,6 +14,7 @@ export type ChatNetworkContextType = {
   callToUser: (uid: string) => void;
   acceptCallOffer: VoidFunction;
   declineCallOffer: VoidFunction;
+  updateProfile: (personalInfo: { name: string; avatar: string }) => void;
   endCall: VoidFunction;
   changeMuteStatus: (status: boolean) => void;
   sendTextMessage: (text: string) => void;
@@ -41,6 +37,7 @@ export const ChatNetworkContext = createContext<ChatNetworkContextType>({
   callToUser: () => {},
   acceptCallOffer: () => {},
   declineCallOffer: () => {},
+  updateProfile: () => {},
   endCall: () => {},
   changeMuteStatus: () => {},
   sendTextMessage: () => {},

@@ -112,6 +112,13 @@ export function useChatCall({ user, send, peerRef }: UseChatCallParams) {
     setCallInfo(callInfoAdapter(data.data.callInfo));
   }, []);
 
+  const handleCallProfileUpdated = useCallback((data: ServerMessage) => {
+    const currentCall = callInfoRef.current;
+    if (!currentCall || data.data.callInfo?.id !== currentCall.id) return;
+
+    setCallInfo(callInfoAdapter(data.data.callInfo));
+  }, []);
+
   return {
     callInfo,
     callInfoRef,
@@ -125,5 +132,6 @@ export function useChatCall({ user, send, peerRef }: UseChatCallParams) {
     handleCallEnded,
     handleOnlineChanged,
     handleCallStateChanged,
+    handleCallProfileUpdated,
   };
 }

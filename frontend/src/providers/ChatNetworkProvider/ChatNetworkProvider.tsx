@@ -96,6 +96,35 @@ export function ChatNetworkProvider(props: PropsWithChildren) {
     setTextMessages([]);
   }, [callHook]);
 
+  // Автосинхронизация профиля: при изменении имени/аватара после входа
+  // в лобби отправляем обновление на сервер (при join профиль уже отправлен,
+  // поэтому первое срабатывание с полученным id только фиксируем)
+  const lastSentProfileRef = useRef<{ name: string; avatar: string } | null>(
+    null,
+  );
+
+  const { updateProfile } = lobby;
+
+  useEffect(() => {
+    if (!user.id) return;
+    if (socketRef.current?.readyState !== WebSocket.OPEN) return;
+
+    const profile = { name: user.name, avatar: user.avatar };
+    const lastSent = lastSentProfileRef.current;
+
+    if (!lastSent) {
+      lastSentProfileRef.current = profile;
+      return;
+    }
+
+    if (lastSent.name === profile.name && lastSent.avatar === profile.avatar) {
+      return;
+    }
+
+    lastSentProfileRef.current = profile;
+    updateProfile(profile);
+  }, [updateProfile, user.avatar, user.id, user.name]);
+
   const { route } = useChatMessageRouter({
     handleLobbyJoined: lobby.handleLobbyJoined,
     onMeLobbyJoined,
@@ -106,6 +135,7 @@ export function ChatNetworkProvider(props: PropsWithChildren) {
     handleCallEnded,
     handleOnlineChanged: callHook.handleOnlineChanged,
     handleCallStateChanged: callHook.handleCallStateChanged,
+    handleCallProfileUpdated: callHook.handleCallProfileUpdated,
     handleNewMessage: messages.handleNewMessage,
     handleFileReceived: messages.handleFileReceived,
   });
@@ -134,6 +164,7 @@ export function ChatNetworkProvider(props: PropsWithChildren) {
         callToUser: lobby.callToUser,
         acceptCallOffer: lobby.acceptCallOffer,
         declineCallOffer: lobby.declineCallOffer,
+        updateProfile: lobby.updateProfile,
         endCall: callHook.endCall,
         changeMuteStatus: callHook.changeMuteStatus,
         sendTextMessage: messages.sendTextMessage,

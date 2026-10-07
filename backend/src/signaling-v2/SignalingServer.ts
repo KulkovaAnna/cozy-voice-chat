@@ -15,7 +15,11 @@ import type {
   FileDeletedEvent,
   FileUploadedEvent,
 } from '../app/modules/file-manager/file-manager.types';
-import type { IncomingWsMessage, OutgoingMessage } from '../types';
+import type {
+  IncomingWsMessage,
+  OutgoingMessage,
+  PersonalInfoData,
+} from '../types';
 
 export default class SignalingServer {
   private wss: WebSocket.Server;
@@ -188,6 +192,10 @@ export default class SignalingServer {
           this.handleDeclineCallOffer(ws, String(data.offerId));
           break;
 
+        case MESSAGE_TYPES.RECEIVE.LOBBY.UPDATE_PROFILE:
+          this.handleUpdateProfile(ws, data.personalInfo);
+          break;
+
         case MESSAGE_TYPES.RECEIVE.CALL.END_CALL:
           this.handleEndCall(ws, String(data.callId));
           break;
@@ -217,7 +225,11 @@ export default class SignalingServer {
           break;
 
         case MESSAGE_TYPES.RECEIVE.CALL.SEND_MESSAGE:
-          this.handleSendCallMessage(ws, String(data.callId), String(data.text));
+          this.handleSendCallMessage(
+            ws,
+            String(data.callId),
+            String(data.text),
+          );
           break;
 
         case MESSAGE_TYPES.RECEIVE.CALL.START_SCREEN_SHARING:
@@ -244,7 +256,11 @@ export default class SignalingServer {
     }
   }
 
-  private handleJoinLobby(ws: WebSocket, ip: string, personalInfo: PersonalInfo): void {
+  private handleJoinLobby(
+    ws: WebSocket,
+    ip: string,
+    personalInfo: PersonalInfo,
+  ): void {
     const client = this.lobbyManager.addClient(ws, ip, personalInfo);
 
     if (client) {
@@ -264,6 +280,47 @@ export default class SignalingServer {
         data: {
           client,
           timestamp: new Date().toISOString(),
+        },
+      });
+    }
+  }
+
+  /**
+   * Обработка обновления профиля участника:
+   * обновляет personalInfo в лобби и рассылает изменения
+   * всем участникам лобби и текущего звонка (если он есть)
+   */
+  private handleUpdateProfile(
+    ws: WebSocket,
+    raw?: PersonalInfoData | null,
+  ): void {
+    const client = this.lobbyManager.getMemberByWs(ws);
+    if (!client) {
+      throw new Error('Вы не в лобби');
+    }
+
+    const updated = this.lobbyManager.updatePersonalInfo(client.id, raw);
+    if (!updated) return;
+
+    this.broadcastToLobby({
+      type: MESSAGE_TYPES.SEND.ALL.LOBBY.PROFILE_UPDATED,
+      data: {
+        client: updated,
+        timestamp: new Date().toISOString(),
+        lobbyInfo: {
+          members: this.lobbyManager.getLobbyMembers(),
+        },
+      },
+    });
+
+    const memberCall = this.callManager.getClientCall(updated.id);
+    if (memberCall) {
+      this.broadcastToCall(memberCall.id, {
+        type: MESSAGE_TYPES.SEND.ALL.CALL.PROFILE_UPDATED,
+        data: {
+          client: updated,
+          timestamp: new Date().toISOString(),
+          callInfo: memberCall,
         },
       });
     }
@@ -303,7 +360,11 @@ export default class SignalingServer {
   private handleAcceptCallOffer(ws: WebSocket, offerId: string): void {
     const receiver = this.lobbyManager.getMemberByWs(ws);
     const currentOffer = this.lobbyManager.getOfferById(offerId);
-    if (!currentOffer || !receiver || receiver.id !== currentOffer.receiver.id) {
+    if (
+      !currentOffer ||
+      !receiver ||
+      receiver.id !== currentOffer.receiver.id
+    ) {
       throw new Error('Вы не можете начать этот звонок');
     }
 

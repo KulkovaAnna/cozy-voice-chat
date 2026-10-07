@@ -54,6 +54,76 @@ describe('LobbyManager', () => {
     });
   });
 
+  // ─── updatePersonalInfo ───────────────────────────────────────
+  describe('updatePersonalInfo', () => {
+    it('should update name and avatar of existing client', () => {
+      const client = lobby.addClient(mockWs(), '10.0.0.1')!;
+
+      const updated = lobby.updatePersonalInfo(client.id, {
+        name: 'NewName',
+        avatar: 'data:image/png;base64,AAA',
+      });
+
+      expect(updated).toBeDefined();
+      expect(updated!.personalInfo.name).toBe('NewName');
+      expect(updated!.personalInfo.avatar).toBe('data:image/png;base64,AAA');
+      // Обновление затрагивает того же клиента в лобби
+      expect(lobby.getMemberById(client.id)!.personalInfo.name).toBe('NewName');
+    });
+
+    it('should return undefined for unknown client id', () => {
+      expect(
+        lobby.updatePersonalInfo('no-such-id', { name: 'X' }),
+      ).toBeUndefined();
+    });
+
+    it('should trim name and limit its length', () => {
+      const client = lobby.addClient(mockWs(), '10.0.0.1')!;
+      const longName = 'A'.repeat(120);
+
+      const updated = lobby.updatePersonalInfo(client.id, {
+        name: `  ${longName}  `,
+      });
+
+      expect(updated!.personalInfo.name).toBe('A'.repeat(50));
+    });
+
+    it('should fall back to default name when name is empty', () => {
+      const client = lobby.addClient(mockWs(), '10.0.0.1')!;
+
+      const updated = lobby.updatePersonalInfo(client.id, { name: '   ' });
+
+      expect(updated!.personalInfo.name).toMatch(/^Аноним_/);
+    });
+
+    it('should ignore avatar when it is not a string or is empty', () => {
+      const client = lobby.addClient(
+        mockWs(),
+        '10.0.0.1',
+        new PersonalInfo('Alice', 'old-avatar'),
+      )!;
+
+      const updated = lobby.updatePersonalInfo(client.id, {
+        name: 'Alice',
+        avatar: '',
+      });
+
+      expect(updated!.personalInfo.avatar).toBeNull();
+    });
+
+    it('should ignore avatar exceeding max length', () => {
+      const client = lobby.addClient(mockWs(), '10.0.0.1')!;
+      const hugeAvatar = 'x'.repeat(1024 * 1024 + 1);
+
+      const updated = lobby.updatePersonalInfo(client.id, {
+        name: 'Alice',
+        avatar: hugeAvatar,
+      });
+
+      expect(updated!.personalInfo.avatar).toBeNull();
+    });
+  });
+
   // ─── createCallOffer ──────────────────────────────────────────
   describe('createCallOffer', () => {
     it('should create and store a call offer', () => {

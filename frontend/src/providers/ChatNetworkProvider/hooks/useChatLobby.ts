@@ -43,6 +43,13 @@ export function useChatLobby({ user, send }: UseChatLobbyParams) {
     setCallOffer(null);
   }, [callOffer, send]);
 
+  const updateProfile = useCallback(
+    (personalInfo: { name: string; avatar: string }) => {
+      send("lobby::update-profile", { personalInfo });
+    },
+    [send],
+  );
+
   const handleLobbyJoined = useCallback((data: ServerMessage) => {
     const currentLobbyMembers = data.data.lobbyInfo.members.map(
       (member: UserDTO) => userAdapter(member),
@@ -73,6 +80,7 @@ export function useChatLobby({ user, send }: UseChatLobbyParams) {
     callToUser,
     acceptCallOffer,
     declineCallOffer,
+    updateProfile,
     handleLobbyJoined,
     handleCallOffer,
     handleCallOfferDeclined,

@@ -2,6 +2,7 @@ import type { WebSocket } from 'ws';
 import PersonalInfo from '../models/PersonalInfo';
 import Client from '../models/Client';
 import CallOffer from '../models/CallOffer';
+import type { PersonalInfoData } from '../types';
 
 export default class LobbyManager {
   /** Список клиентов */
@@ -27,6 +28,32 @@ export default class LobbyManager {
     }
     const client = new Client(ws, ip, personalInfo ?? undefined);
     this.#clients.set(ws, client);
+    return client;
+  }
+
+  /**
+   * Обновляет персональные данные клиента в лобби
+   * @param clientId - ID клиента
+   * @param raw - сырые данные профиля от клиента
+   * @returns обновлённый клиент или undefined, если клиент не найден
+   */
+  updatePersonalInfo(
+    clientId: string,
+    raw?: PersonalInfoData | null,
+  ): Client | undefined {
+    const client = this.getMemberById(clientId);
+    if (!client) {
+      return;
+    }
+
+    const name = typeof raw?.name === 'string' ? raw.name.trim() : '';
+
+    const avatar =
+      typeof raw?.avatar === 'string' && raw.avatar.length > 0
+        ? raw.avatar
+        : null;
+
+    client.personalInfo = new PersonalInfo(name || null, avatar);
     return client;
   }
 
