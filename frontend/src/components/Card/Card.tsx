@@ -1,10 +1,12 @@
+import type { CSSProperties, ReactNode } from "react";
 import * as Styles from "./Card.styles";
 
 interface CardProps {
   hasGlow?: boolean;
-  children?: React.ReactNode;
+  children?: ReactNode;
   className?: string;
   direction?: "row" | "column";
+  style?: CSSProperties;
 }
 
 export const Card = (props: CardProps) => {

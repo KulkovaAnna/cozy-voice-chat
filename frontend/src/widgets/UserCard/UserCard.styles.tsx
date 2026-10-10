@@ -1,5 +1,6 @@
 import { Card, HorizontalSlider } from "@cvc/components";
 import type { Theme } from "@cvc/theme";
+import { cardImageLayerStyles } from "@cvc/utils";
 import { keyframes } from "@emotion/react";
 import styled from "@emotion/styled";
 import type { UserCardVariant } from "./UserCard";
@@ -81,6 +82,7 @@ export const Slider = styled(HorizontalSlider)({
 
 export const UserCard = styled(Card)<UserCardProps>(
   ({ isSpeaking, theme, variant }) => ({
+    ...cardImageLayerStyles,
     flexFlow: "column",
     backgroundColor: theme?.colors.background.darker,
     borderColor: isSpeaking ? theme.colors.voice.speaking : "none",

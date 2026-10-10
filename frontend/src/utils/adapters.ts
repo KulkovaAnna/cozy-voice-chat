@@ -14,6 +14,7 @@ export const userAdapter = (serverUser: UserDTO): UserProfile => {
     avatar: serverUser.personalInfo.avatar,
     name: serverUser.personalInfo.name,
     id: serverUser.id,
+    cardAppearance: serverUser.personalInfo.cardAppearance ?? null,
   };
 };
 

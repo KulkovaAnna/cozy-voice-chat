@@ -23,6 +23,7 @@ function createMockRequest(overrides: Partial<Request> = {}): Request {
 }
 
 function createMockResponse(): Response & {
+  headers: Record<string, string>;
   _isJson?: boolean;
   _statusCode?: number;
   _body?: unknown;
@@ -58,6 +59,7 @@ function createMockResponse(): Response & {
     },
   };
   return res as unknown as Response & {
+    headers: Record<string, string>;
     _isJson?: boolean;
     _statusCode?: number;
     _body?: unknown;

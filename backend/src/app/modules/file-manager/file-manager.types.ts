@@ -13,6 +13,25 @@ export interface FileMetadata {
   createdAt: number;
 }
 
+/** Метаданные файла профиля (аватар/фон карточки) */
+export interface ProfileFileMetadata {
+  path: string;
+  originalName: string;
+  ownerId: string;
+  createdAt: number;
+}
+
+/** Результат загрузки файла профиля */
+export interface ProfileUploadResult {
+  fileId: string;
+}
+
+/** Результат чтения файла профиля */
+export interface ProfileViewResult {
+  stream: import('fs').ReadStream;
+  meta: ProfileFileMetadata;
+}
+
 /** Результат загрузки файла */
 export interface UploadResult {
   fileId: string;
@@ -51,7 +70,12 @@ export interface FileDeletedEvent {
 
 /** Абстракция менеджера лобби (для разрыва циклических зависимостей) */
 export interface LobbyManagerLike {
-  addClient(ws: WebSocket, ip: string, personalInfo: PersonalInfo): Client | undefined;
+  addClient(
+    ws: WebSocket,
+    ip: string,
+    personalInfo: PersonalInfo,
+    preferredId?: string | null,
+  ): Client | undefined;
   getMemberByIp(clientIp: string): Client | undefined;
 }
 

@@ -1,8 +1,9 @@
 import styled from "@emotion/styled";
 import { Card } from "@cvc/components";
+import { cardImageLayerStyles } from "@cvc/utils";
 
 export const Container = styled(Card)(({ theme }) => ({
-  position: "relative",
+  ...cardImageLayerStyles,
   boxShadow: `0px 0px 4px 2px ${theme.colors.primary.dark}`,
   padding: "2rem 1rem",
   width: "300px",

@@ -1,0 +1,1 @@
+export { AvatarBorderEditor } from "./AvatarBorderEditor";

@@ -112,4 +112,81 @@ export default class FileManagerController {
       next(err);
     }
   }
+
+  /**
+   * Загрузка файла профиля (аватар / фон карточки)
+   * POST /files/profile/avatar
+   */
+  async uploadProfileFile(
+    req: Request,
+    res: Response,
+    next: NextFunction,
+  ): Promise<void> {
+    try {
+      const senderIp = req.socket.remoteAddress ?? '';
+      if (!req.file) {
+        const err: HttpError = new Error('Файл не загружен');
+        err.status = 400;
+        throw err;
+      }
+
+      const result = await this.fileManagerService.uploadProfileFile(
+        req.file,
+        senderIp,
+      );
+
+      res.status(201).json(result);
+    } catch (err) {
+      next(err);
+    }
+  }
+
+  /**
+   * Просмотр файла профиля (без удаления)
+   * GET /files/profile/:fileId
+   */
+  async viewProfileFile(
+    req: Request,
+    res: Response,
+    next: NextFunction,
+  ): Promise<void> {
+    try {
+      const fileId = String(req.params.fileId);
+
+      const { stream, meta } =
+        await this.fileManagerService.getProfileFile(fileId);
+
+      const contentType =
+        mime.lookup(meta.originalName) || 'application/octet-stream';
+      res.setHeader('Content-Type', contentType);
+      // Файлы профиля неизменяемы — разрешаем кэширование
+      res.setHeader('Cache-Control', 'public, max-age=86400');
+
+      stream.pipe(res);
+
+      stream.on('error', (err) => {
+        next(err);
+      });
+    } catch (err) {
+      next(err);
+    }
+  }
+
+  /**
+   * Удаление файла профиля
+   * DELETE /files/profile/:fileId
+   */
+  async deleteProfileFile(
+    req: Request,
+    res: Response,
+    next: NextFunction,
+  ): Promise<void> {
+    try {
+      const fileId = String(req.params.fileId);
+      await this.fileManagerService.deleteProfileFile(fileId);
+      res.status(204).send();
+    } catch (err) {
+      next(err);
+    }
+  }
 }

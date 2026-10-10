@@ -1,5 +1,6 @@
 import { createContext } from "react";
 import type { CallInfo, CallOffer, TextMessage, UserProfile } from "@cvc/types";
+import type { ProfilePayload } from "./hooks/useChatLobby";
 
 export type ChatNetworkContextType = {
   lobbyMembers?: Array<UserProfile>;
@@ -14,7 +15,7 @@ export type ChatNetworkContextType = {
   callToUser: (uid: string) => void;
   acceptCallOffer: VoidFunction;
   declineCallOffer: VoidFunction;
-  updateProfile: (personalInfo: { name: string; avatar: string }) => void;
+  updateProfile: (personalInfo?: Partial<ProfilePayload>) => void;
   endCall: VoidFunction;
   changeMuteStatus: (status: boolean) => void;
   sendTextMessage: (text: string) => void;

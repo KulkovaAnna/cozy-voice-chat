@@ -1,8 +1,11 @@
+import type { CardAppearance } from "./settings";
+
 export type UserProfile = {
   name: string;
-  avatar: string;
+  avatar?: string;
   id?: string;
   isMe?: boolean;
+  cardAppearance?: CardAppearance | null;
 };
 
 export type CallMember = {

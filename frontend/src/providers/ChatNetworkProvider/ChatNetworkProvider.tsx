@@ -6,8 +6,8 @@ import {
   type PropsWithChildren,
 } from "react";
 
-import { usePeer } from "@cvc/hooks";
-import type { TextMessage } from "@cvc/types";
+import { usePeer, useSetting } from "@cvc/hooks";
+import type { CardAppearance, TextMessage } from "@cvc/types";
 import { useAuth } from "../AuthProvider";
 import { ChatNetworkContext } from "./ChatNetworkContext";
 import {
@@ -96,12 +96,13 @@ export function ChatNetworkProvider(props: PropsWithChildren) {
     setTextMessages([]);
   }, [callHook]);
 
-  // Автосинхронизация профиля: при изменении имени/аватара после входа
-  // в лобби отправляем обновление на сервер (при join профиль уже отправлен,
-  // поэтому первое срабатывание с полученным id только фиксируем)
-  const lastSentProfileRef = useRef<{ name: string; avatar: string } | null>(
-    null,
-  );
+  const profileSettings = useSetting((state) => state.profile);
+
+  const lastSentProfileRef = useRef<{
+    name: string;
+    avatar: string | null;
+    cardAppearance: CardAppearance;
+  } | null>(null);
 
   const { updateProfile } = lobby;
 
@@ -109,7 +110,11 @@ export function ChatNetworkProvider(props: PropsWithChildren) {
     if (!user.id) return;
     if (socketRef.current?.readyState !== WebSocket.OPEN) return;
 
-    const profile = { name: user.name, avatar: user.avatar };
+    const profile = {
+      name: user.name,
+      avatar: profileSettings.avatar,
+      cardAppearance: profileSettings.cardAppearance,
+    };
     const lastSent = lastSentProfileRef.current;
 
     if (!lastSent) {
@@ -117,13 +122,17 @@ export function ChatNetworkProvider(props: PropsWithChildren) {
       return;
     }
 
-    if (lastSent.name === profile.name && lastSent.avatar === profile.avatar) {
+    if (
+      lastSent.name === profile.name &&
+      lastSent.avatar === profile.avatar &&
+      lastSent.cardAppearance === profile.cardAppearance
+    ) {
       return;
     }
 
     lastSentProfileRef.current = profile;
     updateProfile(profile);
-  }, [updateProfile, user.avatar, user.id, user.name]);
+  }, [profileSettings, updateProfile, user.id, user.name]);
 
   const { route } = useChatMessageRouter({
     handleLobbyJoined: lobby.handleLobbyJoined,

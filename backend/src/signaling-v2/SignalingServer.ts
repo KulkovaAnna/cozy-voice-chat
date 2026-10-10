@@ -175,8 +175,16 @@ export default class SignalingServer {
       switch (message.type) {
         case MESSAGE_TYPES.RECEIVE.LOBBY.JOIN: {
           const raw = data.personalInfo;
-          const personalInfo = new PersonalInfo(raw?.name, raw?.avatar);
-          this.handleJoinLobby(ws, ip, personalInfo);
+          const personalInfo = new PersonalInfo(
+            raw?.name,
+            raw?.avatar,
+            raw?.cardAppearance,
+          );
+          const clientId =
+            typeof data.clientId === 'string' && data.clientId.length > 0
+              ? data.clientId
+              : null;
+          this.handleJoinLobby(ws, ip, personalInfo, clientId);
           break;
         }
 
@@ -260,8 +268,14 @@ export default class SignalingServer {
     ws: WebSocket,
     ip: string,
     personalInfo: PersonalInfo,
+    preferredId?: string | null,
   ): void {
-    const client = this.lobbyManager.addClient(ws, ip, personalInfo);
+    const client = this.lobbyManager.addClient(
+      ws,
+      ip,
+      personalInfo,
+      preferredId,
+    );
 
     if (client) {
       this.broadcastToLobby({

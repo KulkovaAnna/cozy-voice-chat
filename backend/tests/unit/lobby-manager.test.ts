@@ -2,6 +2,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import type { WebSocket } from 'ws';
 import LobbyManager from '../../src/signaling-v2/LobbyManager';
 import PersonalInfo from '../../src/models/PersonalInfo';
+import type { PersonalInfoData } from '../../src/types';
 
 function mockWs(): WebSocket {
   return { readyState: 1 } as unknown as WebSocket;
@@ -51,6 +52,20 @@ describe('LobbyManager', () => {
       lobby.addClient(mockWs(), '192.168.1.2');
 
       expect(lobby.getStats().totalClients).toBe(2);
+    });
+
+    it('should use preferredId when provided and free', () => {
+      const client = lobby.addClient(mockWs(), '10.0.0.1', null, 'my-old-id');
+
+      expect(client!.id).toBe('my-old-id');
+    });
+
+    it('should generate new id when preferredId is taken', () => {
+      lobby.addClient(mockWs(), '10.0.0.1', null, 'shared-id');
+      const second = lobby.addClient(mockWs(), '10.0.0.2', null, 'shared-id');
+
+      expect(second!.id).not.toBe('shared-id');
+      expect(second!.id).toBeTruthy();
     });
   });
 
@@ -121,6 +136,114 @@ describe('LobbyManager', () => {
       });
 
       expect(updated!.personalInfo.avatar).toBeNull();
+    });
+
+    it('should store normalized cardAppearance', () => {
+      const client = lobby.addClient(mockWs(), '10.0.0.1')!;
+
+      const updated = lobby.updatePersonalInfo(client.id, {
+        name: 'Alice',
+        cardAppearance: {
+          background: {
+            type: 'color',
+            color: '#ff0000',
+            image: null,
+            imageOpacity: 1,
+          },
+          avatarBorder: { style: 'solid', color: '#00ff00', width: 4 },
+          textColor: '#ffffff',
+          textShadow: true,
+        },
+      });
+
+      expect(updated!.personalInfo.cardAppearance).toEqual({
+        background: {
+          type: 'color',
+          color: '#ff0000',
+          image: null,
+          imageOpacity: 1,
+        },
+        avatarBorder: { style: 'solid', color: '#00ff00', width: 4 },
+        textColor: '#ffffff',
+        textShadow: true,
+      });
+    });
+
+    it('should normalize invalid cardAppearance values', () => {
+      const client = lobby.addClient(mockWs(), '10.0.0.1')!;
+
+      const updated = lobby.updatePersonalInfo(client.id, {
+        name: 'Alice',
+        cardAppearance: {
+          background: {
+            type: 'invalid',
+            color: 42,
+            image: null,
+            imageOpacity: 'opaque',
+          },
+          avatarBorder: { style: 'wavy', color: null, width: 999 },
+          textColor: 123,
+          textShadow: 'yes',
+        },
+      } as unknown as PersonalInfoData);
+
+      const appearance = updated!.personalInfo.cardAppearance!;
+      expect(appearance.background.type).toBe('none');
+      expect(appearance.background.color).toBeNull();
+      expect(appearance.background.imageOpacity).toBe(1);
+      expect(appearance.avatarBorder.style).toBe('none');
+      expect(appearance.avatarBorder.width).toBe(2);
+      expect(appearance.textColor).toBeNull();
+      expect(appearance.textShadow).toBe(false);
+    });
+
+    it('should clamp imageOpacity to 0..1 and drop too long textColor', () => {
+      const client = lobby.addClient(mockWs(), '10.0.0.1')!;
+
+      const updated = lobby.updatePersonalInfo(client.id, {
+        name: 'Alice',
+        cardAppearance: {
+          background: {
+            type: 'image',
+            color: null,
+            image: '/files/profile/bg.png',
+            imageOpacity: 7.5,
+          },
+          avatarBorder: { style: 'none', color: '#ffffff', width: 2 },
+          textColor: 'x'.repeat(65),
+          textShadow: true,
+        },
+      });
+
+      const appearance = updated!.personalInfo.cardAppearance!;
+      expect(appearance.background.imageOpacity).toBe(1);
+      expect(appearance.textColor).toBeNull();
+      expect(appearance.textShadow).toBe(true);
+    });
+
+    it('should fill default card text settings when absent', () => {
+      const client = lobby.addClient(mockWs(), '10.0.0.1')!;
+
+      const updated = lobby.updatePersonalInfo(client.id, {
+        name: 'Alice',
+        cardAppearance: {
+          background: { type: 'none', color: null, image: null },
+          avatarBorder: { style: 'none', color: '#ffffff', width: 2 },
+        },
+      } as unknown as PersonalInfoData);
+
+      const appearance = updated!.personalInfo.cardAppearance!;
+      expect(appearance.background.imageOpacity).toBe(1);
+      expect(appearance.textColor).toBeNull();
+      expect(appearance.textShadow).toBe(false);
+    });
+
+    it('should set cardAppearance to null when absent', () => {
+      const client = lobby.addClient(mockWs(), '10.0.0.1')!;
+
+      const updated = lobby.updatePersonalInfo(client.id, { name: 'Alice' });
+
+      expect(updated!.personalInfo.cardAppearance).toBeNull();
     });
   });
 

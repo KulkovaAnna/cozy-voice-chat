@@ -1,3 +1,5 @@
+import type { CardAppearance } from "./settings";
+
 export type UserDTO = {
   id: string;
   ip: string;
@@ -5,6 +7,7 @@ export type UserDTO = {
   personalInfo: {
     name: string;
     avatar: string;
+    cardAppearance?: CardAppearance | null;
   };
 };
 

@@ -1,8 +1,10 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import * as fs from 'fs';
-import * as path from 'path';
 import FileManagerService from '../../src/app/modules/file-manager/file-manager.service';
-import type { CallManagerLike, LobbyManagerLike } from '../../src/app/modules/file-manager/file-manager.types';
+import type {
+  CallManagerLike,
+  LobbyManagerLike,
+} from '../../src/app/modules/file-manager/file-manager.types';
 
 vi.mock('fs', () => ({
   promises: {
@@ -56,7 +58,10 @@ describe('FileManagerService', () => {
 
       await expect(
         service.uploadFile(mulFile as any, '10.0.0.1', 'call-1'),
-      ).rejects.toMatchObject({ status: 404, message: 'Отправитель не найден' });
+      ).rejects.toMatchObject({
+        status: 404,
+        message: 'Отправитель не найден',
+      });
     });
 
     it('should throw 404 if call not found', async () => {
@@ -72,12 +77,17 @@ describe('FileManagerService', () => {
       mockLobbyManager.getMemberByIp.mockReturnValue(fakeClient);
       mockCallManager.getCallById.mockReturnValue(fakeCall);
 
-      const result = await service.uploadFile(mulFile as any, '10.0.0.1', 'call-1');
+      const result = await service.uploadFile(
+        mulFile as any,
+        '10.0.0.1',
+        'call-1',
+      );
 
       expect(result).toEqual({ fileId: 'mocked-uuid-1234' });
       expect(fs.promises.rename).toHaveBeenCalled();
       // Проверяем что целевой путь содержит расширение
-      const targetPath = (fs.promises.rename as ReturnType<typeof vi.fn>).mock.calls[0][1];
+      const targetPath = (fs.promises.rename as ReturnType<typeof vi.fn>).mock
+        .calls[0][1];
       expect(targetPath).toContain('mocked-uuid-1234.pdf');
     });
 
@@ -99,7 +109,10 @@ describe('FileManagerService', () => {
     it('should throw 404 for unknown fileId', async () => {
       await expect(
         service.downloadFile('nonexistent-id'),
-      ).rejects.toMatchObject({ status: 404, message: 'Файл не найден или уже удалён' });
+      ).rejects.toMatchObject({
+        status: 404,
+        message: 'Файл не найден или уже удалён',
+      });
     });
 
     it('should return stream, filename, path and cleanup', async () => {
@@ -144,9 +157,10 @@ describe('FileManagerService', () => {
   // ─── getFileStream ────────────────────────────────────────────
   describe('getFileStream', () => {
     it('should throw 404 for unknown fileId', async () => {
-      await expect(
-        service.getFileStream('no-such-id'),
-      ).rejects.toMatchObject({ status: 404, message: 'Файл не найден или удалён' });
+      await expect(service.getFileStream('no-such-id')).rejects.toMatchObject({
+        status: 404,
+        message: 'Файл не найден или удалён',
+      });
     });
 
     it('should return stream and meta for existing file', async () => {
@@ -183,7 +197,9 @@ describe('FileManagerService', () => {
 
       // Мокнем readdir — возвращаем директорию с одним файлом
       const fakeDirent = { isFile: () => true, name: 'mocked-uuid-1234.dat' };
-      (fs.promises.readdir as ReturnType<typeof vi.fn>).mockResolvedValue([fakeDirent]);
+      (fs.promises.readdir as ReturnType<typeof vi.fn>).mockResolvedValue([
+        fakeDirent,
+      ]);
 
       await service.cleanDownloads();
 
@@ -202,6 +218,76 @@ describe('FileManagerService', () => {
 
       // Не должна выбросить ошибку
       await expect(service.cleanDownloads()).resolves.toBeUndefined();
+    });
+  });
+
+  // ─── uploadProfileFile / getProfileFile / deleteProfileFile ───
+  describe('profile files', () => {
+    const mulFile = {
+      originalname: 'avatar.png',
+      path: '/tmp/avatar',
+      size: 1024,
+    } as any;
+
+    it('should throw 404 if owner not found by IP', async () => {
+      mockLobbyManager.getMemberByIp.mockReturnValue(undefined);
+
+      await expect(
+        service.uploadProfileFile(mulFile, '10.0.0.9'),
+      ).rejects.toMatchObject({
+        status: 404,
+        message: 'Отправитель не найден',
+      });
+    });
+
+    it('should rename file and return fileId on success', async () => {
+      mockLobbyManager.getMemberByIp.mockReturnValue(fakeClient);
+
+      const result = await service.uploadProfileFile(mulFile, '10.0.0.1');
+
+      expect(result).toEqual({ fileId: 'mocked-uuid-1234' });
+      expect(fs.promises.rename).toHaveBeenCalled();
+      // Файлы профиля сохраняются в папку profile/
+      const targetPath = (fs.promises.rename as ReturnType<typeof vi.fn>).mock
+        .calls[0][1];
+      expect(targetPath).toContain('mocked-uuid-1234.png');
+      expect(targetPath).toContain('profile');
+    });
+
+    it('should return stream and meta for existing profile file', async () => {
+      mockLobbyManager.getMemberByIp.mockReturnValue(fakeClient);
+      await service.uploadProfileFile(mulFile, '10.0.0.1');
+
+      const result = await service.getProfileFile('mocked-uuid-1234');
+
+      expect(result.meta.originalName).toBe('avatar.png');
+      expect(result.meta.ownerId).toBe('client-1');
+      expect(result.stream).toBeDefined();
+    });
+
+    it('should throw 404 for unknown profile fileId', async () => {
+      await expect(service.getProfileFile('no-such-id')).rejects.toMatchObject({
+        status: 404,
+        message: 'Файл профиля не найден',
+      });
+    });
+
+    it('should delete profile file and remove metadata', async () => {
+      mockLobbyManager.getMemberByIp.mockReturnValue(fakeClient);
+      await service.uploadProfileFile(mulFile, '10.0.0.1');
+
+      await service.deleteProfileFile('mocked-uuid-1234');
+
+      expect(fs.promises.unlink).toHaveBeenCalled();
+      await expect(
+        service.getProfileFile('mocked-uuid-1234'),
+      ).rejects.toMatchObject({ status: 404 });
+    });
+
+    it('should throw 404 when deleting unknown profile file', async () => {
+      await expect(
+        service.deleteProfileFile('no-such-id'),
+      ).rejects.toMatchObject({ status: 404 });
     });
   });
 });

@@ -4,6 +4,7 @@ import type {
   AppSettings,
   AudioSettings,
   PiPSettings,
+  ProfileSettings,
 } from "../types/settings";
 import * as settingsStore from "../utils/settingsStore";
 
@@ -39,5 +40,9 @@ export function useSettingActions() {
     settingsStore.setPip(patch);
   }, []);
 
-  return { setAudio, setInputDeviceId, setPip };
+  const setProfile = useCallback((patch: Partial<ProfileSettings>) => {
+    settingsStore.setProfile(patch);
+  }, []);
+
+  return { setAudio, setInputDeviceId, setPip, setProfile };
 }

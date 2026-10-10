@@ -17,7 +17,8 @@
 - Демонстрация экрана (Screen Sharing).
 - Picture-in-Picture оверлей: always-on-top окно (Document PiP API) с аватарами участников, подсветкой говорящего, кнопками мута и завершения звонка. Открывается автоматически при потере фокуса таба (mediaSession-действие `enterpictureinpicture`, Chrome/Edge 120+), закрывается при возврате на таб. Автопоявление можно отключить в настройках (вкладка «Интерфейс» панели настроек).
 - Кастомизация профиля (имя, аватар), тёмная и светлая темы, мобильный адаптив.
-- Живое обновление профиля: смена имени/аватара мгновенно рассылается участникам лобби и звонка (`lobby::update-profile` → `all::lobby::profile-updated` / `all::call::profile-updated`), без перезагрузки страницы.
+- Кастомизация карточки пользователя: фон карточки в лобби и в звонке — цвет или картинка с регулируемой прозрачностью, стилизуемая рамка аватара (стиль/цвет/толщина) и оформление текста карточки (цвет, тень). Живое превью и мгновенная синхронизация с участниками.
+- Живое обновление профиля: смена имени/аватара/карточки мгновенно рассылается участникам лобби и звонка (`lobby::update-profile` → `all::lobby::profile-updated` / `all::call::profile-updated`), без перезагрузки страницы.
 - HTTPS «из коробки» (нужен для Screen Sharing и PiP API).
 - Базовая безопасность: rate limiting, CORS, helmet, валидация origins.
 
@@ -25,7 +26,7 @@
 
 Известные ограничения (из README):
 
-- Данные пользователя хранятся в `localStorage` браузера, на сервере не сохраняются.
+- Данные пользователя (имя, id) хранятся в `localStorage` браузера; аватар и фон карточки загружаются на сервер (папка `uploads/profile`) и хранятся на диске.
 - PiP работает только в Chromium-браузерах (Document PiP API + mediaSession `enterpictureinpicture`, Chrome/Edge 120+); в Firefox/Safari окно не появится. При первом автооткрытии браузер может запросить разрешение.
 
 ---
@@ -68,15 +69,15 @@ server.ts              # Класс VoiceChatServer: Express + http-сервер
 https-server.ts        # Наследник VoiceChatServer, поднимает HTTPS (SSL_KEY_PATH/SSL_CERT_PATH)
 config/index.ts        # Конфигурация из .env (порт, безопасность, WebSocket)
 constants/             # message-types.ts, error-codes.ts
-models/                # Client, Call, CallOffer, Message, PersonalInfo
+models/                # Client, Call, CallOffer, Message, PersonalInfo (имя, аватар, cardAppearance)
 security/              # AuthMiddleware (CORS/auth/origins), RateLimiter
 signaling-v2/          # SignalingServer, LobbyManager, CallManager
-types/                 # Типы WS-сообщений
+types/                 # Типы WS-сообщений (IncomingWsMessage, PersonalInfoData с cardAppearance)
 utils/                 # helpers.ts, event-bus.ts, adapters.ts
 app/modules/
   file-manager/        # controller / routes / service / types (загрузка, скачивание, просмотр файлов)
 public/                # Статическая страница-инструкция (index.html)
-uploads/               # Каталоги для временных и итоговых файлов
+uploads/               # chat/ (файлы звонков, чистятся после звонка) и profile/ (аватары/фоны, постоянные)
 ```
 
 Тесты (`backend/tests/`):
@@ -85,10 +86,10 @@ uploads/               # Каталоги для временных и итог�
 tests/
   unit/
     file-manager.controller.test.ts  # Mock-тесты контроллера (uploadFile, downloadFile, viewFile)
-    file-manager.service.test.ts     # unit-тесты сервиса с моками fs/uuid
+    file-manager.service.test.ts     # unit-тесты сервиса с моками fs/uuid (включая файлы профиля)
     helpers.test.ts                  # validateIP, generateRoomCode/Id, omitDeep, getLocalIP
     event-bus.test.ts                # подписка/рассылка file:uploaded и file:deleted
-    lobby-manager.test.ts            # addClient, офферы, поиск по ws/id/ip, removeMember, getStats
+    lobby-manager.test.ts            # addClient (в т.ч. preferredId), офферы, поиск по ws/id/ip, removeMember, getStats, cardAppearance
     call-manager.test.ts             # startCall/endCall, статусы участников, сообщения
     signaling-server.test.ts         # WS-протокол: join, call offer/accept/decline, mute, chat, screen sharing, disconnect
   integration/
@@ -101,10 +102,10 @@ tests/
 
 - **Композиция в конструкторе** `VoiceChatServer`: создаются `LobbyManager`, `CallManager`, `FileManagerService`, `FileManagerController`, `FileManagerRoutes` и `SignalingServer`.
 - **SignalingServer** — центральный обработчик WS-сообщений. Разбирает сообщения по `MESSAGE_TYPES` и вызывает обработчики лобби/звонка. Наследует event-bus: подписан на `file:uploaded` / `file:deleted` и рассылает уведомления в звонок.
-- **LobbyManager** — управление участниками лобби и офферами звонков. Включая обновление профиля (`updatePersonalInfo`): нормализует имя/аватар через `PersonalInfo`, ограничивает длину имени (50 символов) и аватара (1 МБ).
+- **LobbyManager** — управление участниками лобби и офферами звонков. Включая обновление профиля (`updatePersonalInfo`): нормализует имя/аватар/`cardAppearance` через `PersonalInfo`, ограничивает длину имени (50 символов) и аватара (1 МБ), для карточки — `imageOpacity` приводит к диапазону 0..1, `textColor` — не длиннее 64 символов (иначе `null`), `textShadow` — только boolean. `addClient` принимает опциональный `preferredId` — прежний id клиента, который сервер сохраняет при переподключении (если он ещё свободен).
 - **CallManager** — состояние активных звонков (участники, mute/speaking/online, screen sharing, сообщения).
 - **Соглашения именования сообщений**: строковые типы вида `lobby::join`, `call::end`, `all::call::started`, `me::lobby-joined` (см. `constants/message-types.ts`).
-- **HTTP-маршруты**: `GET /` (инструкция с IP), `GET /stats` (требует auth), `GET /health`, файловые маршруты под `/files` (`POST /upload`, `GET /download/:fileId`, `GET /view/:fileId`).
+- **HTTP-маршруты**: `GET /` (инструкция с IP), `GET /stats` (требует auth), `GET /health`, файловые маршруты под `/files` (`POST /upload`, `GET /download/:fileId`, `GET /view/:fileId`) и маршруты файлов профиля (`POST /profile/avatar`, `GET /profile/:fileId`, `DELETE /profile/:fileId`; лимит 1 МБ, только изображения).
 - **Безопасность**: helmet с отключённым CSP, CORS с валидацией origin по паттернам, rate limiting на подключения, ограничение размера WS-сообщения и числа клиентов.
 
 ### Frontend (`frontend/src/`)
@@ -112,24 +113,25 @@ tests/
 ```
 main.tsx               # Точка входа: роутинг и монтирование приложения
 app/                   # Слой app: App.tsx — композиция провайдеров
-api/                   # config.ts (API_URLS), fetcher.ts
+api/                   # config.ts (API_URLS), fetcher.ts, profileFiles.ts (загрузка/удаление файлов профиля)
 pages/                 # Слой pages: Root (роутинг), Login, Home, Call
 widgets/               # Слой widgets: композиционные блоки
                        #   Header (ui: UserName, SettingsPanel), Lobby (ui: LobbyRow),
                        #   ControlPanel, TextChat, UserCard, PiPWidget
 features/              # Слой features: прикладные фичи
-                       #   AcceptCallModal, WaitCallModal, CallButton, AvatarChanger,
-                       #   EditableNickname, EnterUserNameForm
+                       #   AcceptCallModal, WaitCallModal, CallButton, CardCustomization,
+                       #   EditableNickname, EnterUserNameForm, EmojiPicker
 components/            # Слой components: презентационный UI-кит
-                       #   Avatar, Button, Card, Column, Row, Input, Icons, Message,
-                       #   SidePanel, Slider, ShareScreenVideo, ...
+                        #   Avatar, Button, Card, Column, Row, Input, Icons, Message,
+                        #   SidePanel, Slider, Range, ColorInput, Select, Toggle,
+                        #   ShareScreenVideo, ...
 providers/             # Слой providers: AuthProvider, ChatNetworkProvider,
                        #   TextChatProvider, ThemeColorProvider, PiPProvider
 hooks/                 # Слой hooks: usePeer, useLocalStorage, useClickOutside,
-                       #   usePageVisibility, useDocumentPictureInPicture
+                       #   usePageVisibility, useDocumentPictureInPicture, useSettings
 theme/                 # Слой theme: тема и GlobalStyles (Emotion)
-types/                 # Слой types: общие типы
-utils/                 # Слой utils: утилиты + класс-сервис SpeechDetection
+types/                 # Слой types: общие типы (clientTypes, serverTypes, settings)
+utils/                 # Слой utils: adapters, cardAppearance, fileToBase64, settingsStore, SpeechDetection
 assets/                # Статические ресурсы (изображения)
 ```
 
@@ -160,14 +162,16 @@ app → pages → widgets → features → {components, providers} → hooks →
 - **ChatNetworkProvider** — ядро сетевого слоя. Объединяет хуки (`useChatLobby`, `useChatCall`, `useChatMessages`, `useChatScreenShare`, `useChatSignaling`, `useChatMessageRouter`, `useSpeechDetection`) и `usePeer`, управляет WebSocket-соединением и раздаёт состояние/методы через `ChatNetworkContext`.
 - **usePeer** — обёртка над PeerJS: инициализация, звонок пользователю, завершение звонка, mute, screen sharing.
 - **Aliас импортов**: `@cvc/*` → `./src/*` (настроен в `vite.config.ts` и `tsconfig.app.json`).
-- **Профиль пользователя** хранится в `localStorage` (AuthProvider + `useLocalStorage`).
-- **Живое обновление профиля** — при изменении `user.name` / `user.avatar` после входа в лобби `ChatNetworkProvider` автоматически отправляет `lobby::update-profile` (эффект с дедупликацией через `lastSentProfileRef`: первое срабатывание после получения `id` только фиксирует профиль, т.к. он уже отправлен при `lobby::join`). Сервер обновляет `personalInfo` клиента и рассылает `all::lobby::profile-updated` (всем в лобби, с `lobbyInfo`) и `all::call::profile-updated` (участникам звонка, с `callInfo`), если клиент в звонке. Роутер направляет первое в `handleLobbyJoined` (обновление списка лобби), второе — в `handleCallProfileUpdated` (обновление `callInfo` с проверкой совпадения `callId`). Метод `updateProfile` также проброшен через `ChatNetworkContext`.
+- **Профиль пользователя** (имя, id) хранится в `localStorage` (AuthProvider + `useLocalStorage`). Аватар и внешний вид карточки вынесены в настройки (`settingsStore.profile`), т.к. аватар больше не часть объекта пользователя.
+- **Живое обновление профиля** — при изменении имени (`user.name`) или профиля из `settingsStore` (`avatar`, `cardAppearance`) после входа в лобби `ChatNetworkProvider` автоматически отправляет `lobby::update-profile` (эффект с дедупликацией через `lastSentProfileRef`: первое срабатывание после получения `id` только фиксирует профиль, т.к. он уже отправлен при `lobby::join`). Сервер обновляет `personalInfo` клиента и рассылает `all::lobby::profile-updated` (всем в лобби, с `lobbyInfo`) и `all::call::profile-updated` (участникам звонка, с `callInfo`), если клиент в звонке. Роутер направляет первое в `handleLobbyJoined` (обновление списка лобби), второе — в `handleCallProfileUpdated` (обновление `callInfo` с проверкой совпадения `callId`). Метод `updateProfile` также проброшен через `ChatNetworkContext`.
+- **Кастомизация карточки пользователя** — фича `features/CardCustomization` (секция «Карточка пользователя» во вкладке «Кастомизация»). Состоит из `CardPreview` (превью лобби- и call-карточки с hover-подсветкой и тултипами; аватар в превью кликабелен для загрузки), `BackgroundPicker` (фон: без фона / цвет / картинка + ползунок «Прозрачность» картинки), `AvatarBorderEditor` (стиль/цвет/толщина рамки аватара), `TextEditor` (переключатели «Цвет текста» + ColorInput и «Тень текста») и самой `CardCustomization` (draft в локальном state, кнопка «Сохранить»). Типы — `CardAppearance`/`CardBackground`/`AvatarBorder` в `types/settings.ts`; утилиты `resolveCardBackground`/`backgroundToCss`/`cardTextToCss` и объект `cardImageLayerStyles` в `utils/cardAppearance.ts`. Ползунки и выбор цвета используют переиспользуемые `components/Range` (обёртка над `input[type="range"]` с типизированным `onChange(value: number)`) и `components/ColorInput` — локальные `styled.input` в фиче запрещены. Фон: цвет — фон самого элемента, картинка — слоем `::before` (`cardImageLayerStyles`) через CSS-переменные `--cvc-card-image`/`--cvc-card-image-opacity`, что даёт прозрачность картинки без затемнения содержимого карточки. Стили текста применяются ТОЛЬКО к тексту внутри карточки — инлайн-стилями из `cardTextToCss` (имя и «Это ты» в `widgets/Lobby/ui/LobbyRow`, имя в `widgets/UserCard`, превью в `CardPreview`), без глобальных CSS-правил. Рамка — через проп `Avatar` (`border`).
+- **Хранение файлов профиля** — картинки фона и аватар загружаются по HTTP (`POST /files/profile/avatar`, лимит 1 МБ, только изображения) и хранятся в `uploads/profile/` постоянно (не чистятся после звонка, в отличие от `uploads/chat/`). В WS-сообщениях передаётся только URL файла (WS-сообщения ограничены 16 КБ и не переносят base64). Клиентские хелперы — `api/profileFiles.ts` (`uploadProfileFile`, `deleteProfileFile`). Старый файл удаляется при замене.
 - **Picture-in-Picture (PiP)** — реализован на трёх частях:
   - `hooks/useDocumentPictureInPicture.ts` — обёртка над Document Picture-in-Picture API: `open`/`openAuto`/`close`, копирование `<style>`/`<link>` из `<head>` основного документа в окно PiP и их синхронизация через `MutationObserver` (Emotion инжектит правила лениво). `openAuto` помечает окно «автооткрытым» — такое окно автоматически закрывается при возврате фокуса/видимости таба (слушатели `focus`/`blur` окна + `usePageVisibility`).
   - `providers/PiPProvider` — контекст `{ isSupported, isOpen, pipWindow, open, openAuto, close }`; на время активного звонка регистрирует mediaSession-действие `enterpictureinpicture`, которое браузер само вызывает при переключении с таба (открытие без user-жеста; Chrome 120+, условие — активный захват микрофона через `getUserMedia`). Читает `settings.pip.autoOpen` и пропускает регистрацию действия, если пользователь отключил автопоявление.
   - `widgets/PiPWidget` — рендерится на странице `Call`, контент монтируется через `createPortal` в `pipWindow.document.body` (портал сохраняет все контексты). Показывает аватары участников с подсветкой говорящего и бейджем mute, кнопки мута и завершения звонка; закрывает окно при завершении звонка.
   - Важные нюансы: `onClick`-обработчики внутри портала работают штатно (React 19 корректно пробрасывает события через порталы в другой document); кнопка завершения звонка вызывается обёрткой `() => endCall()` — прямой `onClick={endCall}` передал бы React-событие первым аргументом в `endCall(nextCallInfo?: CallInfo)` и сломал `callId`.
-- **Настройки приложения (`AppSettings`)** — хранятся в `localStorage` (`app.settings`) через `utils/settingsStore.ts` (версия `v3`). Секции: `audio` (устройство ввода, noiseSuppression, echoCancellation, autoGainControl), `pip` (`autoOpen` — автопоявление PiP-окна). Панель настроек в хедере: вкладки «Профиль», «Кастомизация», «Интерфейс» (PiP), «Микрофон». Типы в `types/settings.ts`, действия — `useSettingActions()` из `hooks/useSettings.ts`.
+- **Настройки приложения (`AppSettings`)** — хранятся в `localStorage` (`app.settings`) через `utils/settingsStore.ts` (версия `v5`). Секции: `audio` (устройство ввода, noiseSuppression, echoCancellation, autoGainControl), `pip` (`autoOpen` — автопоявление PiP-окна), `profile` (`avatar` — аватар, `cardAppearance` — внешний вид карточек). Миграция `v3 → v4` переносит аватар из старого объекта `user` в `profile.avatar`; `v4 → v5` добавляет в фон `imageOpacity` (0..1) и в карточку `textColor`/`textShadow`. Панель настроек в хедере: вкладки «Профиль», «Кастомизация» (тема + карточка пользователя), «Интерфейс» (PiP), «Микрофон». Типы в `types/settings.ts`, действия — `useSettingActions()` из `hooks/useSettings.ts` (включая `setProfile`).
 
 ---
 

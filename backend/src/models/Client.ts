@@ -13,8 +13,9 @@ export default class Client {
     ws: WebSocket,
     ip: string,
     personalInfo: PersonalInfo = new PersonalInfo(),
+    preferredId?: string | null,
   ) {
-    this.id = v4();
+    this.id = preferredId || v4();
     this.ws = ws;
     this.ip = ip;
     this.connectionDate = new Date().toISOString();

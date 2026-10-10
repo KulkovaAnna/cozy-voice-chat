@@ -1,5 +1,5 @@
 import { Avatar } from "@cvc/components";
-import { useAuth } from "@cvc/providers";
+import { useSetting } from "@cvc/hooks";
 import { useSearchParams } from "react-router";
 import * as Styles from "./Header.styles";
 import { SettingsPanel } from "./ui/SettingsPanel";
@@ -7,7 +7,7 @@ import { UserName } from "./ui/UserName";
 
 export const Header = () => {
   const [searchParams, setSearchParams] = useSearchParams();
-  const { user } = useAuth();
+  const avatar = useSetting((state) => state.profile.avatar);
   const isSettingsOpen = searchParams.get("settings") === "open";
 
   const openSettings = () => {
@@ -33,7 +33,7 @@ export const Header = () => {
       <Styles.RightPanel>
         <UserName />
         <Styles.InvisibleButton onClick={openSettings} size={40}>
-          <Avatar key="avatar" src={user.avatar} size={40} />
+          <Avatar key="avatar" src={avatar ?? undefined} size={40} />
         </Styles.InvisibleButton>
       </Styles.RightPanel>
 

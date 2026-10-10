@@ -2,11 +2,13 @@ import { useCallback, useState } from "react";
 
 import type {
   CallOffer,
+  CardAppearance,
   ServerMessage,
   UserDTO,
   UserProfile,
 } from "@cvc/types";
 import { userAdapter } from "@cvc/utils/adapters";
+import * as settingsStore from "@cvc/utils/settingsStore";
 
 type SendFn = (type: string, data: Record<string, unknown>) => void;
 
@@ -15,15 +17,27 @@ type UseChatLobbyParams = {
   send: SendFn;
 };
 
+export type ProfilePayload = {
+  name: string;
+  avatar: string | null;
+  cardAppearance: CardAppearance;
+};
+
 export function useChatLobby({ user, send }: UseChatLobbyParams) {
   const [callOffer, setCallOffer] = useState<CallOffer | null>(null);
   const [lobbyMembers, setLobbyMembers] = useState<Array<UserProfile>>([]);
 
   const joinToLobby = useCallback(() => {
+    const { avatar, cardAppearance } = settingsStore.get().profile;
     send("lobby::join", {
-      personalInfo: { name: user.name, avatar: user.avatar },
+      clientId: user.id ?? null,
+      personalInfo: {
+        name: user.name,
+        avatar,
+        cardAppearance,
+      },
     });
-  }, [send, user.avatar, user.name]);
+  }, [send, user.id, user.name]);
 
   const callToUser = useCallback(
     (uid: string) => {
@@ -44,10 +58,17 @@ export function useChatLobby({ user, send }: UseChatLobbyParams) {
   }, [callOffer, send]);
 
   const updateProfile = useCallback(
-    (personalInfo: { name: string; avatar: string }) => {
-      send("lobby::update-profile", { personalInfo });
+    (personalInfo?: Partial<ProfilePayload>) => {
+      const { avatar, cardAppearance } = settingsStore.get().profile;
+      send("lobby::update-profile", {
+        personalInfo: {
+          name: personalInfo?.name ?? user.name,
+          avatar: personalInfo?.avatar ?? avatar,
+          cardAppearance: personalInfo?.cardAppearance ?? cardAppearance,
+        },
+      });
     },
-    [send],
+    [send, user.name],
   );
 
   const handleLobbyJoined = useCallback((data: ServerMessage) => {

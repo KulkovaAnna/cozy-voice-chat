@@ -164,11 +164,13 @@ describe('SignalingServer', () => {
     h.authOk = true;
     h.connOk = true;
 
-    SignalingServer = (await import('../../src/signaling-v2/SignalingServer'))
+    SignalingServer = (
+      await import('../../src/signaling-v2/SignalingServer.js')
+    ).default;
+    LobbyManager = (await import('../../src/signaling-v2/LobbyManager.js'))
       .default;
-    LobbyManager = (await import('../../src/signaling-v2/LobbyManager'))
+    CallManager = (await import('../../src/signaling-v2/CallManager.js'))
       .default;
-    CallManager = (await import('../../src/signaling-v2/CallManager')).default;
 
     lobby = new LobbyManager();
     callMgr = new CallManager();
