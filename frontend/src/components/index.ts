@@ -4,6 +4,7 @@ export { Button } from "./Button";
 export { Card } from "./Card";
 export { ColorInput } from "./ColorInput";
 export { Column } from "./Column";
+export * from "./ConfirmDialog";
 export * from "./ContextMenu";
 export { Delimiter } from "./Delimiter";
 export * from "./FileInfo";

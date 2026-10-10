@@ -7,3 +7,4 @@ export * from "./usePageVisibility";
 
 export * from "./usePeer";
 export * from "./useSettings";
+export * from "./useUnsavedChangesGuard";

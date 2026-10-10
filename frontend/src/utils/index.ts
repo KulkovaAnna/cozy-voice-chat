@@ -7,3 +7,4 @@ export * from "./isImageFile";
 export * from "./isURL";
 export * from "./microphones";
 export * from "./SpeechDetection";
+export * from "./unsavedChangesStore";

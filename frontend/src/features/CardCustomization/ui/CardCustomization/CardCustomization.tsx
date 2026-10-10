@@ -2,7 +2,11 @@ import { useMemo, useState } from "react";
 import { toast } from "react-toastify";
 
 import { Button } from "@cvc/components";
-import { useSettingActions, useSetting } from "@cvc/hooks";
+import {
+  useSettingActions,
+  useSetting,
+  useUnsavedChangesGuard,
+} from "@cvc/hooks";
 import { useAuth } from "@cvc/providers";
 import type { AvatarBorder, CardAppearance, CardBackground } from "@cvc/types";
 import { deleteProfileFile, uploadProfileFile } from "@cvc/api";
@@ -55,6 +59,8 @@ export function CardCustomization() {
     updateUser({ cardAppearance: draft });
     toast("Внешний вид карточки сохранён", { type: "success" });
   };
+
+  useUnsavedChangesGuard(isDirty, save, "Карточка пользователя");
 
   const changeAvatar = async (file: File) => {
     try {
