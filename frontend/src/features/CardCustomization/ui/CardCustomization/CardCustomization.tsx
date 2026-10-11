@@ -3,8 +3,8 @@ import { toast } from "react-toastify";
 
 import { Button } from "@cvc/components";
 import {
+  useProfileSettings,
   useSettingActions,
-  useSetting,
   useUnsavedChangesGuard,
 } from "@cvc/hooks";
 import { useAuth } from "@cvc/providers";
@@ -19,7 +19,7 @@ import * as Styles from "./CardCustomization.styles";
 
 export function CardCustomization() {
   const { user, updateUser } = useAuth();
-  const profile = useSetting((state) => state.profile);
+  const profile = useProfileSettings();
   const { setProfile } = useSettingActions();
 
   const [draft, setDraft] = useState<CardAppearance>(profile.cardAppearance);

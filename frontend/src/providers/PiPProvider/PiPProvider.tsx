@@ -1,6 +1,6 @@
 import { useEffect, type PropsWithChildren } from "react";
 
-import { useDocumentPictureInPicture, useSettings } from "@cvc/hooks";
+import { useDocumentPictureInPicture, usePipSettings } from "@cvc/hooks";
 import { useChatNetwork } from "../ChatNetworkProvider";
 import { PiPContext } from "./PiPContext";
 
@@ -14,7 +14,7 @@ const ENTER_PICTURE_IN_PICTURE =
 export function PiPProvider(props: PropsWithChildren) {
   const pip = useDocumentPictureInPicture();
   const { callInfo } = useChatNetwork();
-  const { autoOpen } = useSettings().pip;
+  const { autoOpen } = usePipSettings();
 
   const { isSupported, isOpen, openAuto, close } = pip;
   const isInCall = !!callInfo?.id;

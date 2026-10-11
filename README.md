@@ -107,10 +107,12 @@ _Нулевой пинг. Гигабитная передача файлов. У
 
 ## 🚀 Быстрый старт
 
+> ⚠️ **Пакетный менеджер — yarn**.
+
 ### Требования
 
 - **Node.js** 18+
-- **npm** 9+
+- **Yarn** 4+
 - Компьютеры в одной локальной сети
 
 ### 1. Клонирование и установка
@@ -121,11 +123,11 @@ cd cozy-voice-chat
 
 # Backend
 cd backend
-npm install
+yarn install
 
 # Frontend
 cd ../frontend
-npm install
+yarn install
 ```
 
 ### 2. Настройка переменных окружения
@@ -151,17 +153,17 @@ cp .env.example .env
 ```bash
 # Терминал 1 — Backend (сигнальный сервер)
 cd backend
-npm run start
+yarn start
 # или для HTTPS-режима:
-npm run start:ssl
+yarn start:ssl
 
 # Терминал 2 — PeerJS сервер
 cd frontend
-npm run peerServer:start
+yarn ps:start
 
 # Терминал 3 — Frontend (Vite dev server)
 cd frontend
-npm run dev
+yarn dev
 ```
 
 ### 4. Подключение клиентов
@@ -184,9 +186,9 @@ Backend покрыт автотестами на **Vitest** (unit) и **Supertes
 ```bash
 cd backend
 
-npm test              # разовый запуск всех тестов
-npm run test:watch    # watch-режим
-npm run test:coverage # запуск с покрытием (v8)
+yarn test              # разовый запуск всех тестов
+yarn test:watch        # watch-режим
+yarn test:coverage     # запуск с покрытием (v8)
 ```
 
 Что покрыто:
@@ -196,7 +198,7 @@ npm run test:coverage # запуск с покрытием (v8)
 | `tests/unit/`        | `FileManagerController`, `FileManagerService`, `Helpers`, `EventBus`, `LobbyManager`, `CallManager`, `SignalingServer` |
 | `tests/integration/` | HTTP-маршруты файлового модуля (`/files/upload`, `/files/download/:id`, `/files/view/:id`)                             |
 
-> Frontend-тестов пока нет; проверка качества фронтенда ограничена `npm run lint` и сборкой `npm run build`.
+> Frontend покрыт unit-тестами чистых утилит (`src/utils/microphones`) на **Vitest**: `cd frontend && yarn test`. Остальная часть фронта проверяется `yarn lint` и сборкой `yarn build`.
 
 ---
 
@@ -204,10 +206,10 @@ npm run test:coverage # запуск с покрытием (v8)
 
 Для работы Screen Sharing и Picture-in-Picture браузеры требуют **Secure Context** (HTTPS). В проекте есть два режима сервера:
 
-| Режим     | Команда             | Когда использовать                             |
-| --------- | ------------------- | ---------------------------------------------- |
-| **HTTP**  | `npm run start`     | Быстрый тест на localhost                      |
-| **HTTPS** | `npm run start:ssl` | Работа в локальной сети с другими устройствами |
+| Режим     | Команда          | Когда использовать                             |
+| --------- | ---------------- | ---------------------------------------------- |
+| **HTTP**  | `yarn start`     | Быстрый тест на localhost                      |
+| **HTTPS** | `yarn start:ssl` | Работа в локальной сети с другими устройствами |
 
 ### Генерация SSL-сертификатов через mkcert
 

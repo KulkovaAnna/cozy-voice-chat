@@ -2,33 +2,17 @@ import {
   DEFAULT_CARD_APPEARANCE,
   DEFAULT_CARD_BACKGROUND,
   DEFAULT_SETTINGS,
-  SETTINGS_VERSION,
   type AppSettings,
-  type AudioSettings,
-  type AvatarBorder,
   type BackgroundType,
   type BorderStyle,
-  type CardAppearance,
-  type CardBackground,
-  type PiPSettings,
   type ProfileSettings,
+  type SettingsSection,
 } from "../types/settings";
 
 const STORAGE_KEY = "app.settings";
 const WRITE_DEBOUNCE_MS = 200;
 
-type Listener = (state: AppSettings) => void;
-
-function readStorage(): AppSettings | null {
-  if (typeof window === "undefined") return null;
-
-  try {
-    const raw = window.localStorage.getItem(STORAGE_KEY);
-    return raw ? (JSON.parse(raw) as AppSettings) : null;
-  } catch {
-    return null;
-  }
-}
+type AnyListener = () => void;
 
 const BORDER_STYLES: BorderStyle[] = [
   "none",
@@ -40,194 +24,257 @@ const BORDER_STYLES: BorderStyle[] = [
 
 const BACKGROUND_TYPES: BackgroundType[] = ["none", "color", "image"];
 
-function migrateBackground(raw: CardBackground | undefined): CardBackground {
-  const type = BACKGROUND_TYPES.includes(raw?.type as BackgroundType)
-    ? (raw!.type as BackgroundType)
-    : DEFAULT_CARD_BACKGROUND.type;
+type UnknownRecord = Record<string, unknown>;
+
+function isRecord(value: unknown): value is UnknownRecord {
+  return typeof value === "object" && value !== null;
+}
+
+function asRecord(value: unknown): UnknownRecord {
+  return isRecord(value) ? value : {};
+}
+
+function readString(value: unknown): string | null {
+  return typeof value === "string" ? value : null;
+}
+
+function readBoolean(value: unknown, fallback: boolean): boolean {
+  return typeof value === "boolean" ? value : fallback;
+}
+
+function readEnum<T extends string>(
+  value: unknown,
+  allowed: readonly T[],
+  fallback: T,
+): T {
+  return allowed.includes(value as T) ? (value as T) : fallback;
+}
+
+function readNumber(
+  value: unknown,
+  min: number,
+  max: number,
+  fallback: number,
+): number {
+  if (typeof value !== "number" || !Number.isFinite(value)) return fallback;
+
+  return value >= min && value <= max ? value : fallback;
+}
+
+// Мелкие объекты настроек пересоздаются при каждой записи, поэтому сравнивать
+// их нужно по полям первого уровня, а не по ссылке.
+export function shallow<T>(a: T, b: T): boolean {
+  if (a === b) return true;
+  if (!isRecord(a) || !isRecord(b)) return false;
+
+  const keys = Object.keys(a);
+  if (keys.length !== Object.keys(b).length) return false;
+
+  return keys.every((key) => a[key] === b[key]);
+}
+
+// Профиль собирается из неизвестного JSON целиком: в хранилище могут лежать
+// данные прошлых версий или битые значения, а потребители (backgroundToCss,
+// cardTextToCss) рассчитывают на полный объект.
+function parseProfile(raw: unknown): ProfileSettings {
+  const source = asRecord(raw);
+  const appearance = asRecord(source.cardAppearance);
+  const background = asRecord(appearance.background);
+  const border = asRecord(appearance.avatarBorder);
 
   return {
-    type,
-    color: typeof raw?.color === "string" ? raw.color : null,
-    image: typeof raw?.image === "string" ? raw.image : null,
-    imageOpacity:
-      typeof raw?.imageOpacity === "number" &&
-      Number.isFinite(raw.imageOpacity) &&
-      raw.imageOpacity >= 0 &&
-      raw.imageOpacity <= 1
-        ? raw.imageOpacity
-        : DEFAULT_CARD_BACKGROUND.imageOpacity,
+    avatar: readString(source.avatar),
+    cardAppearance: {
+      background: {
+        type: readEnum(
+          background.type,
+          BACKGROUND_TYPES,
+          DEFAULT_CARD_BACKGROUND.type,
+        ),
+        color: readString(background.color),
+        image: readString(background.image),
+        imageOpacity: readNumber(
+          background.imageOpacity,
+          0,
+          1,
+          DEFAULT_CARD_BACKGROUND.imageOpacity,
+        ),
+      },
+      avatarBorder: {
+        style: readEnum(
+          border.style,
+          BORDER_STYLES,
+          DEFAULT_CARD_APPEARANCE.avatarBorder.style,
+        ),
+        color:
+          readString(border.color) ??
+          DEFAULT_CARD_APPEARANCE.avatarBorder.color,
+        width: readNumber(
+          border.width,
+          0,
+          20,
+          DEFAULT_CARD_APPEARANCE.avatarBorder.width,
+        ),
+      },
+      textColor: readString(appearance.textColor),
+      textShadow: readBoolean(
+        appearance.textShadow,
+        DEFAULT_CARD_APPEARANCE.textShadow,
+      ),
+    },
   };
 }
 
-function migrateBorder(raw: AvatarBorder | undefined): AvatarBorder {
+// Приведение неизвестных данных из хранилища к текущей схеме: известные поля
+// читаются по именам с проверкой типов, неизвестные ключи просто теряются.
+function normalize(raw: unknown): AppSettings {
+  // Состояние обновляется только через setSection, который не мутирует
+  // объекты, поэтому дефолты можно отдавать как есть.
+  if (!isRecord(raw)) return DEFAULT_SETTINGS;
+
+  const audio = asRecord(raw.audio);
+  const pip = asRecord(raw.pip);
+
   return {
-    style: BORDER_STYLES.includes(raw?.style as BorderStyle)
-      ? (raw!.style as BorderStyle)
-      : DEFAULT_CARD_APPEARANCE.avatarBorder.style,
-    color:
-      typeof raw?.color === "string"
-        ? raw.color
-        : DEFAULT_CARD_APPEARANCE.avatarBorder.color,
-    width:
-      typeof raw?.width === "number" && raw.width >= 0 && raw.width <= 20
-        ? raw.width
-        : DEFAULT_CARD_APPEARANCE.avatarBorder.width,
+    audio: {
+      inputDeviceId: readString(audio.inputDeviceId),
+      noiseSuppression: readBoolean(
+        audio.noiseSuppression,
+        DEFAULT_SETTINGS.audio.noiseSuppression,
+      ),
+      echoCancellation: readBoolean(
+        audio.echoCancellation,
+        DEFAULT_SETTINGS.audio.echoCancellation,
+      ),
+      autoGainControl: readBoolean(
+        audio.autoGainControl,
+        DEFAULT_SETTINGS.audio.autoGainControl,
+      ),
+    },
+    pip: {
+      autoOpen: readBoolean(pip.autoOpen, DEFAULT_SETTINGS.pip.autoOpen),
+    },
+    profile: parseProfile(raw.profile),
   };
 }
 
-function migrateCardAppearance(
-  raw: CardAppearance | undefined,
-): CardAppearance {
-  return {
-    background: migrateBackground(raw?.background),
-    avatarBorder: migrateBorder(raw?.avatarBorder),
-    textColor: typeof raw?.textColor === "string" ? raw.textColor : null,
-    textShadow:
-      typeof raw?.textShadow === "boolean"
-        ? raw.textShadow
-        : DEFAULT_CARD_APPEARANCE.textShadow,
-  };
-}
-
-function migrateProfile(raw: ProfileSettings | undefined): ProfileSettings {
-  return {
-    avatar: typeof raw?.avatar === "string" ? raw.avatar : null,
-    cardAppearance: migrateCardAppearance(raw?.cardAppearance),
-  };
-}
-
-// Миграция аватара со схемы v3: раньше аватар хранился в localStorage
-// в объекте "user" (AuthProvider), теперь — в настройках профиля.
-function migrateLegacyAvatar(profile: ProfileSettings): ProfileSettings {
-  if (profile.avatar !== null) return profile;
-  if (typeof window === "undefined") return profile;
+function readStorage(): AppSettings {
+  if (typeof window === "undefined") return normalize(null);
 
   try {
-    const rawUser = window.localStorage.getItem("user");
-    if (!rawUser) return profile;
-
-    const user = JSON.parse(rawUser) as { avatar?: unknown };
-    if (typeof user.avatar === "string" && user.avatar.length > 0) {
-      return { ...profile, avatar: user.avatar };
-    }
+    const raw = window.localStorage.getItem(STORAGE_KEY);
+    return normalize(raw ? JSON.parse(raw) : null);
   } catch {
-    // Повреждённые данные — игнорируем.
+    return normalize(null);
   }
-
-  return profile;
 }
 
-// Миграция по version: приводит старые/неполные данные к текущей схеме.
-export function migrate(raw: AppSettings | null): AppSettings {
-  if (!raw || typeof raw !== "object") {
-    return {
-      ...DEFAULT_SETTINGS,
-      profile: migrateLegacyAvatar({ ...DEFAULT_SETTINGS.profile }),
-    };
-  }
+const initialSettings = readStorage();
 
-  const audio: AudioSettings = {
-    inputDeviceId:
-      typeof raw.audio?.inputDeviceId === "string"
-        ? raw.audio.inputDeviceId
-        : null,
-    noiseSuppression:
-      typeof raw.audio?.noiseSuppression === "boolean"
-        ? raw.audio.noiseSuppression
-        : DEFAULT_SETTINGS.audio.noiseSuppression,
-    echoCancellation:
-      typeof raw.audio?.echoCancellation === "boolean"
-        ? raw.audio.echoCancellation
-        : DEFAULT_SETTINGS.audio.echoCancellation,
-    autoGainControl:
-      typeof raw.audio?.autoGainControl === "boolean"
-        ? raw.audio.autoGainControl
-        : DEFAULT_SETTINGS.audio.autoGainControl,
-  };
+// Состояние хранится по секциям — подписчики получают только свою секцию.
+const sections: AppSettings = {
+  audio: initialSettings.audio,
+  pip: initialSettings.pip,
+  profile: initialSettings.profile,
+};
 
-  const pip: PiPSettings = {
-    autoOpen:
-      typeof raw.pip?.autoOpen === "boolean"
-        ? raw.pip.autoOpen
-        : DEFAULT_SETTINGS.pip.autoOpen,
-  };
-
-  const profile = migrateLegacyAvatar(migrateProfile(raw.profile));
-
-  return {
-    version: SETTINGS_VERSION,
-    audio,
-    pip,
-    profile,
-  };
-}
-
-let state: AppSettings = migrate(readStorage());
-const listeners = new Set<Listener>();
+const listenersBySection: Record<SettingsSection, Set<AnyListener>> = {
+  audio: new Set(),
+  pip: new Set(),
+  profile: new Set(),
+};
 
 let writeTimer: ReturnType<typeof setTimeout> | null = null;
 
-function persist(): void {
+// Снимок для localStorage: секции всегда собираются заново.
+function snapshot(): AppSettings {
+  return {
+    audio: sections.audio,
+    pip: sections.pip,
+    profile: sections.profile,
+  };
+}
+
+function writeStorage(): void {
   if (typeof window === "undefined") return;
 
   try {
-    window.localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+    window.localStorage.setItem(STORAGE_KEY, JSON.stringify(snapshot()));
   } catch {
     // Хранилище недоступно — игнорируем.
   }
 }
 
 // Отложенная запись, чтобы частые патчи не дёргали localStorage каждый раз.
-function schedulePersist(): void {
+function scheduleWrite(): void {
   if (writeTimer) clearTimeout(writeTimer);
 
   writeTimer = setTimeout(() => {
     writeTimer = null;
-    persist();
+    writeStorage();
   }, WRITE_DEBOUNCE_MS);
 }
 
-function emit(): void {
-  for (const listener of listeners) {
-    listener(state);
+function emit(section: SettingsSection): void {
+  for (const listener of listenersBySection[section]) {
+    listener();
   }
 }
 
+// Обновляет секции из нового снимка и возвращает те, что реально изменились.
+function applySections(next: AppSettings): SettingsSection[] {
+  const changed: SettingsSection[] = [];
+
+  if (!shallow(next.audio, sections.audio)) {
+    sections.audio = next.audio;
+    changed.push("audio");
+  }
+
+  if (!shallow(next.pip, sections.pip)) {
+    sections.pip = next.pip;
+    changed.push("pip");
+  }
+
+  if (!shallow(next.profile, sections.profile)) {
+    sections.profile = next.profile;
+    changed.push("profile");
+  }
+
+  return changed;
+}
+
 export function get(): AppSettings {
-  return state;
+  return snapshot();
 }
 
-export function set(patch: Partial<AudioSettings>): void {
-  state = {
-    ...state,
-    audio: { ...state.audio, ...patch },
-  };
-
-  schedulePersist();
-  emit();
+// Точечное чтение секции — без пересборки снимка всего состояния.
+export function getSection<K extends SettingsSection>(
+  section: K,
+): AppSettings[K] {
+  return sections[section];
 }
 
-export function setPip(patch: Partial<PiPSettings>): void {
-  state = {
-    ...state,
-    pip: { ...state.pip, ...patch },
-  };
+export function setSection<K extends SettingsSection>(
+  section: K,
+  patch: Partial<AppSettings[K]>,
+): void {
+  const next = { ...sections[section], ...patch };
 
-  schedulePersist();
-  emit();
+  // Значения, равные текущим, не меняют состояние: иначе рассылка подписчикам
+  // и лишняя запись в localStorage.
+  if (shallow(next, sections[section])) return;
+
+  sections[section] = next;
+
+  scheduleWrite();
+  emit(section);
 }
 
-export function setProfile(patch: Partial<ProfileSettings>): void {
-  state = {
-    ...state,
-    profile: { ...state.profile, ...patch },
-  };
-
-  schedulePersist();
-  emit();
-}
-
-export function subscribe(listener: Listener): VoidFunction {
+export function subscribeTo(
+  section: SettingsSection,
+  listener: AnyListener,
+): VoidFunction {
+  const listeners = listenersBySection[section];
   listeners.add(listener);
 
   return () => {
@@ -240,14 +287,15 @@ if (typeof window !== "undefined") {
   window.addEventListener("storage", (event) => {
     if (event.key !== STORAGE_KEY) return;
 
-    let raw: AppSettings | null = null;
+    let parsed: unknown = null;
     try {
-      raw = event.newValue ? (JSON.parse(event.newValue) as AppSettings) : null;
+      parsed = event.newValue ? JSON.parse(event.newValue) : null;
     } catch {
-      raw = null;
+      parsed = null;
     }
 
-    state = migrate(raw);
-    emit();
+    for (const section of applySections(normalize(parsed))) {
+      emit(section);
+    }
   });
 }

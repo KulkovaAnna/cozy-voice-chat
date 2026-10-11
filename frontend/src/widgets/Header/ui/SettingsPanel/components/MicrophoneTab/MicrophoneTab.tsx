@@ -1,4 +1,8 @@
-import { useMicrophones, useSettingActions, useSettings } from "@cvc/hooks";
+import {
+  useAudioSettings,
+  useMicrophones,
+  useSettingActions,
+} from "@cvc/hooks";
 
 import { Delimiter } from "@cvc/components";
 import { Section } from "../Section";
@@ -7,7 +11,7 @@ import { MicSelectSection, SoundHandlerSection } from "./ui";
 
 export const MicrophoneTab = () => {
   const { inputDeviceId, noiseSuppression, echoCancellation, autoGainControl } =
-    useSettings().audio;
+    useAudioSettings();
   const { setInputDeviceId, setAudio } = useSettingActions();
   const { devices, permission, requestPermission } =
     useMicrophones(inputDeviceId);

@@ -3,7 +3,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { toast } from "react-toastify";
 
 import { buildAudioConstraints, DEFAULT_DEVICE_ID } from "@cvc/utils";
-import { get, subscribe } from "@cvc/utils/settingsStore";
+import { get, subscribeTo } from "@cvc/utils/settingsStore";
 
 export type CallKind = "audio" | "screen";
 
@@ -249,10 +249,8 @@ export function usePeer() {
       }
     }
   }, []);
-
-  // При смене устройства в настройках — переприменяем трек активного звонка
   useEffect(() => {
-    return subscribe(() => {
+    return subscribeTo("audio", () => {
       void switchInputDevice();
     });
   }, [switchInputDevice]);

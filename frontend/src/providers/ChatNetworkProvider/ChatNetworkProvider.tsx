@@ -6,7 +6,8 @@ import {
   type PropsWithChildren,
 } from "react";
 
-import { usePeer, useSetting } from "@cvc/hooks";
+import { usePeer, useProfileSettings } from "@cvc/hooks";
+
 import type { CardAppearance, TextMessage } from "@cvc/types";
 import { useAuth } from "../AuthProvider";
 import { ChatNetworkContext } from "./ChatNetworkContext";
@@ -96,7 +97,7 @@ export function ChatNetworkProvider(props: PropsWithChildren) {
     setTextMessages([]);
   }, [callHook]);
 
-  const profileSettings = useSetting((state) => state.profile);
+  const profileSettings = useProfileSettings();
 
   const lastSentProfileRef = useRef<{
     name: string;

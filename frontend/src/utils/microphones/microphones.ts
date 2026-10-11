@@ -2,12 +2,34 @@ import type { AudioDevice } from "./types";
 
 export const DEFAULT_DEVICE_ID = "default";
 
-function normalizeDevice(raw: MediaDeviceInfo): AudioDevice {
+function normalizeDevice(
+  raw: MediaDeviceInfo,
+  defaultDeviceId: string | null,
+): AudioDevice {
   return {
     deviceId: raw.deviceId,
     kind: raw.kind,
     label: raw.label,
+    isDefault:
+      raw.deviceId !== "" &&
+      (raw.deviceId === DEFAULT_DEVICE_ID || raw.deviceId === defaultDeviceId),
   };
+}
+
+function mapAudioInputs(
+  devices: MediaDeviceInfo[],
+  defaultDeviceId: string | null,
+): AudioDevice[] {
+  return devices
+    .filter(isAudioInput)
+    .map((device) => normalizeDevice(device, defaultDeviceId));
+}
+
+// Устройство, которое реально откроется при выборе "по умолчанию".
+function defaultDeviceIdFromStream(stream: MediaStream): string | null {
+  const [track] = stream.getTracks();
+
+  return track?.getSettings?.().deviceId ?? null;
 }
 
 function isAudioInput(device: MediaDeviceInfo): boolean {
@@ -33,18 +55,25 @@ export function isDeviceIdValid(deviceId: string | null): boolean {
 
 export async function getAudioDevices(): Promise<AudioDevice[]> {
   const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+  const defaultDeviceId = defaultDeviceIdFromStream(stream);
 
   stream.getTracks().forEach((track) => track.stop());
 
   const devices = await navigator.mediaDevices.enumerateDevices();
 
-  return devices.filter(isAudioInput).map(normalizeDevice);
+  return mapAudioInputs(devices, defaultDeviceId);
 }
 
 export async function listAudioDevices(): Promise<AudioDevice[]> {
   const devices = await navigator.mediaDevices.enumerateDevices();
 
-  return devices.filter(isAudioInput).map(normalizeDevice);
+  return mapAudioInputs(devices, null);
+}
+
+export function defaultDeviceName(devices: AudioDevice[]): string | null {
+  const label = devices.find((device) => device.isDefault)?.label ?? "";
+
+  return label === "" ? null : label;
 }
 
 export function hasPermissionFromDevices(devices: AudioDevice[]): boolean {

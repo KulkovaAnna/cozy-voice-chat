@@ -42,13 +42,14 @@
 - **react-hook-form**, **react-modal**, **react-toastify**
 - **react-router** v7
 - **ESLint 9** (flat config) + **Prettier**
+- **Vitest** — unit-тесты чистых утилит (`utils/microphones`)
 - **eslint-plugin-boundaries** — контроль направления импортов между слоями (FSD-подобная архитектура)
 
 ### Backend (`backend/`)
 
 - **Node.js** + **Express 5** — HTTP-сервер
 - **ws** — WebSocket-сигнальный сервер (основной транспорт сигнализации)
-- **PeerJS Server** — отдельный сервер WebRTC-сигнализации (запускается через `npx peerjs`)
+- **PeerJS Server** — отдельный сервер WebRTC-сигнализации (запускается через `yarn ps:start`)
 - **multer** — загрузка файлов
 - **helmet** + **cors** — безопасность
 - **rate-limiter-flexible** — защита от флуда
@@ -128,10 +129,12 @@ components/            # Слой components: презентационный UI-
 providers/             # Слой providers: AuthProvider, ChatNetworkProvider,
                        #   TextChatProvider, ThemeColorProvider, PiPProvider
 hooks/                 # Слой hooks: usePeer, useLocalStorage, useClickOutside,
-                       #   usePageVisibility, useDocumentPictureInPicture, useSettings
+                       #   usePageVisibility, useDocumentPictureInPicture, useSettings,
+                       #   useMicrophones, useDefaultDeviceName, useUnsavedChangesGuard
 theme/                 # Слой theme: тема и GlobalStyles (Emotion)
 types/                 # Слой types: общие типы (clientTypes, serverTypes, settings)
-utils/                 # Слой utils: adapters, cardAppearance, fileToBase64, settingsStore, SpeechDetection
+utils/                 # Слой utils: adapters, cardAppearance, fileToBase64, settingsStore,
+                       #   microphones (устройства ввода и MediaTrackConstraints), SpeechDetection
 assets/                # Статические ресурсы (изображения)
 ```
 
@@ -171,15 +174,19 @@ app → pages → widgets → features → {components, providers} → hooks →
   - `providers/PiPProvider` — контекст `{ isSupported, isOpen, pipWindow, open, openAuto, close }`; на время активного звонка регистрирует mediaSession-действие `enterpictureinpicture`, которое браузер само вызывает при переключении с таба (открытие без user-жеста; Chrome 120+, условие — активный захват микрофона через `getUserMedia`). Читает `settings.pip.autoOpen` и пропускает регистрацию действия, если пользователь отключил автопоявление.
   - `widgets/PiPWidget` — рендерится на странице `Call`, контент монтируется через `createPortal` в `pipWindow.document.body` (портал сохраняет все контексты). Показывает аватары участников с подсветкой говорящего и бейджем mute, кнопки мута и завершения звонка; закрывает окно при завершении звонка.
   - Важные нюансы: `onClick`-обработчики внутри портала работают штатно (React 19 корректно пробрасывает события через порталы в другой document); кнопка завершения звонка вызывается обёрткой `() => endCall()` — прямой `onClick={endCall}` передал бы React-событие первым аргументом в `endCall(nextCallInfo?: CallInfo)` и сломал `callId`.
-- **Настройки приложения (`AppSettings`)** — хранятся в `localStorage` (`app.settings`) через `utils/settingsStore.ts` (версия `v5`). Секции: `audio` (устройство ввода, noiseSuppression, echoCancellation, autoGainControl), `pip` (`autoOpen` — автопоявление PiP-окна), `profile` (`avatar` — аватар, `cardAppearance` — внешний вид карточек). Миграция `v3 → v4` переносит аватар из старого объекта `user` в `profile.avatar`; `v4 → v5` добавляет в фон `imageOpacity` (0..1) и в карточку `textColor`/`textShadow`. Панель настроек в хедере: вкладки «Профиль», «Кастомизация» (тема + карточка пользователя), «Интерфейс» (PiP), «Микрофон». Типы в `types/settings.ts`, действия — `useSettingActions()` из `hooks/useSettings.ts` (включая `setProfile`).
+- **Настройки приложения (`AppSettings`)** — хранятся в `localStorage` (`app.settings`) через `utils/settingsStore.ts`. Секции: `audio` (устройство ввода, noiseSuppression, echoCancellation, autoGainControl), `pip` (`autoOpen` — автопоявление PiP-окна), `profile` (`avatar` — аватар, `cardAppearance` — внешний вид карточек). Панель настроек в хедере: вкладки «Профиль», «Кастомизация» (тема + карточка пользователя), «Интерфейс» (PiP), «Микрофон». Типы в `types/settings.ts`, действия — `useSettingActions()` из `hooks/useSettings.ts` (включая `setAudio`/`setPip`/`setProfile`/`setInputDeviceId`). Подписка на секции — точечная через `subscribeTo(section, listener)`; `useSection` внутри хука использует `shallow()` для сравнения полей, чтобы избежать лишних ререндеров при пересоздании объекта секции.
+  - Парсинг из хранилища: `normalize()` читает известные поля по именам с проверкой типов, неизвестные ключи теряются. Профиль собирается одной функцией `parseProfile()` — вложенность (`profile` → `cardAppearance` → `background`/`avatarBorder`) раскрывается через `asRecord()` на каждом уровне; примитивы читаются хелперами `readString`/`readBoolean`/`readEnum`/`readNumber` (последний валидирует диапазон). Миграций между версиями схемы нет: `v3 → v4` (перенос аватара из объекта `user`) применена, объект `user` в `localStorage` больше не читается.
 
 ---
 
 ## Сборка и запуск
 
+> ⚠️ **Пакетный менеджер — yarn**. Все команды ниже подразумевают `yarn` (вместо `npm`).
+
 ### Требования
 
-- Node.js 18+, npm 9+
+- Node.js 18+
+- Yarn 4+
 - Компьютеры в одной локальной сети
 
 ### Установка
@@ -187,11 +194,11 @@ app → pages → widgets → features → {components, providers} → hooks →
 ```bash
 # Backend
 cd backend
-npm install
+yarn install
 
 # Frontend
 cd ../frontend
-npm install
+yarn install
 ```
 
 ### Переменные окружения
@@ -212,42 +219,44 @@ cp env.example .env
 ```bash
 # Терминал 1 — Backend (HTTP или HTTPS)
 cd backend
-npm run start          # HTTP
-npm run start:ssl      # HTTPS
+yarn start          # HTTP
+yarn start:ssl      # HTTPS
 
 # Терминал 2 — PeerJS сервер
 cd frontend
-npm run peerServer:start
+yarn ps:start
 
 # Терминал 3 — Frontend (Vite dev server)
 cd frontend
-npm run dev
+yarn dev
 ```
 
 ### Ключевые команды
 
 **Backend (`backend/package.json`):**
 
-| Команда                 | Действие                                               |
-| ----------------------- | ------------------------------------------------------ |
-| `npm run build`         | Компиляция TypeScript в `dist/` (`tsc`)                |
-| `npm run start`         | Запуск собранного HTTP-сервера (`node dist/server.js`) |
-| `npm run start:ssl`     | Запуск HTTPS-сервера (`node dist/https-server.js`)     |
-| `npm run dev`           | Dev-режим HTTP (nodemon + ts-node)                     |
-| `npm run dev:ssl`       | Dev-режим HTTPS (nodemon + ts-node)                    |
-| `npm test`              | Разовый запуск тестов (`vitest run`)                   |
-| `npm run test:watch`    | Тесты в watch-режиме (`vitest`)                        |
-| `npm run test:coverage` | Тесты с покрытием (`vitest run --coverage`)            |
+| Команда              | Действие                                               |
+| -------------------- | ------------------------------------------------------ |
+| `yarn build`         | Компиляция TypeScript в `dist/` (`tsc`)                |
+| `yarn start`         | Запуск собранного HTTP-сервера (`node dist/server.js`) |
+| `yarn start:ssl`     | Запуск HTTPS-сервера (`node dist/https-server.js`)     |
+| `yarn dev`           | Dev-режим HTTP (nodemon + ts-node)                     |
+| `yarn dev:ssl`       | Dev-режим HTTPS (nodemon + ts-node)                    |
+| `yarn test`          | Разовый запуск тестов (`vitest run`)                   |
+| `yarn test:watch`    | Тесты в watch-режиме (`vitest`)                        |
+| `yarn test:coverage` | Тесты с покрытием (`vitest run --coverage`)            |
 
 **Frontend (`frontend/package.json`):**
 
-| Команда                    | Действие                                                      |
-| -------------------------- | ------------------------------------------------------------- |
-| `npm run dev`              | Vite dev-сервер с `--host` (HTTPS, порт 5173)                 |
-| `npm run build`            | `tsc -b && vite build`                                        |
-| `npm run preview`          | Предпросмотр сборки (`vite preview --host`)                   |
-| `npm run lint`             | Запуск ESLint                                                 |
-| `npm run peerServer:start` | PeerJS-сервер на порту 9000 с SSL-сертификатами из `../cert/` |
+| Команда           | Действие                                                      |
+| ----------------- | ------------------------------------------------------------- |
+| `yarn dev`        | Vite dev-сервер с `--host` (HTTPS, порт 5173)                 |
+| `yarn build`      | `tsc -b && vite build`                                        |
+| `yarn preview`    | Предпросмотр сборки (`vite preview --host`)                   |
+| `yarn lint`       | Запуск ESLint                                                 |
+| `yarn test`       | Unit-тесты фронтенда (`vitest run`)                           |
+| `yarn test:watch` | Тесты фронтенда в watch-режиме                                |
+| `yarn ps:start`   | PeerJS-сервер на порту 9000 с SSL-сертификатами из `../cert/` |
 
 > Vite-конфиг читает `SSL_KEY_PATH` / `SSL_CERT_PATH` из env и поднимает HTTPS на `0.0.0.0:5173`. Если файлы сертификатов отсутствуют — dev-сервер не стартует.
 
@@ -311,16 +320,16 @@ npm run dev
 
 ### Тестирование
 
-- **Backend** покрыт автотестами на **Vitest** + **Supertest** (конфиг — `backend/vitest.config.mts`, скрипты `npm test`, `npm run test:watch`, `npm run test:coverage`).
+- **Backend** покрыт автотестами на **Vitest** + **Supertest** (конфиг — `backend/vitest.config.mts`, скрипты `yarn test`, `yarn test:watch`, `yarn test:coverage`).
 - Тесты лежат в `backend/tests/` и делятся на два слоя:
   - `tests/unit/` — unit-тесты модулей: `FileManagerController`, `FileManagerService`, `Helpers`, `EventBus`, `LobbyManager`, `CallManager`, `SignalingServer` (WS-протокол эмулируется мок-сокетами без реального сервера).
   - `tests/integration/` — HTTP-интеграционные тесты маршрутов file-manager через supertest (реальный Express-роутер, мок сервиса).
 - Внешние зависимости в unit-тестах мокируются: `fs`, `uuid`, `ws`, `config`, `AuthMiddleware`, `RateLimiter`, `event-bus` — через `vi.mock` / `vi.hoisted`.
-- **Frontend** тестов пока нет; проверка качества ограничена линтером (`npm run lint`, включая `eslint-plugin-boundaries`) и сборкой TypeScript (`npm run build`).
-- TODO: при добавлении функциональности в frontend рассмотреть введение тестов (Vitest + Testing Library).
+- **Frontend** unit-тесты на **Vitest** (`frontend/package.json`: `yarn test`, `yarn test:watch`) — покрыты чистые утилиты `utils/microphones` (нормализация устройств, `isDefault`, `defaultDeviceName`, `buildAudioConstraints`, `isDeviceAvailable`). Конфиг — `vite.config.ts` (секция `test`). Остальная часть фронта пока проверяется только линтером и сборкой.
 
 ### Практики и конвенции
 
+- **Пакетный менеджер — yarn (classic v1).** Все команды установки и запуска скриптов выполняются через `yarn` (`yarn install`, `yarn dev`, `yarn build`, `yarn lint`, …). `npm` не использовать: он не создаёт `yarn.lock` и может тянуть другие версии зависимостей.
 - Логика backend разделена по слоям: `controller → service → routes` для файлового модуля; сигнализация — в `signaling-v2`.
 - Связь frontend ↔ backend по WebSocket идёт через строковые типы сообщений из `MESSAGE_TYPES`; при добавлении новых событий тип нужно регистрировать и в backend, и в frontend.
 - Комментарии и пользовательские сообщения в backend на русском языке — придерживайтесь этого в соответствующих файлах.

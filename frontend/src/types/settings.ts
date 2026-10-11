@@ -1,5 +1,3 @@
-export const SETTINGS_VERSION = 4 as const;
-
 export interface AudioSettings {
   // Выбранное устройство ввода (микрофон). null — автовыбор браузера.
   inputDeviceId: string | null;
@@ -79,14 +77,14 @@ export const DEFAULT_CARD_APPEARANCE: CardAppearance = {
 };
 
 export interface AppSettings {
-  version: number;
   audio: AudioSettings;
   pip: PiPSettings;
   profile: ProfileSettings;
 }
 
+export type SettingsSection = "audio" | "pip" | "profile";
+
 export const DEFAULT_SETTINGS: AppSettings = {
-  version: SETTINGS_VERSION,
   audio: {
     inputDeviceId: null,
     noiseSuppression: false,
@@ -103,30 +101,4 @@ export const DEFAULT_SETTINGS: AppSettings = {
       background: { ...DEFAULT_CARD_BACKGROUND },
     },
   },
-};
-
-// Типизированные пути доступа к настройкам (для селекторов/патчей).
-export type SettingsPath =
-  | `audio.${keyof AudioSettings}`
-  | `pip.${keyof PiPSettings}`
-  | `profile.${keyof ProfileSettings}`;
-
-export type SettingsValue<P extends SettingsPath> = P extends `audio.${infer K}`
-  ? K extends keyof AudioSettings
-    ? AudioSettings[K]
-    : never
-  : P extends `pip.${infer K}`
-    ? K extends keyof PiPSettings
-      ? PiPSettings[K]
-      : never
-    : P extends `profile.${infer K}`
-      ? K extends keyof ProfileSettings
-        ? ProfileSettings[K]
-        : never
-      : never;
-
-export type SettingsPatch = {
-  audio?: Partial<AudioSettings>;
-  pip?: Partial<PiPSettings>;
-  profile?: Partial<ProfileSettings>;
 };

@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 
 import {
   buildAudioConstraints,
+  defaultDeviceName,
   getAudioDevices,
   getPreferredDevice,
   hasPermissionFromDevices,
@@ -28,6 +29,14 @@ const VIRTUAL_INPUT: MediaDeviceInfo = {
   toJSON: () => ({}),
 };
 
+const DEFAULT_INPUT: MediaDeviceInfo = {
+  deviceId: "default",
+  groupId: "group-1",
+  kind: "audioinput",
+  label: "System Default",
+  toJSON: () => ({}),
+};
+
 const AUDIO_OUTPUT: MediaDeviceInfo = {
   deviceId: "speaker-1",
   groupId: "group-3",
@@ -36,13 +45,23 @@ const AUDIO_OUTPUT: MediaDeviceInfo = {
   toJSON: () => ({}),
 };
 
-function mockMediaDevices(devices: MediaDeviceInfo[]) {
+function mockMediaDevices(
+  devices: MediaDeviceInfo[],
+  defaultDeviceId?: string,
+) {
   const stop = vi.fn();
 
   const mediaDevices = {
     enumerateDevices: vi.fn().mockResolvedValue(devices),
     getUserMedia: vi.fn().mockResolvedValue({
-      getTracks: () => [{ stop }],
+      getTracks: () => [
+        {
+          stop,
+          ...(defaultDeviceId
+            ? { getSettings: () => ({ deviceId: defaultDeviceId }) }
+            : {}),
+        },
+      ],
     }),
   };
 
@@ -65,14 +84,30 @@ describe("getAudioDevices", () => {
     const devices = await getAudioDevices();
 
     expect(devices).toEqual([
-      { deviceId: "mic-1", kind: "audioinput", label: "Microphone" },
+      {
+        deviceId: "mic-1",
+        kind: "audioinput",
+        label: "Microphone",
+        isDefault: false,
+      },
       {
         deviceId: "virtual-1",
         kind: "audioinput",
         label: "Virtual Cable Input",
+        isDefault: false,
       },
     ]);
     expect(stop).toHaveBeenCalledTimes(1);
+  });
+
+  it("marks the device the browser picked as default", async () => {
+    mockMediaDevices([AUDIO_INPUT, VIRTUAL_INPUT], "virtual-1");
+
+    const devices = await getAudioDevices();
+
+    expect(devices.find((device) => device.isDefault)?.deviceId).toBe(
+      "virtual-1",
+    );
   });
 });
 
@@ -104,11 +139,17 @@ describe("buildAudioConstraints", () => {
 describe("getPreferredDevice", () => {
   it("prefers a virtual device over the first one", () => {
     const devices: AudioDevice[] = [
-      { deviceId: "mic-1", kind: "audioinput", label: "Microphone" },
+      {
+        deviceId: "mic-1",
+        kind: "audioinput",
+        label: "Microphone",
+        isDefault: false,
+      },
       {
         deviceId: "virtual-1",
         kind: "audioinput",
         label: "Virtual Cable Input",
+        isDefault: false,
       },
     ];
 
@@ -117,8 +158,13 @@ describe("getPreferredDevice", () => {
 
   it("skips devices with an empty deviceId", () => {
     const devices: AudioDevice[] = [
-      { deviceId: "", kind: "audioinput", label: "" },
-      { deviceId: "mic-1", kind: "audioinput", label: "Microphone" },
+      { deviceId: "", kind: "audioinput", label: "", isDefault: false },
+      {
+        deviceId: "mic-1",
+        kind: "audioinput",
+        label: "Microphone",
+        isDefault: false,
+      },
     ];
 
     expect(getPreferredDevice(devices)?.deviceId).toBe("mic-1");
@@ -131,7 +177,12 @@ describe("getPreferredDevice", () => {
 
 describe("isDeviceAvailable", () => {
   const devices: AudioDevice[] = [
-    { deviceId: "mic-1", kind: "audioinput", label: "Microphone" },
+    {
+      deviceId: "mic-1",
+      kind: "audioinput",
+      label: "Microphone",
+      isDefault: false,
+    },
   ];
 
   it("treats null and default as always available", () => {
@@ -161,9 +212,57 @@ describe("listAudioDevices", () => {
     const devices = await listAudioDevices();
 
     expect(devices).toEqual([
-      { deviceId: "mic-1", kind: "audioinput", label: "Microphone" },
+      {
+        deviceId: "mic-1",
+        kind: "audioinput",
+        label: "Microphone",
+        isDefault: false,
+      },
     ]);
     expect(mediaDevices.getUserMedia).not.toHaveBeenCalled();
+  });
+
+  it("marks the browser default entry without opening the mic", async () => {
+    mockMediaDevices([DEFAULT_INPUT, AUDIO_INPUT]);
+
+    const devices = await listAudioDevices();
+
+    expect(devices.find((device) => device.isDefault)?.deviceId).toBe(
+      "default",
+    );
+  });
+});
+
+describe("defaultDeviceName", () => {
+  const devices: AudioDevice[] = [
+    {
+      deviceId: "mic-1",
+      kind: "audioinput",
+      label: "Microphone",
+      isDefault: false,
+    },
+    {
+      deviceId: "default",
+      kind: "audioinput",
+      label: "System Default",
+      isDefault: true,
+    },
+  ];
+
+  it("returns the label of the default device", () => {
+    expect(defaultDeviceName(devices)).toBe("System Default");
+  });
+
+  it("returns null when there is no default device", () => {
+    expect(defaultDeviceName([devices[0]])).toBeNull();
+  });
+
+  it("returns null when the default device has no label", () => {
+    expect(
+      defaultDeviceName([
+        { deviceId: "default", kind: "audioinput", label: "", isDefault: true },
+      ]),
+    ).toBeNull();
   });
 });
 
@@ -171,7 +270,7 @@ describe("hasPermissionFromDevices", () => {
   it("is false when every deviceId is empty", () => {
     expect(
       hasPermissionFromDevices([
-        { deviceId: "", kind: "audioinput", label: "" },
+        { deviceId: "", kind: "audioinput", label: "", isDefault: false },
       ]),
     ).toBe(false);
   });
@@ -179,7 +278,12 @@ describe("hasPermissionFromDevices", () => {
   it("is true when at least one deviceId is present", () => {
     expect(
       hasPermissionFromDevices([
-        { deviceId: "mic-1", kind: "audioinput", label: "Microphone" },
+        {
+          deviceId: "mic-1",
+          kind: "audioinput",
+          label: "Microphone",
+          isDefault: false,
+        },
       ]),
     ).toBe(true);
   });

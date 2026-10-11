@@ -1,5 +1,6 @@
 export * from "./useChatEmojiReaction";
 export * from "./useClickOutside";
+export * from "./useDefaultDeviceName";
 export * from "./useDocumentPictureInPicture";
 export * from "./useLocalStorage";
 export * from "./useMicrophones";

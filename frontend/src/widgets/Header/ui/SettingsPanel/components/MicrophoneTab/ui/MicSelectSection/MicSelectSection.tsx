@@ -1,5 +1,5 @@
 import { Button, Select } from "@cvc/components";
-import type { MicrophonePermission } from "@cvc/hooks";
+import { useDefaultDeviceName, type MicrophonePermission } from "@cvc/hooks";
 import type { AudioDevice } from "@cvc/utils";
 import * as Styles from "./MicSelectSection.styles";
 
@@ -11,7 +11,17 @@ interface MicSelectSectionProps {
   onRequestPermission: () => void;
 }
 
+function deviceLabel(device: AudioDevice, defaultName: string | null): string {
+  if (device.isDefault) {
+    return defaultName ?? "По умолчанию";
+  }
+
+  return device.label || `Микрофон ${device.deviceId.slice(0, 6)}`;
+}
+
 export function MicSelectSection(props: MicSelectSectionProps) {
+  const defaultName = useDefaultDeviceName(props.devices);
+
   return (
     <>
       <Styles.Hint>
@@ -31,8 +41,7 @@ export function MicSelectSection(props: MicSelectSectionProps) {
             : [
                 ...props.devices.map((device) => ({
                   value: device.deviceId,
-                  label:
-                    device.label || `Микрофон ${device.deviceId.slice(0, 6)}`,
+                  label: deviceLabel(device, defaultName),
                 })),
               ]
         }

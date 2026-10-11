@@ -1,12 +1,12 @@
 import { Toggle } from "@cvc/components";
-import { useSettingActions, useSettings } from "@cvc/hooks";
+import { usePipSettings, useSettingActions } from "@cvc/hooks";
 import { usePiP } from "@cvc/providers";
 
 import { Section } from "../Section";
 import * as Styles from "./WindowTab.styles";
 
 export const WindowTab = () => {
-  const { autoOpen } = useSettings().pip;
+  const { autoOpen } = usePipSettings();
   const { setPip } = useSettingActions();
   const { isSupported, close } = usePiP();
 
