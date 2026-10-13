@@ -7,4 +7,11 @@ export * from "./isImageFile";
 export * from "./isURL";
 export * from "./microphones";
 export * from "./SpeechDetection";
-export * from "./unsavedChangesStore";
+export {
+  getUnsavedChangesNames,
+  hasUnsavedChanges,
+  registerUnsavedChanges,
+  saveAllUnsavedChanges,
+  unregisterUnsavedChanges,
+} from "./unsavedChangesStore";
+export type { UnsavedChangesGuard } from "./unsavedChangesStore";

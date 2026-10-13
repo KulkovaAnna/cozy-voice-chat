@@ -39,10 +39,11 @@
 - **Vite 7** — сборщик и dev-сервер
 - **PeerJS** — обёртка над WebRTC
 - **Emotion** (`@emotion/react`, `@emotion/styled`) — стилизация (JSX-источник — `@emotion/react`)
+- **Zustand** — управление состоянием настроек (`settingsStore`) и несохранённых изменений (`unsavedChangesStore`)
 - **react-hook-form**, **react-modal**, **react-toastify**
 - **react-router** v7
 - **ESLint 9** (flat config) + **Prettier**
-- **Vitest** — unit-тесты чистых утилит (`utils/microphones`)
+- **Vitest** — unit-тесты чистых утилит (`utils/microphones`, `utils/settingsNormalization`, `utils/settingsStore`)
 - **eslint-plugin-boundaries** — контроль направления импортов между слоями (FSD-подобная архитектура)
 
 ### Backend (`backend/`)
@@ -87,7 +88,7 @@ uploads/               # chat/ (файлы звонков, чистятся по
 tests/
   unit/
     file-manager.controller.test.ts  # Mock-тесты контроллера (uploadFile, downloadFile, viewFile)
-    file-manager.service.test.ts     # unit-тесты сервиса с моками fs/uuid (включая файлы профиля)
+    file-manager.service.test.ts     # unit-тесты сервиса с моками fs/uuid (файлы профиля + персистентность метаданных в JSON)
     helpers.test.ts                  # validateIP, generateRoomCode/Id, omitDeep, getLocalIP
     event-bus.test.ts                # подписка/рассылка file:uploaded и file:deleted
     lobby-manager.test.ts            # addClient (в т.ч. preferredId), офферы, поиск по ws/id/ip, removeMember, getStats, cardAppearance
@@ -106,7 +107,7 @@ tests/
 - **LobbyManager** — управление участниками лобби и офферами звонков. Включая обновление профиля (`updatePersonalInfo`): нормализует имя/аватар/`cardAppearance` через `PersonalInfo`, ограничивает длину имени (50 символов) и аватара (1 МБ), для карточки — `imageOpacity` приводит к диапазону 0..1, `textColor` — не длиннее 64 символов (иначе `null`), `textShadow` — только boolean. `addClient` принимает опциональный `preferredId` — прежний id клиента, который сервер сохраняет при переподключении (если он ещё свободен).
 - **CallManager** — состояние активных звонков (участники, mute/speaking/online, screen sharing, сообщения).
 - **Соглашения именования сообщений**: строковые типы вида `lobby::join`, `call::end`, `all::call::started`, `me::lobby-joined` (см. `constants/message-types.ts`).
-- **HTTP-маршруты**: `GET /` (инструкция с IP), `GET /stats` (требует auth), `GET /health`, файловые маршруты под `/files` (`POST /upload`, `GET /download/:fileId`, `GET /view/:fileId`) и маршруты файлов профиля (`POST /profile/avatar`, `GET /profile/:fileId`, `DELETE /profile/:fileId`; лимит 1 МБ, только изображения).
+- **HTTP-маршруты**: `GET /` (инструкция с IP), `GET /stats` (требует auth), `GET /health`, файловые маршруты под `/files` (`POST /upload`, `GET /download/:fileId`, `GET /view/:fileId`) и маршруты файлов профиля (`POST /profile/avatar`, `GET /profile/:fileId`, `DELETE /profile/:fileId`; лимит 1 МБ, только изображения). Метаданные файлов профиля персистятся в `uploads/profile/metadata.json` — загружаются при старте сервиса, сохраняются при каждом upload/delete.
 - **Безопасность**: helmet с отключённым CSP, CORS с валидацией origin по паттернам, rate limiting на подключения, ограничение размера WS-сообщения и числа клиентов.
 
 ### Frontend (`frontend/src/`)
@@ -133,7 +134,8 @@ hooks/                 # Слой hooks: usePeer, useLocalStorage, useClickOutsi
                        #   useMicrophones, useDefaultDeviceName, useUnsavedChangesGuard
 theme/                 # Слой theme: тема и GlobalStyles (Emotion)
 types/                 # Слой types: общие типы (clientTypes, serverTypes, settings)
-utils/                 # Слой utils: adapters, cardAppearance, fileToBase64, settingsStore,
+utils/                 # Слой utils: adapters, cardAppearance, fileToBase64,
+                       #   settingsStore (Zustand), settingsNormalization, unsavedChangesStore (Zustand),
                        #   microphones (устройства ввода и MediaTrackConstraints), SpeechDetection
 assets/                # Статические ресурсы (изображения)
 ```
@@ -174,8 +176,9 @@ app → pages → widgets → features → {components, providers} → hooks →
   - `providers/PiPProvider` — контекст `{ isSupported, isOpen, pipWindow, open, openAuto, close }`; на время активного звонка регистрирует mediaSession-действие `enterpictureinpicture`, которое браузер само вызывает при переключении с таба (открытие без user-жеста; Chrome 120+, условие — активный захват микрофона через `getUserMedia`). Читает `settings.pip.autoOpen` и пропускает регистрацию действия, если пользователь отключил автопоявление.
   - `widgets/PiPWidget` — рендерится на странице `Call`, контент монтируется через `createPortal` в `pipWindow.document.body` (портал сохраняет все контексты). Показывает аватары участников с подсветкой говорящего и бейджем mute, кнопки мута и завершения звонка; закрывает окно при завершении звонка.
   - Важные нюансы: `onClick`-обработчики внутри портала работают штатно (React 19 корректно пробрасывает события через порталы в другой document); кнопка завершения звонка вызывается обёрткой `() => endCall()` — прямой `onClick={endCall}` передал бы React-событие первым аргументом в `endCall(nextCallInfo?: CallInfo)` и сломал `callId`.
-- **Настройки приложения (`AppSettings`)** — хранятся в `localStorage` (`app.settings`) через `utils/settingsStore.ts`. Секции: `audio` (устройство ввода, noiseSuppression, echoCancellation, autoGainControl), `pip` (`autoOpen` — автопоявление PiP-окна), `profile` (`avatar` — аватар, `cardAppearance` — внешний вид карточек). Панель настроек в хедере: вкладки «Профиль», «Кастомизация» (тема + карточка пользователя), «Интерфейс» (PiP), «Микрофон». Типы в `types/settings.ts`, действия — `useSettingActions()` из `hooks/useSettings.ts` (включая `setAudio`/`setPip`/`setProfile`/`setInputDeviceId`). Подписка на секции — точечная через `subscribeTo(section, listener)`; `useSection` внутри хука использует `shallow()` для сравнения полей, чтобы избежать лишних ререндеров при пересоздании объекта секции.
-  - Парсинг из хранилища: `normalize()` читает известные поля по именам с проверкой типов, неизвестные ключи теряются. Профиль собирается одной функцией `parseProfile()` — вложенность (`profile` → `cardAppearance` → `background`/`avatarBorder`) раскрывается через `asRecord()` на каждом уровне; примитивы читаются хелперами `readString`/`readBoolean`/`readEnum`/`readNumber` (последний валидирует диапазон). Миграций между версиями схемы нет: `v3 → v4` (перенос аватара из объекта `user`) применена, объект `user` в `localStorage` больше не читается.
+- **Настройки приложения (`AppSettings`)** — хранятся в `localStorage` (`app.settings`) через Zustand-стор `utils/settingsStore.ts` (`useSettingsStore`). Секции: `audio` (устройство ввода, noiseSuppression, echoCancellation, autoGainControl), `pip` (`autoOpen` — автопоявление PiP-окна), `profile` (`avatar` — аватар, `cardAppearance` — внешний вид карточек). Панель настроек в хедере: вкладки «Профиль», «Кастомизация» (тема + карточка пользователя), «Интерфейс» (PiP), «Микрофон». Типы в `types/settings.ts`, действия — `useSettingActions()` из `hooks/useSettings.ts` (включая `setAudio`/`setPip`/`setProfile`/`setInputDeviceId`). Стор использует middleware `persist` (сериализация в `localStorage` с `partialize` по секциям). Точечные подписки — нативные селекторы Zustand (`useSettingsStore((s) => s.audio)`). Императивное чтение — `useSettingsStore.getState()`. Cross-tab синхронизация через событие `storage` + `useSettingsStore.setState(normalizeSettings(parsed))`.
+  - Валидация из хранилища — чистая функция `normalizeSettings(raw)` в `utils/settingsNormalization.ts` (без привязки к стору): известные поля читаются по именам с проверкой типов, неизвестные ключи теряются. Профиль собирается `parseProfile()` — вложенность (`profile` → `cardAppearance` → `background`/`avatarBorder`) раскрывается через `asRecord()`; примитивы читаются хелперами `readString`/`readBoolean`/`readEnum`/`readNumber` (последний валидирует диапазон). Миграций между версиями схемы нет: `v3 → v4` (перенос аватара из объекта `user`) применена, объект `user` в `localStorage` больше не читается.
+- **Стор несохранённых изменений** — `utils/unsavedChangesStore.ts` на Zustand: `useUnsavedChangesStore` (Map охранников + `register`/`unregister`). Публичный API — императивные обёртки `registerUnsavedChanges`/`hasUnsavedChanges`/`getUnsavedChangesNames`/`saveAllUnsavedChanges`, потребители (`SettingsPanel`, `useUnsavedChangesGuard`) не менялись. Баррель `utils/index.ts` реэкспортирует только эти функции — сам Zustand-стор доступен по прямому пути `@cvc/utils/unsavedChangesStore`.
 
 ---
 
@@ -325,7 +328,7 @@ yarn dev
   - `tests/unit/` — unit-тесты модулей: `FileManagerController`, `FileManagerService`, `Helpers`, `EventBus`, `LobbyManager`, `CallManager`, `SignalingServer` (WS-протокол эмулируется мок-сокетами без реального сервера).
   - `tests/integration/` — HTTP-интеграционные тесты маршрутов file-manager через supertest (реальный Express-роутер, мок сервиса).
 - Внешние зависимости в unit-тестах мокируются: `fs`, `uuid`, `ws`, `config`, `AuthMiddleware`, `RateLimiter`, `event-bus` — через `vi.mock` / `vi.hoisted`.
-- **Frontend** unit-тесты на **Vitest** (`frontend/package.json`: `yarn test`, `yarn test:watch`) — покрыты чистые утилиты `utils/microphones` (нормализация устройств, `isDefault`, `defaultDeviceName`, `buildAudioConstraints`, `isDeviceAvailable`). Конфиг — `vite.config.ts` (секция `test`). Остальная часть фронта пока проверяется только линтером и сборкой.
+- **Frontend** unit-тесты на **Vitest** (`frontend/package.json`: `yarn test`, `yarn test:watch`) — покрыты чистые утилиты `utils/microphones` (нормализация устройств, `isDefault`, `defaultDeviceName`, `buildAudioConstraints`, `isDeviceAvailable`), `utils/settingsNormalization` (валидация настроек из `localStorage`: null/garbage → defaults, round-trip, out-of-range, unknown enum, nested profile parsing), `utils/settingsStore` (Zustand: getState, гидратация из localStorage, патч-семантика, нативная подписка без React, registration/unregistration guard'ов). Остальная часть фронта пока проверяется только линтером и сборкой.
 
 ### Практики и конвенции
 

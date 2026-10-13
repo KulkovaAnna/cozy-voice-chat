@@ -80,14 +80,14 @@ export function hasPermissionFromDevices(devices: AudioDevice[]): boolean {
   return devices.some((device) => device.deviceId.length > 0);
 }
 
-import { get } from "../settingsStore";
+import { useSettingsStore } from "../settingsStore";
 
 export async function playMicrophoneTest(
   deviceId: string,
   durationMs = 1200,
 ): Promise<void> {
   const stream = await navigator.mediaDevices.getUserMedia({
-    audio: buildAudioConstraints(deviceId, get().audio),
+    audio: buildAudioConstraints(deviceId, useSettingsStore.getState().audio),
   });
 
   try {

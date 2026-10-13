@@ -3,7 +3,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { toast } from "react-toastify";
 
 import { buildAudioConstraints, DEFAULT_DEVICE_ID } from "@cvc/utils";
-import { get, subscribeTo } from "@cvc/utils/settingsStore";
+import { useSettingsStore } from "@cvc/utils/settingsStore";
 
 export type CallKind = "audio" | "screen";
 
@@ -14,11 +14,11 @@ export interface PeerCall {
 }
 
 function getLocalAudioStream(): Promise<MediaStream> {
-  const store = get();
+  const audio = useSettingsStore.getState().audio;
   return navigator.mediaDevices.getUserMedia({
     audio: buildAudioConstraints(
-      store.audio.inputDeviceId ?? DEFAULT_DEVICE_ID,
-      store.audio,
+      audio.inputDeviceId ?? DEFAULT_DEVICE_ID,
+      audio,
     ),
   });
 }
@@ -211,13 +211,13 @@ export function usePeer() {
 
     if (!call || !sender?.track) return;
 
-    const { audio } = get();
     const oldTrack = sender.track;
     const previousEnabled = oldTrack.enabled;
 
     try {
       oldTrack.stop();
 
+      const audio = useSettingsStore.getState().audio;
       const stream = await navigator.mediaDevices.getUserMedia({
         audio: buildAudioConstraints(
           audio.inputDeviceId ?? DEFAULT_DEVICE_ID,
@@ -249,11 +249,10 @@ export function usePeer() {
       }
     }
   }, []);
+  const audio = useSettingsStore((s) => s.audio);
   useEffect(() => {
-    return subscribeTo("audio", () => {
-      void switchInputDevice();
-    });
-  }, [switchInputDevice]);
+    void Promise.resolve().then(() => switchInputDevice());
+  }, [audio, switchInputDevice]);
 
   function endCall() {
     callRef.current?.localStream

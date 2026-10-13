@@ -29,6 +29,9 @@ export default class FileManagerService {
   /** Папка для файлов профиля (аватары/фоны карточки) */
   #profileDir = path.join(__dirname, './uploads/profile');
 
+  /** Путь к JSON-файлу с метаданными профиля */
+  #metadataPath = path.join(__dirname, './uploads/profile/metadata.json');
+
   private callManager: CallManagerLike;
   private lobbyManager: LobbyManagerLike;
 
@@ -38,8 +41,36 @@ export default class FileManagerService {
     fs.promises
       .mkdir(this.#profileDir, { recursive: true })
       .catch(console.error);
+    // Загружаем метаданные профиля из JSON при старте
+    this.#loadMetadata();
     this.callManager = callManager;
     this.lobbyManager = lobbyManager;
+  }
+
+  /** Загружает метаданные файлов профиля из JSON */
+  #loadMetadata(): void {
+    try {
+      const raw = fs.readFileSync(this.#metadataPath, 'utf-8');
+      const data: Record<string, ProfileFileMetadata> = JSON.parse(raw);
+      for (const [fileId, meta] of Object.entries(data)) {
+        this.#profileFileMetadata.set(fileId, meta);
+      }
+    } catch {
+      // Файл отсутствует или повреждён — начинаем с пустой карты
+    }
+  }
+
+  /** Сохраняет метаданные файлов профиля в JSON */
+  #saveMetadata(): void {
+    const data: Record<string, ProfileFileMetadata> = {};
+    for (const [fileId, meta] of this.#profileFileMetadata.entries()) {
+      data[fileId] = meta;
+    }
+    fs.writeFileSync(
+      this.#metadataPath,
+      JSON.stringify(data, null, 2),
+      'utf-8',
+    );
   }
 
   /**
@@ -115,6 +146,7 @@ export default class FileManagerService {
       ownerId: owner.id,
       createdAt: Date.now(),
     });
+    await this.#saveMetadata();
 
     return { fileId };
   }
@@ -147,6 +179,7 @@ export default class FileManagerService {
 
     await fs.promises.unlink(meta.path).catch(console.error);
     this.#profileFileMetadata.delete(fileId);
+    await this.#saveMetadata();
   }
 
   /**

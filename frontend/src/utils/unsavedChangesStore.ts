@@ -1,5 +1,5 @@
 /**
- * Стор несохранённых изменений.
+ * Стор несохранённых изменений (Zustand).
  *
  * Фичи с черновиком настроек (например, кастомизация карточки) регистрируют
  * здесь «охранника» — пару предиката несохранённых изменений и колбэка
@@ -7,6 +7,8 @@
  * переключением вкладки) может проверить `hasUnsavedChanges()` и сохранить всё
  * разом через `saveAllUnsavedChanges()`, не зная ничего о конкретной фиче.
  */
+
+import { create } from "zustand";
 
 /** Охранник несохранённых изменений одной фичи. */
 export type UnsavedChangesGuard = {
@@ -16,7 +18,31 @@ export type UnsavedChangesGuard = {
   save: () => void | Promise<void>;
 };
 
-const guards = new Map<string, UnsavedChangesGuard>();
+type UnsavedChangesState = {
+  guards: Map<string, UnsavedChangesGuard>;
+  register: (name: string, guard: UnsavedChangesGuard) => void;
+  unregister: (name: string) => void;
+};
+
+const createInitialMap = () => new Map<string, UnsavedChangesGuard>();
+
+export const useUnsavedChangesStore = create<UnsavedChangesState>()(
+  (set, get) => ({
+    guards: createInitialMap(),
+
+    register(name, guard) {
+      const guards = new Map(get().guards);
+      guards.set(name, guard);
+      set({ guards });
+    },
+
+    unregister(name) {
+      const guards = new Map(get().guards);
+      guards.delete(name);
+      set({ guards });
+    },
+  }),
+);
 
 /**
  * Регистрирует охранника несохранённых изменений.
@@ -29,24 +55,21 @@ export function registerUnsavedChanges(
   name: string,
   guard: UnsavedChangesGuard,
 ): VoidFunction {
-  guards.set(name, guard);
+  useUnsavedChangesStore.getState().register(name, guard);
 
   return () => {
-    // Удаляем только своего охранника: если к этому моменту имя уже
-    // перехвачено другой регистрацией, чужую запись не трогаем.
-    if (guards.get(name) === guard) {
-      guards.delete(name);
-    }
+    useUnsavedChangesStore.getState().unregister(name);
   };
 }
 
 /** Снимает охранника несохранённых изменений по имени фичи. */
 export function unregisterUnsavedChanges(name: string): void {
-  guards.delete(name);
+  useUnsavedChangesStore.getState().unregister(name);
 }
 
 /** Есть ли хотя бы одна фича с несохранёнными изменениями. */
 export function hasUnsavedChanges(): boolean {
+  const guards = useUnsavedChangesStore.getState().guards;
   for (const guard of guards.values()) {
     if (guard.hasUnsaved()) return true;
   }
@@ -58,7 +81,7 @@ export function hasUnsavedChanges(): boolean {
 export function getUnsavedChangesNames(): string[] {
   const names: string[] = [];
 
-  for (const [name, guard] of guards) {
+  for (const [name, guard] of useUnsavedChangesStore.getState().guards) {
     if (guard.hasUnsaved()) names.push(name);
   }
 
@@ -72,7 +95,9 @@ export function getUnsavedChangesNames(): string[] {
  * влияло на обход остальных.
  */
 export async function saveAllUnsavedChanges(): Promise<void> {
-  const pending = [...guards.values()].filter((guard) => guard.hasUnsaved());
+  const pending = [...useUnsavedChangesStore.getState().guards.values()].filter(
+    (guard) => guard.hasUnsaved(),
+  );
 
   for (const guard of pending) {
     await guard.save();

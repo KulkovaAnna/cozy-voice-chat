@@ -6,7 +6,7 @@ import {
   hasPermissionFromDevices,
   listAudioDevices,
 } from "@cvc/utils";
-import { get } from "@cvc/utils/settingsStore";
+import { useSettingsStore } from "@cvc/utils/settingsStore";
 
 export type MicrophonePermission = "unknown" | "granted" | "denied";
 
@@ -38,7 +38,7 @@ export function useMicrophones(
       const stream = await navigator.mediaDevices.getUserMedia({
         audio: buildAudioConstraints(
           selectedDeviceId ?? "default",
-          get().audio,
+          useSettingsStore.getState().audio,
         ),
       });
 

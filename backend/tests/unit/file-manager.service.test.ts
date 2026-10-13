@@ -12,7 +12,11 @@ vi.mock('fs', () => ({
     rename: vi.fn().mockResolvedValue(undefined),
     unlink: vi.fn().mockResolvedValue(undefined),
     readdir: vi.fn().mockResolvedValue([]),
+    readFile: vi.fn().mockResolvedValue('{}'),
+    writeFile: vi.fn().mockResolvedValue(undefined),
   },
+  readFileSync: vi.fn(() => '{}'),
+  writeFileSync: vi.fn(),
   createReadStream: vi.fn(() => ({ pipe: vi.fn(), on: vi.fn() })),
 }));
 
@@ -288,6 +292,123 @@ describe('FileManagerService', () => {
       await expect(
         service.deleteProfileFile('no-such-id'),
       ).rejects.toMatchObject({ status: 404 });
+    });
+  });
+
+  // ─── metadata persistence ─────────────────────────────────────
+  describe('metadata persistence', () => {
+    const mulFile = {
+      originalname: 'avatar.png',
+      path: '/tmp/avatar',
+      size: 1024,
+    } as any;
+
+    it('should save metadata to JSON on uploadProfileFile', async () => {
+      mockLobbyManager.getMemberByIp.mockReturnValue(fakeClient);
+
+      await service.uploadProfileFile(mulFile, '10.0.0.1');
+
+      expect(fs.writeFileSync).toHaveBeenCalledWith(
+        expect.stringContaining('metadata.json'),
+        expect.any(String),
+        'utf-8',
+      );
+      const written = JSON.parse(
+        (fs.writeFileSync as ReturnType<typeof vi.fn>).mock.calls[0][1],
+      );
+      expect(written['mocked-uuid-1234']).toBeDefined();
+      expect(written['mocked-uuid-1234'].ownerId).toBe('client-1');
+    });
+
+    it('should save metadata to JSON on deleteProfileFile', async () => {
+      mockLobbyManager.getMemberByIp.mockReturnValue(fakeClient);
+      await service.uploadProfileFile(mulFile, '10.0.0.1');
+      vi.clearAllMocks();
+      // Снова мокнём getMemberByIp, т.к. clearAllMocks сбросил его
+      mockLobbyManager.getMemberByIp.mockReturnValue(fakeClient);
+      await service.uploadProfileFile(
+        { ...mulFile, originalname: 'avatar2.png' },
+        '10.0.0.1',
+      );
+      // Теперь удаляем
+      await service.deleteProfileFile('mocked-uuid-1234');
+
+      expect(fs.writeFileSync).toHaveBeenCalledWith(
+        expect.stringContaining('metadata.json'),
+        expect.any(String),
+        'utf-8',
+      );
+    });
+
+    it('should load metadata from JSON on startup', async () => {
+      const existingMeta = {
+        'existing-file': {
+          path: '/some/path/avatar.png',
+          originalName: 'avatar.png',
+          ownerId: 'user-42',
+          createdAt: 1000,
+        },
+      };
+      (fs.readFileSync as ReturnType<typeof vi.fn>).mockReturnValueOnce(
+        JSON.stringify(existingMeta),
+      );
+
+      const freshService = new FileManagerService(
+        mockCallManager as unknown as CallManagerLike,
+        mockLobbyManager as unknown as LobbyManagerLike,
+      );
+
+      const result = await freshService.getProfileFile('existing-file');
+      expect(result.meta.ownerId).toBe('user-42');
+      expect(result.meta.originalName).toBe('avatar.png');
+    });
+
+    it('should handle missing metadata JSON gracefully on startup', () => {
+      (fs.readFileSync as ReturnType<typeof vi.fn>).mockReturnValueOnce(
+        undefined,
+      );
+
+      // Не должна выбросить ошибку при старте
+      expect(
+        () =>
+          new FileManagerService(
+            mockCallManager as unknown as CallManagerLike,
+            mockLobbyManager as unknown as LobbyManagerLike,
+          ),
+      ).not.toThrow();
+    });
+
+    it('should handle garbage metadata JSON gracefully on startup', () => {
+      (fs.readFileSync as ReturnType<typeof vi.fn>).mockReturnValueOnce(
+        'not json at all',
+      );
+
+      expect(
+        () =>
+          new FileManagerService(
+            mockCallManager as unknown as CallManagerLike,
+            mockLobbyManager as unknown as LobbyManagerLike,
+          ),
+      ).not.toThrow();
+    });
+
+    it('should clean up orphaned profile files on cleanDownloads', async () => {
+      // Загрузим файл профиля
+      mockLobbyManager.getMemberByIp.mockReturnValue(fakeClient);
+      await service.uploadProfileFile(mulFile, '10.0.0.1');
+
+      // Мокнём readdir — возвращаем файл, которого нет в метаданных
+      const orphanedDirent = { isFile: () => true, name: 'orphan-xyz.png' };
+      (fs.promises.readdir as ReturnType<typeof vi.fn>).mockResolvedValueOnce([
+        orphanedDirent,
+      ]);
+
+      await service.cleanDownloads();
+
+      // Файл профиля не должен быть удалён (cleanDownloads работает только с chat/)
+      expect(fs.promises.unlink).not.toHaveBeenCalledWith(
+        expect.stringContaining('profile'),
+      );
     });
   });
 });

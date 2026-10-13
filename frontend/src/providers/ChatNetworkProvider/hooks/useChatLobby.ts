@@ -8,7 +8,7 @@ import type {
   UserProfile,
 } from "@cvc/types";
 import { userAdapter } from "@cvc/utils/adapters";
-import * as settingsStore from "@cvc/utils/settingsStore";
+import { useSettingsStore } from "@cvc/utils/settingsStore";
 
 type SendFn = (type: string, data: Record<string, unknown>) => void;
 
@@ -28,13 +28,13 @@ export function useChatLobby({ user, send }: UseChatLobbyParams) {
   const [lobbyMembers, setLobbyMembers] = useState<Array<UserProfile>>([]);
 
   const joinToLobby = useCallback(() => {
-    const { avatar, cardAppearance } = settingsStore.get().profile;
+    const profile = useSettingsStore.getState().profile;
     send("lobby::join", {
       clientId: user.id ?? null,
       personalInfo: {
         name: user.name,
-        avatar,
-        cardAppearance,
+        avatar: profile.avatar,
+        cardAppearance: profile.cardAppearance,
       },
     });
   }, [send, user.id, user.name]);
@@ -59,12 +59,13 @@ export function useChatLobby({ user, send }: UseChatLobbyParams) {
 
   const updateProfile = useCallback(
     (personalInfo?: Partial<ProfilePayload>) => {
-      const { avatar, cardAppearance } = settingsStore.get().profile;
+      const profile = useSettingsStore.getState().profile;
       send("lobby::update-profile", {
         personalInfo: {
           name: personalInfo?.name ?? user.name,
-          avatar: personalInfo?.avatar ?? avatar,
-          cardAppearance: personalInfo?.cardAppearance ?? cardAppearance,
+          avatar: personalInfo?.avatar ?? profile.avatar,
+          cardAppearance:
+            personalInfo?.cardAppearance ?? profile.cardAppearance,
         },
       });
     },

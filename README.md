@@ -86,6 +86,7 @@ _Нулевой пинг. Гигабитная передача файлов. У
 
 - **React 19** + **TypeScript** — UI
 - **Vite** — сборщик и dev-сервер
+- **Zustand** — управление состоянием настроек (`settingsStore`)
 - **PeerJS** — обёртка над WebRTC для P2P-соединения
 - **Emotion** — стилизация
 - **react-hook-form** — формы
@@ -198,7 +199,7 @@ yarn test:coverage     # запуск с покрытием (v8)
 | `tests/unit/`        | `FileManagerController`, `FileManagerService`, `Helpers`, `EventBus`, `LobbyManager`, `CallManager`, `SignalingServer` |
 | `tests/integration/` | HTTP-маршруты файлового модуля (`/files/upload`, `/files/download/:id`, `/files/view/:id`)                             |
 
-> Frontend покрыт unit-тестами чистых утилит (`src/utils/microphones`) на **Vitest**: `cd frontend && yarn test`. Остальная часть фронта проверяется `yarn lint` и сборкой `yarn build`.
+> Frontend покрыт unit-тестами чистых модулей на **Vitest**: `cd frontend && yarn test` — `src/utils/microphones` (устройства ввода и `MediaTrackConstraints`), `src/utils/settingsNormalization` (валидация настроек из `localStorage`), `src/utils/settingsStore` (Zustand-стор) и `unsavedChangesStore`. Остальная часть фронта проверяется `yarn lint` и сборкой `yarn build`.
 
 ---
 
