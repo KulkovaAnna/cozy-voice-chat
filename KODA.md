@@ -106,7 +106,7 @@ tests/
 Архитектурные особенности:
 
 - **Композиция в конструкторе** `VoiceChatServer`: создаются `LobbyManager`, `CallManager`, `FileManagerService`, `FileManagerController`, `FileManagerRoutes` и `SignalingServer`.
-- **SignalingServer** — центральный обработчик WS-сообщений. Разбирает сообщения по `MESSAGE_TYPES` и вызывает обработчики лобби/звонка. Наследует event-bus: подписан на `file:uploaded` / `file:deleted` и рассылает уведомления в звонок.
+- **SignalingServer** — центральный обработчик WS-сообщений. Разбирает сообщения по `MESSAGE_TYPES` и диспетчеризует через реестр `messageHandlers` (тип сообщения → функция-обработчик), реализованный в `signaling-v2/message-handlers.ts`. Наследует event-bus: подписан на `file:uploaded` / `file:deleted` и рассылает уведомления в звонок.
 - **LobbyManager** — управление участниками лобби и офферами звонков. Включая обновление профиля (`updatePersonalInfo`): нормализует имя/аватар/`cardAppearance` через `PersonalInfo`, ограничивает длину имени (50 символов) и аватара (1 МБ), для карточки — `imageOpacity` приводит к диапазону 0..1, `textColor` — не длиннее 64 символов (иначе `null`), `textShadow` — только boolean. `addClient` принимает опциональный `preferredId` — прежний id клиента, который сервер сохраняет при переподключении (если он ещё свободен).
 - **CallManager** — состояние активных звонков (участники, mute/speaking/online, screen sharing, сообщения).
 - **Соглашения именования сообщений**: строковые типы вида `lobby::join`, `call::end`, `all::call::started`, `me::lobby-joined` (см. `constants/message-types.ts`).

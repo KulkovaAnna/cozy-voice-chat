@@ -650,6 +650,41 @@ describe('SignalingServer', () => {
     });
   });
 
+  // ─── Message handler registry ─────────────────────────────────
+  describe('message handler registry', () => {
+    it('should have a handler for every MESSAGE_TYPES.RECEIVE type and no extras', async () => {
+      const MESSAGE_TYPES = (await import('../../src/constants/message-types'))
+        .default;
+
+      // Собираем все ожидаемые типы из MESSAGE_TYPES.RECEIVE
+      const expectedTypes: string[] = [];
+      for (const group of Object.values(MESSAGE_TYPES.RECEIVE)) {
+        for (const type of Object.values(group as Record<string, string>)) {
+          expectedTypes.push(type);
+        }
+      }
+
+      const registry: Record<string, unknown> =
+        signalingServer['messageHandlers'];
+      const registryKeys = Object.keys(registry);
+
+      // Каждый ожидаемый тип имеет обработчик
+      for (const type of expectedTypes) {
+        expect(registry[type], `missing handler for "${type}"`).toBeTypeOf(
+          'function',
+        );
+      }
+
+      // В реестре нет лишних ключей
+      for (const key of registryKeys) {
+        expect(expectedTypes, `unexpected handler key "${key}"`).toContain(key);
+      }
+
+      // Количество совпадает
+      expect(registryKeys.length).toBe(expectedTypes.length);
+    });
+  });
+
   // ─── Disconnect ───────────────────────────────────────────────
   describe('close event', () => {
     it('should remove member and broadcast client-disconnected', async () => {

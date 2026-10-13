@@ -21,12 +21,15 @@ import type {
   OutgoingMessage,
   PersonalInfoData,
 } from '../types';
+import type { MessageHandler } from './message-handlers';
 
 export default class SignalingServer {
   private wss: WebSocket.Server;
   private lobbyManager: LobbyManager;
   private callManager: CallManager;
   private fileManager: FileManagerService;
+  /** Реестр обработчиков входящих сообщений: тип сообщения → обработчик */
+  private messageHandlers: Record<string, MessageHandler>;
   public rateLimiter = new RateLimiter();
 
   constructor(
@@ -42,6 +45,7 @@ export default class SignalingServer {
     this.lobbyManager = lobbyManager;
     this.callManager = callManager;
     this.fileManager = fileManager;
+    this.messageHandlers = this.createMessageHandlers();
     this.setupWebSocket();
     eventBus.on('file:uploaded', this.handleFileUploaded.bind(this));
     eventBus.on('file:deleted', this.handleFileDeleted.bind(this));
@@ -192,84 +196,11 @@ export default class SignalingServer {
 
     const data = message.data ?? {};
     try {
-      switch (message.type) {
-        case MESSAGE_TYPES.RECEIVE.LOBBY.JOIN: {
-          const raw = data.personalInfo;
-          const personalInfo = new PersonalInfo(
-            raw?.name,
-            raw?.avatar,
-            raw?.cardAppearance,
-          );
-          const clientId =
-            typeof data.clientId === 'string' && data.clientId.length > 0
-              ? data.clientId
-              : null;
-          this.handleJoinLobby(ws, ip, personalInfo, clientId);
-          break;
-        }
-
-        case MESSAGE_TYPES.RECEIVE.LOBBY.INITIATE_CALL:
-          this.handleInitiateCall(ws, String(data.receiverId));
-          break;
-
-        case MESSAGE_TYPES.RECEIVE.LOBBY.ACCEPT_OFFER:
-          this.handleAcceptCallOffer(ws, String(data.offerId));
-          break;
-
-        case MESSAGE_TYPES.RECEIVE.LOBBY.DECLINE_OFFER:
-          this.handleDeclineCallOffer(ws, String(data.offerId));
-          break;
-
-        case MESSAGE_TYPES.RECEIVE.LOBBY.UPDATE_PROFILE:
-          this.handleUpdateProfile(ws, data.personalInfo);
-          break;
-
-        case MESSAGE_TYPES.RECEIVE.CALL.END_CALL:
-          this.handleEndCall(ws, String(data.callId));
-          break;
-
-        case MESSAGE_TYPES.RECEIVE.CALL.CHANGE_MUTE_STATUS:
-          this.handleChangeMutedStatus(ws, String(data.callId), !!data.status);
-          break;
-
-        case MESSAGE_TYPES.RECEIVE.CALL.CHANGE_ONLINE_STATUS: {
-          const client = this.lobbyManager.getMemberByWs(ws);
-          if (client) {
-            this.handleChangeOnlineStatus(
-              client.id,
-              String(data.callId),
-              !!data.status,
-            );
-          }
-          break;
-        }
-
-        case MESSAGE_TYPES.RECEIVE.CALL.CHANGE_SPEAKING_STATUS:
-          this.handleChangeSpeakingStatus(
-            ws,
-            String(data.callId),
-            !!data.status,
-          );
-          break;
-
-        case MESSAGE_TYPES.RECEIVE.CALL.SEND_MESSAGE:
-          this.handleSendCallMessage(
-            ws,
-            String(data.callId),
-            String(data.text),
-          );
-          break;
-
-        case MESSAGE_TYPES.RECEIVE.CALL.START_SCREEN_SHARING:
-          this.handleStartScreenSharing(ws, String(data.callId));
-          break;
-
-        case MESSAGE_TYPES.RECEIVE.CALL.STOP_SCREEN_SHARING:
-          this.handleStopScreenSharing(ws, String(data.callId));
-          break;
-
-        default:
-          console.warn(`Unknown message type: ${message.type}`);
+      const handler = this.messageHandlers[message.type];
+      if (handler) {
+        await handler(ws, ip, data);
+      } else {
+        console.warn(`Unknown message type: ${message.type}`);
       }
     } catch (error) {
       console.error('Error handling message:', error);
@@ -282,6 +213,79 @@ export default class SignalingServer {
         },
       });
     }
+  }
+
+  /**
+   * Реестр обработчиков входящих сообщений.
+   * Добавление нового типа сообщения = одна запись в этом объекте.
+   */
+  private createMessageHandlers(): Record<string, MessageHandler> {
+    return {
+      [MESSAGE_TYPES.RECEIVE.LOBBY.JOIN]: (ws, ip, data) => {
+        const raw = data.personalInfo;
+        const personalInfo = new PersonalInfo(
+          raw?.name,
+          raw?.avatar,
+          raw?.cardAppearance,
+        );
+        const clientId =
+          typeof data.clientId === 'string' && data.clientId.length > 0
+            ? data.clientId
+            : null;
+        this.handleJoinLobby(ws, ip, personalInfo, clientId);
+      },
+
+      [MESSAGE_TYPES.RECEIVE.LOBBY.INITIATE_CALL]: (ws, _ip, data) => {
+        this.handleInitiateCall(ws, String(data.receiverId));
+      },
+
+      [MESSAGE_TYPES.RECEIVE.LOBBY.ACCEPT_OFFER]: (ws, _ip, data) => {
+        this.handleAcceptCallOffer(ws, String(data.offerId));
+      },
+
+      [MESSAGE_TYPES.RECEIVE.LOBBY.DECLINE_OFFER]: (ws, _ip, data) => {
+        this.handleDeclineCallOffer(ws, String(data.offerId));
+      },
+
+      [MESSAGE_TYPES.RECEIVE.LOBBY.UPDATE_PROFILE]: (ws, _ip, data) => {
+        this.handleUpdateProfile(ws, data.personalInfo);
+      },
+
+      [MESSAGE_TYPES.RECEIVE.CALL.END_CALL]: (ws, _ip, data) => {
+        this.handleEndCall(ws, String(data.callId));
+      },
+
+      [MESSAGE_TYPES.RECEIVE.CALL.CHANGE_MUTE_STATUS]: (ws, _ip, data) => {
+        this.handleChangeMutedStatus(ws, String(data.callId), !!data.status);
+      },
+
+      [MESSAGE_TYPES.RECEIVE.CALL.CHANGE_ONLINE_STATUS]: (ws, _ip, data) => {
+        const client = this.lobbyManager.getMemberByWs(ws);
+        if (client) {
+          this.handleChangeOnlineStatus(
+            client.id,
+            String(data.callId),
+            !!data.status,
+          );
+        }
+      },
+
+      [MESSAGE_TYPES.RECEIVE.CALL.CHANGE_SPEAKING_STATUS]: (ws, _ip, data) => {
+        this.handleChangeSpeakingStatus(ws, String(data.callId), !!data.status);
+      },
+
+      [MESSAGE_TYPES.RECEIVE.CALL.SEND_MESSAGE]: (ws, _ip, data) => {
+        this.handleSendCallMessage(ws, String(data.callId), String(data.text));
+      },
+
+      [MESSAGE_TYPES.RECEIVE.CALL.START_SCREEN_SHARING]: (ws, _ip, data) => {
+        this.handleStartScreenSharing(ws, String(data.callId));
+      },
+
+      [MESSAGE_TYPES.RECEIVE.CALL.STOP_SCREEN_SHARING]: (ws, _ip, data) => {
+        this.handleStopScreenSharing(ws, String(data.callId));
+      },
+    };
   }
 
   private handleJoinLobby(
