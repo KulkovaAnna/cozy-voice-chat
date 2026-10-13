@@ -16,8 +16,8 @@ export default class RateLimiter {
 
     // Limit messages per client
     this.messageLimiter = new RateLimiterMemory({
-      points: 100, // messages per minute
-      duration: 60,
+      points: config.security.rateLimitMaxRequests,
+      duration: config.security.rateLimitWindowMs / 1000,
     });
   }
 
@@ -31,12 +31,17 @@ export default class RateLimiter {
     }
   }
 
-  async checkMessage(clientId: string): Promise<boolean> {
+  /** Освободить слот подключения (откатить потраченное очко) */
+  releaseConnection(ip: string): void {
+    this.connectionLimiter.reward(ip);
+  }
+
+  async checkMessage(key: string): Promise<boolean> {
     try {
-      await this.messageLimiter.consume(clientId);
+      await this.messageLimiter.consume(key);
       return true;
     } catch {
-      console.warn(`Message rate limit exceeded for client: ${clientId}`);
+      console.warn(`Message rate limit exceeded for key: ${key}`);
       return false;
     }
   }

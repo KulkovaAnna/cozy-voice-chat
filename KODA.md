@@ -20,7 +20,10 @@
 - Кастомизация карточки пользователя: фон карточки в лобби и в звонке — цвет или картинка с регулируемой прозрачностью, стилизуемая рамка аватара (стиль/цвет/толщина) и оформление текста карточки (цвет, тень). Живое превью и мгновенная синхронизация с участниками.
 - Живое обновление профиля: смена имени/аватара/карточки мгновенно рассылается участникам лобби и звонка (`lobby::update-profile` → `all::lobby::profile-updated` / `all::call::profile-updated`), без перезагрузки страницы.
 - HTTPS «из коробки» (нужен для Screen Sharing и PiP API).
-- Базовая безопасность: rate limiting, CORS, helmet, валидация origins.
+- Базовая безопасность: rate limiting (подключения + WS-сообщения), CORS, helmet, валидация origins.
+- Graceful shutdown — корректное завершение с уведомлением всех участников и очисткой ресурсов по SIGINT/SIGTERM.
+- Автоматическая очистка зависших клиентов при ошибках WebSocket.
+- Защита от дублирования офферов — повторный звонок отклоняет предыдущий активный оффер инициатора.
 
 Проект — монорепозиторий из двух независимых приложений: `backend/` и `frontend/`. Корневой `package.json` содержит только метаданные (без workspace-скриптов).
 
@@ -91,9 +94,9 @@ tests/
     file-manager.service.test.ts     # unit-тесты сервиса с моками fs/uuid (файлы профиля + персистентность метаданных в JSON)
     helpers.test.ts                  # validateIP, generateRoomCode/Id, omitDeep, getLocalIP
     event-bus.test.ts                # подписка/рассылка file:uploaded и file:deleted
-    lobby-manager.test.ts            # addClient (в т.ч. preferredId), офферы, поиск по ws/id/ip, removeMember, getStats, cardAppearance
-    call-manager.test.ts             # startCall/endCall, статусы участников, сообщения
-    signaling-server.test.ts         # WS-протокол: join, call offer/accept/decline, mute, chat, screen sharing, disconnect
+    lobby-manager.test.ts            # addClient (в т.ч. preferredId), офферы, поиск по ws/id/ip, removeMember, getStats, cardAppearance, clearStaleClients
+    call-manager.test.ts             # startCall/endCall, статусы участников, сообщения, getAllCalls
+    signaling-server.test.ts         # WS-протокол: join, call offer/accept/decline, mute, chat, screen sharing, disconnect, rate limiting, duplicate offer protection, releaseConnection
   integration/
     file-manager.routes.test.ts      # supertest: POST /files/upload, GET /files/download/:id, GET /files/view/:id
 ```
@@ -108,7 +111,10 @@ tests/
 - **CallManager** — состояние активных звонков (участники, mute/speaking/online, screen sharing, сообщения).
 - **Соглашения именования сообщений**: строковые типы вида `lobby::join`, `call::end`, `all::call::started`, `me::lobby-joined` (см. `constants/message-types.ts`).
 - **HTTP-маршруты**: `GET /` (инструкция с IP), `GET /stats` (требует auth), `GET /health`, файловые маршруты под `/files` (`POST /upload`, `GET /download/:fileId`, `GET /view/:fileId`) и маршруты файлов профиля (`POST /profile/avatar`, `GET /profile/:fileId`, `DELETE /profile/:fileId`; лимит 1 МБ, только изображения). Метаданные файлов профиля персистятся в `uploads/profile/metadata.json` — загружаются при старте сервиса, сохраняются при каждом upload/delete.
-- **Безопасность**: helmet с отключённым CSP, CORS с валидацией origin по паттернам, rate limiting на подключения, ограничение размера WS-сообщения и числа клиентов.
+- **Безопасность**: helmet с отключённым CSP, CORS с валидацией origin по паттернам, rate limiting на подключения и WS-сообщения (429 при превышении), освобождение слота подключения при disconnect (`releaseConnection`), ограничение размера WS-сообщения и числа клиентов.
+- **Graceful shutdown**: `SignalingServer.shutdown()` — broadcast `CALL_ENDED` всем звонкам, закрытие wss, снятие подписок eventBus; `VoiceChatServer.stop()` — вызывает `shutdown`, закрывает HTTP-сервер, обрабатывает SIGINT/SIGTERM.
+- **Очистка зависших клиентов**: `LobbyManager.clearStaleClients()` — удаляет клиентов с `ws.readyState !== OPEN`; вызывается из `ws.on('error')` в `SignalingServer`.
+- **Защита от дублирования офферов**: `handleInitiateCall` проверяет `getOfferByMemberId(initiator.id)` — если есть активный оффер, отправляет `CALL_OFFER_DECLINED` предыдущему получателю и удаляет оффер перед созданием нового.
 
 ### Frontend (`frontend/src/`)
 

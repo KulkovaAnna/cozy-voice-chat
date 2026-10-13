@@ -49,7 +49,11 @@ export default class CallManager {
     this.getMemberById(callId, clientId).isMuted = isMuted;
   }
 
-  changeOnlineStatus(callId: string, clientId: string, isOnline: boolean): void {
+  changeOnlineStatus(
+    callId: string,
+    clientId: string,
+    isOnline: boolean,
+  ): void {
     this.getMemberById(callId, clientId).online = isOnline;
   }
 
@@ -133,5 +137,10 @@ export default class CallManager {
     const call = this.#calls.get(callId);
     if (!call) return [];
     return call.messages;
+  }
+
+  /** Вернуть все активные звонки */
+  getAllCalls(): Call[] {
+    return Array.from(this.#calls.values());
   }
 }

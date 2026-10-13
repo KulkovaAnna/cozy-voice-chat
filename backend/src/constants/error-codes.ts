@@ -1,5 +1,6 @@
 export const ERROR_CODES = Object.freeze({
   CLIENT_NOT_FOUND: 'CLIENT_NOT_FOUND',
+  RATE_LIMIT_EXCEEDED: 'RATE_LIMIT_EXCEEDED',
 });
 
 export default ERROR_CODES;

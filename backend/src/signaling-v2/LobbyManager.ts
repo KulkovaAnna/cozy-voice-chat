@@ -1,4 +1,5 @@
-import type { WebSocket } from 'ws';
+import WebSocket from 'ws';
+import type { WebSocket as WebSocketType } from 'ws';
 import PersonalInfo, { normalizeCardAppearance } from '../models/PersonalInfo';
 import Client from '../models/Client';
 import CallOffer from '../models/CallOffer';
@@ -11,7 +12,7 @@ export default class LobbyManager {
   private static readonly MAX_AVATAR_SIZE = 1024 * 1024;
 
   /** Список клиентов */
-  #clients: Map<WebSocket, Client> = new Map();
+  #clients: Map<WebSocketType, Client> = new Map();
 
   callOffers: Map<string, CallOffer> = new Map();
 
@@ -23,7 +24,7 @@ export default class LobbyManager {
    * @param preferredId - желаемый ID клиента (например, прежний id при переподключении)
    */
   addClient(
-    ws: WebSocket,
+    ws: WebSocketType,
     ip: string,
     personalInfo?: PersonalInfo | null,
     preferredId?: string | null,
@@ -107,7 +108,7 @@ export default class LobbyManager {
     return Array.from(this.#clients.values());
   }
 
-  getMemberByWs(ws: WebSocket): Client | undefined {
+  getMemberByWs(ws: WebSocketType): Client | undefined {
     return this.#clients.get(ws);
   }
 
@@ -119,7 +120,7 @@ export default class LobbyManager {
     return this.getLobbyMembers().find((m) => m.ip === clientIp);
   }
 
-  removeMember(ws: WebSocket): void {
+  removeMember(ws: WebSocketType): void {
     this.#clients.delete(ws);
   }
 
@@ -127,5 +128,22 @@ export default class LobbyManager {
     return {
       totalClients: this.#clients.size,
     };
+  }
+
+  /** Удалить клиентов с зависшими WebSocket-соединениями */
+  clearStaleClients(): void {
+    const stale: WebSocketType[] = [];
+    this.#clients.forEach((client, ws) => {
+      if (ws.readyState !== WebSocket.OPEN) {
+        stale.push(ws);
+      }
+    });
+    stale.forEach((ws) => {
+      console.info(`Удаление зависшего клиента: ${this.#clients.get(ws)?.id}`);
+      this.#clients.delete(ws);
+    });
+    if (stale.length > 0) {
+      console.info(`Очищено зависших клиентов: ${stale.length}`);
+    }
   }
 }

@@ -26,6 +26,7 @@ const h = vi.hoisted(() => {
     eventBusListeners,
     authOk: true,
     connOk: true,
+    messageOk: true,
   };
 });
 
@@ -38,6 +39,12 @@ vi.mock('../../src/security/RateLimiter', () => ({
   default: class {
     async checkConnection() {
       return h.connOk;
+    }
+    releaseConnection() {
+      // stub
+    }
+    async checkMessage() {
+      return h.messageOk;
     }
   },
 }));
@@ -119,8 +126,13 @@ async function simulateConnection(ip = '10.0.0.1'): Promise<MockWS> {
   return ws;
 }
 
-function sendMessage(ws: MockWS, type: string, data?: Record<string, unknown>) {
+async function sendMessage(
+  ws: MockWS,
+  type: string,
+  data?: Record<string, unknown>,
+) {
   ws._emit('message', JSON.stringify({ type, data }));
+  await new Promise((r) => setTimeout(r, 0));
 }
 
 function getSent(ws: MockWS): any[] {
@@ -137,16 +149,16 @@ let callMgr: any;
 
 async function setupCall() {
   const ws1 = await simulateConnection('10.0.0.1');
-  sendMessage(ws1, 'lobby::join', { personalInfo: { name: 'Alice' } });
+  await sendMessage(ws1, 'lobby::join', { personalInfo: { name: 'Alice' } });
   const alice = lobby.getMemberByIp('10.0.0.1')!;
 
   const ws2 = await simulateConnection('10.0.0.2');
-  sendMessage(ws2, 'lobby::join', { personalInfo: { name: 'Bob' } });
+  await sendMessage(ws2, 'lobby::join', { personalInfo: { name: 'Bob' } });
   const bob = lobby.getMemberByIp('10.0.0.2')!;
 
-  sendMessage(ws1, 'lobby::initiate-call', { receiverId: bob.id });
+  await sendMessage(ws1, 'lobby::initiate-call', { receiverId: bob.id });
   const offer = lobby.getOfferByMemberId(alice.id)!;
-  sendMessage(ws2, 'lobby::accept-offer', { offerId: offer.id });
+  await sendMessage(ws2, 'lobby::accept-offer', { offerId: offer.id });
 
   const call = callMgr.getClientCall(alice.id)!;
   return { ws1, ws2, call, alice, bob };
@@ -163,6 +175,7 @@ describe('SignalingServer', () => {
     );
     h.authOk = true;
     h.connOk = true;
+    h.messageOk = true;
 
     SignalingServer = (
       await import('../../src/signaling-v2/SignalingServer.js')
@@ -214,17 +227,30 @@ describe('SignalingServer', () => {
     });
   });
 
+  // ─── Rate limiting ────────────────────────────────────────────
+  describe('rate limiting', () => {
+    it('should return 429 error when message rate limit is exceeded', async () => {
+      h.messageOk = false;
+      const ws = await simulateConnection();
+      await sendMessage(ws, 'lobby::join', { personalInfo: { name: 'Test' } });
+
+      const err = getSent(ws).find((m: any) => m.type === 'error');
+      expect(err).toBeDefined();
+      expect(err.data.code).toBe(429);
+    });
+  });
+
   // ─── lobby::join ──────────────────────────────────────────────
   describe('lobby::join', () => {
     it('should add client to lobby', async () => {
       const ws = await simulateConnection();
-      sendMessage(ws, 'lobby::join', { personalInfo: { name: 'Alice' } });
+      await sendMessage(ws, 'lobby::join', { personalInfo: { name: 'Alice' } });
       expect(lobby.getStats().totalClients).toBe(1);
     });
 
     it('should send me::lobby-joined to the joining client', async () => {
       const ws = await simulateConnection();
-      sendMessage(ws, 'lobby::join', { personalInfo: { name: 'Bob' } });
+      await sendMessage(ws, 'lobby::join', { personalInfo: { name: 'Bob' } });
       const joined = getSent(ws).find(
         (m: any) => m.type === 'me::lobby-joined',
       );
@@ -234,10 +260,12 @@ describe('SignalingServer', () => {
 
     it('should broadcast all::lobby::joined to existing members', async () => {
       const ws1 = await simulateConnection('10.0.0.1');
-      sendMessage(ws1, 'lobby::join', { personalInfo: { name: 'Alice' } });
+      await sendMessage(ws1, 'lobby::join', {
+        personalInfo: { name: 'Alice' },
+      });
 
       const ws2 = await simulateConnection('10.0.0.2');
-      sendMessage(ws2, 'lobby::join', { personalInfo: { name: 'Bob' } });
+      await sendMessage(ws2, 'lobby::join', { personalInfo: { name: 'Bob' } });
 
       // broadcastToLobby вызывается без excludeClientId, поэтому ws1 получает
       // два all::lobby::joined: про себя (Alice) и про Bob. Ищем сообщение про Bob.
@@ -254,13 +282,15 @@ describe('SignalingServer', () => {
   describe('lobby::initiate-call', () => {
     it('should send me::call-initiated to initiator and me::call-offer to receiver', async () => {
       const ws1 = await simulateConnection('10.0.0.1');
-      sendMessage(ws1, 'lobby::join', { personalInfo: { name: 'Alice' } });
+      await sendMessage(ws1, 'lobby::join', {
+        personalInfo: { name: 'Alice' },
+      });
 
       const ws2 = await simulateConnection('10.0.0.2');
-      sendMessage(ws2, 'lobby::join', { personalInfo: { name: 'Bob' } });
+      await sendMessage(ws2, 'lobby::join', { personalInfo: { name: 'Bob' } });
       const bob = lobby.getMemberByIp('10.0.0.2')!;
 
-      sendMessage(ws1, 'lobby::initiate-call', { receiverId: bob.id });
+      await sendMessage(ws1, 'lobby::initiate-call', { receiverId: bob.id });
 
       expect(
         getSent(ws1).find((m: any) => m.type === 'me::call-initiated'),
@@ -272,8 +302,10 @@ describe('SignalingServer', () => {
 
     it('should send error when calling unknown receiver', async () => {
       const ws = await simulateConnection('10.0.0.1');
-      sendMessage(ws, 'lobby::join', { personalInfo: { name: 'Alice' } });
-      sendMessage(ws, 'lobby::initiate-call', { receiverId: 'nonexistent' });
+      await sendMessage(ws, 'lobby::join', { personalInfo: { name: 'Alice' } });
+      await sendMessage(ws, 'lobby::initiate-call', {
+        receiverId: 'nonexistent',
+      });
 
       const err = getSent(ws).find((m: any) => m.type === 'error');
       expect(err).toBeDefined();
@@ -284,13 +316,52 @@ describe('SignalingServer', () => {
 
     it('should send error when calling self', async () => {
       const ws = await simulateConnection('10.0.0.1');
-      sendMessage(ws, 'lobby::join', { personalInfo: { name: 'Alice' } });
+      await sendMessage(ws, 'lobby::join', { personalInfo: { name: 'Alice' } });
       const alice = lobby.getMemberByIp('10.0.0.1')!;
-      sendMessage(ws, 'lobby::initiate-call', { receiverId: alice.id });
+      await sendMessage(ws, 'lobby::initiate-call', { receiverId: alice.id });
 
       const err = getSent(ws).find((m: any) => m.type === 'error');
       expect(err).toBeDefined();
       expect(err.data.message).toContain('Вы не можете позвонить сами себе');
+    });
+
+    it('should decline previous offer when initiator calls again', async () => {
+      const ws1 = await simulateConnection('10.0.0.1');
+      await sendMessage(ws1, 'lobby::join', {
+        personalInfo: { name: 'Alice' },
+      });
+
+      const ws2 = await simulateConnection('10.0.0.2');
+      await sendMessage(ws2, 'lobby::join', { personalInfo: { name: 'Bob' } });
+
+      const alice = lobby.getMemberByIp('10.0.0.1')!;
+      const bob = lobby.getMemberByIp('10.0.0.2')!;
+
+      // Первый звонок Alice → Bob
+      await sendMessage(ws1, 'lobby::initiate-call', { receiverId: bob.id });
+      const offer1 = lobby.getOfferByMemberId(alice.id)!;
+
+      // Alice звонит Charlie (новый пользователь)
+      const ws3 = await simulateConnection('10.0.0.3');
+      await sendMessage(ws3, 'lobby::join', {
+        personalInfo: { name: 'Charlie' },
+      });
+      const charlie = lobby.getMemberByIp('10.0.0.3')!;
+
+      await sendMessage(ws1, 'lobby::initiate-call', {
+        receiverId: charlie.id,
+      });
+      const offer2 = lobby.getOfferByMemberId(alice.id)!;
+
+      // Предыдущий оффер должен быть отклонён
+      expect(lobby.getOfferById(offer1.id)).toBeUndefined();
+      // Bob должен получить отклонение
+      const declined = getSent(ws2).find(
+        (m: any) => m.type === 'me::call-offer-declined',
+      );
+      expect(declined).toBeDefined();
+      // Новый оффер существует
+      expect(offer2).toBeDefined();
     });
   });
 
@@ -298,16 +369,18 @@ describe('SignalingServer', () => {
   describe('lobby::accept-offer', () => {
     it('should start call and broadcast all::call::started to both members', async () => {
       const ws1 = await simulateConnection('10.0.0.1');
-      sendMessage(ws1, 'lobby::join', { personalInfo: { name: 'Alice' } });
+      await sendMessage(ws1, 'lobby::join', {
+        personalInfo: { name: 'Alice' },
+      });
       const alice = lobby.getMemberByIp('10.0.0.1')!;
 
       const ws2 = await simulateConnection('10.0.0.2');
-      sendMessage(ws2, 'lobby::join', { personalInfo: { name: 'Bob' } });
+      await sendMessage(ws2, 'lobby::join', { personalInfo: { name: 'Bob' } });
       const bob = lobby.getMemberByIp('10.0.0.2')!;
 
-      sendMessage(ws1, 'lobby::initiate-call', { receiverId: bob.id });
+      await sendMessage(ws1, 'lobby::initiate-call', { receiverId: bob.id });
       const offer = lobby.getOfferByMemberId(alice.id)!;
-      sendMessage(ws2, 'lobby::accept-offer', { offerId: offer.id });
+      await sendMessage(ws2, 'lobby::accept-offer', { offerId: offer.id });
 
       expect(callMgr.getClientCall(alice.id)).toBeDefined();
       expect(callMgr.getClientCall(bob.id)).toBeDefined();
@@ -321,21 +394,25 @@ describe('SignalingServer', () => {
 
     it('should send error if a third client tries to accept someone else offer', async () => {
       const ws1 = await simulateConnection('10.0.0.1');
-      sendMessage(ws1, 'lobby::join', { personalInfo: { name: 'Alice' } });
+      await sendMessage(ws1, 'lobby::join', {
+        personalInfo: { name: 'Alice' },
+      });
 
       const ws2 = await simulateConnection('10.0.0.2');
-      sendMessage(ws2, 'lobby::join', { personalInfo: { name: 'Bob' } });
+      await sendMessage(ws2, 'lobby::join', { personalInfo: { name: 'Bob' } });
 
       const ws3 = await simulateConnection('10.0.0.3');
-      sendMessage(ws3, 'lobby::join', { personalInfo: { name: 'Charlie' } });
+      await sendMessage(ws3, 'lobby::join', {
+        personalInfo: { name: 'Charlie' },
+      });
 
       const alice = lobby.getMemberByIp('10.0.0.1')!;
       const bob = lobby.getMemberByIp('10.0.0.2')!;
 
-      sendMessage(ws1, 'lobby::initiate-call', { receiverId: bob.id });
+      await sendMessage(ws1, 'lobby::initiate-call', { receiverId: bob.id });
       const offer = lobby.getOfferByMemberId(alice.id)!;
 
-      sendMessage(ws3, 'lobby::accept-offer', { offerId: offer.id });
+      await sendMessage(ws3, 'lobby::accept-offer', { offerId: offer.id });
 
       const err = getSent(ws3).find((m: any) => m.type === 'error');
       expect(err).toBeDefined();
@@ -346,18 +423,20 @@ describe('SignalingServer', () => {
   describe('lobby::decline-offer', () => {
     it('should notify initiator and remove offer', async () => {
       const ws1 = await simulateConnection('10.0.0.1');
-      sendMessage(ws1, 'lobby::join', { personalInfo: { name: 'Alice' } });
+      await sendMessage(ws1, 'lobby::join', {
+        personalInfo: { name: 'Alice' },
+      });
 
       const ws2 = await simulateConnection('10.0.0.2');
-      sendMessage(ws2, 'lobby::join', { personalInfo: { name: 'Bob' } });
+      await sendMessage(ws2, 'lobby::join', { personalInfo: { name: 'Bob' } });
 
       const alice = lobby.getMemberByIp('10.0.0.1')!;
       const bob = lobby.getMemberByIp('10.0.0.2')!;
 
-      sendMessage(ws1, 'lobby::initiate-call', { receiverId: bob.id });
+      await sendMessage(ws1, 'lobby::initiate-call', { receiverId: bob.id });
       const offer = lobby.getOfferByMemberId(alice.id)!;
 
-      sendMessage(ws2, 'lobby::decline-offer', { offerId: offer.id });
+      await sendMessage(ws2, 'lobby::decline-offer', { offerId: offer.id });
 
       expect(
         getSent(ws1).find((m: any) => m.type === 'me::call-offer-declined'),
@@ -370,12 +449,14 @@ describe('SignalingServer', () => {
   describe('lobby::update-profile', () => {
     it('should update personalInfo and broadcast all::lobby::profile-updated', async () => {
       const ws1 = await simulateConnection('10.0.0.1');
-      sendMessage(ws1, 'lobby::join', { personalInfo: { name: 'Alice' } });
+      await sendMessage(ws1, 'lobby::join', {
+        personalInfo: { name: 'Alice' },
+      });
 
       const ws2 = await simulateConnection('10.0.0.2');
-      sendMessage(ws2, 'lobby::join', { personalInfo: { name: 'Bob' } });
+      await sendMessage(ws2, 'lobby::join', { personalInfo: { name: 'Bob' } });
 
-      sendMessage(ws2, 'lobby::update-profile', {
+      await sendMessage(ws2, 'lobby::update-profile', {
         personalInfo: { name: 'Bobby', avatar: 'new-avatar' },
       });
 
@@ -395,7 +476,7 @@ describe('SignalingServer', () => {
     it('should broadcast all::call::profile-updated when client is in a call', async () => {
       const { ws1, ws2, alice } = await setupCall();
 
-      sendMessage(ws1, 'lobby::update-profile', {
+      await sendMessage(ws1, 'lobby::update-profile', {
         personalInfo: { name: 'Alice2' },
       });
 
@@ -413,7 +494,7 @@ describe('SignalingServer', () => {
 
     it('should send error when client is not in the lobby', async () => {
       const ws = await simulateConnection('10.0.0.1');
-      sendMessage(ws, 'lobby::update-profile', {
+      await sendMessage(ws, 'lobby::update-profile', {
         personalInfo: { name: 'Ghost' },
       });
 
@@ -428,7 +509,7 @@ describe('SignalingServer', () => {
     it('should broadcast all::call::ended and remove call', async () => {
       const { ws1, ws2, call } = await setupCall();
 
-      sendMessage(ws1, 'call::end', { callId: call.id });
+      await sendMessage(ws1, 'call::end', { callId: call.id });
 
       expect(
         getSent(ws2).find((m: any) => m.type === 'all::call::ended'),
@@ -440,7 +521,7 @@ describe('SignalingServer', () => {
       const { ws1, call } = await setupCall();
       const spy = fileMgr.cleanDownloads;
 
-      sendMessage(ws1, 'call::end', { callId: call.id });
+      await sendMessage(ws1, 'call::end', { callId: call.id });
 
       expect(spy).toHaveBeenCalled();
     });
@@ -450,7 +531,7 @@ describe('SignalingServer', () => {
   describe('call::mute', () => {
     it('should broadcast mute-changed to the other member', async () => {
       const { ws1, ws2, call } = await setupCall();
-      sendMessage(ws1, 'call::mute', { callId: call.id, status: true });
+      await sendMessage(ws1, 'call::mute', { callId: call.id, status: true });
 
       const mute = getSent(ws2).find(
         (m: any) => m.type === 'all::call::mute-changed',
@@ -464,7 +545,10 @@ describe('SignalingServer', () => {
   describe('call::speaking', () => {
     it('should broadcast speaking-changed to the other member', async () => {
       const { ws1, ws2, call } = await setupCall();
-      sendMessage(ws1, 'call::speaking', { callId: call.id, status: true });
+      await sendMessage(ws1, 'call::speaking', {
+        callId: call.id,
+        status: true,
+      });
 
       const speak = getSent(ws2).find(
         (m: any) => m.type === 'all::call::speaking-changed',
@@ -478,7 +562,7 @@ describe('SignalingServer', () => {
   describe('call::send-message', () => {
     it('should broadcast new-message to the other member', async () => {
       const { ws1, ws2, call } = await setupCall();
-      sendMessage(ws1, 'call::send-message', {
+      await sendMessage(ws1, 'call::send-message', {
         callId: call.id,
         text: 'Hello Bob!',
       });
@@ -492,7 +576,10 @@ describe('SignalingServer', () => {
 
     it('should send error if text is empty', async () => {
       const { ws1, call } = await setupCall();
-      sendMessage(ws1, 'call::send-message', { callId: call.id, text: '' });
+      await sendMessage(ws1, 'call::send-message', {
+        callId: call.id,
+        text: '',
+      });
 
       const err = getSent(ws1).find((m: any) => m.type === 'error');
       expect(err).toBeDefined();
@@ -503,7 +590,7 @@ describe('SignalingServer', () => {
   describe('screen sharing', () => {
     it('should broadcast screen-share-started', async () => {
       const { ws1, ws2, call } = await setupCall();
-      sendMessage(ws1, 'call::start-screen-sharing', { callId: call.id });
+      await sendMessage(ws1, 'call::start-screen-sharing', { callId: call.id });
 
       expect(
         getSent(ws2).find(
@@ -514,7 +601,7 @@ describe('SignalingServer', () => {
 
     it('should broadcast screen-share-stopped', async () => {
       const { ws1, ws2, call } = await setupCall();
-      sendMessage(ws1, 'call::stop-screen-sharing', { callId: call.id });
+      await sendMessage(ws1, 'call::stop-screen-sharing', { callId: call.id });
 
       expect(
         getSent(ws2).find(
@@ -528,7 +615,10 @@ describe('SignalingServer', () => {
   describe('call::online', () => {
     it('should broadcast online-changed to the other member', async () => {
       const { ws1, ws2, call } = await setupCall();
-      sendMessage(ws1, 'call::online', { callId: call.id, status: false });
+      await sendMessage(ws1, 'call::online', {
+        callId: call.id,
+        status: false,
+      });
 
       const online = getSent(ws2).find(
         (m: any) => m.type === 'all::call::online-changed',
@@ -554,7 +644,7 @@ describe('SignalingServer', () => {
   describe('unknown message type', () => {
     it('should silently ignore unknown type', async () => {
       const ws = await simulateConnection();
-      sendMessage(ws, 'some::unknown-type', {});
+      await sendMessage(ws, 'some::unknown-type', {});
 
       expect(getSent(ws).find((m: any) => m.type === 'error')).toBeUndefined();
     });
@@ -564,10 +654,12 @@ describe('SignalingServer', () => {
   describe('close event', () => {
     it('should remove member and broadcast client-disconnected', async () => {
       const ws1 = await simulateConnection('10.0.0.1');
-      sendMessage(ws1, 'lobby::join', { personalInfo: { name: 'Alice' } });
+      await sendMessage(ws1, 'lobby::join', {
+        personalInfo: { name: 'Alice' },
+      });
 
       const ws2 = await simulateConnection('10.0.0.2');
-      sendMessage(ws2, 'lobby::join', { personalInfo: { name: 'Bob' } });
+      await sendMessage(ws2, 'lobby::join', { personalInfo: { name: 'Bob' } });
 
       ws1._emit('close');
 
@@ -580,20 +672,38 @@ describe('SignalingServer', () => {
 
     it('should decline pending offer on disconnect', async () => {
       const ws1 = await simulateConnection('10.0.0.1');
-      sendMessage(ws1, 'lobby::join', { personalInfo: { name: 'Alice' } });
+      await sendMessage(ws1, 'lobby::join', {
+        personalInfo: { name: 'Alice' },
+      });
 
       const ws2 = await simulateConnection('10.0.0.2');
-      sendMessage(ws2, 'lobby::join', { personalInfo: { name: 'Bob' } });
+      await sendMessage(ws2, 'lobby::join', { personalInfo: { name: 'Bob' } });
 
       const alice = lobby.getMemberByIp('10.0.0.1')!;
       const bob = lobby.getMemberByIp('10.0.0.2')!;
 
-      sendMessage(ws1, 'lobby::initiate-call', { receiverId: bob.id });
+      await sendMessage(ws1, 'lobby::initiate-call', { receiverId: bob.id });
       const offer = lobby.getOfferByMemberId(alice.id)!;
 
       ws1._emit('close');
 
       expect(lobby.getOfferById(offer.id)).toBeUndefined();
+    });
+
+    it('should release connection slot on disconnect', async () => {
+      const ws1 = await simulateConnection('10.0.0.1');
+      await sendMessage(ws1, 'lobby::join', {
+        personalInfo: { name: 'Alice' },
+      });
+
+      const releaseSpy = vi.spyOn(
+        signalingServer.rateLimiter,
+        'releaseConnection',
+      );
+      ws1._emit('close');
+
+      expect(releaseSpy).toHaveBeenCalledWith('10.0.0.1');
+      releaseSpy.mockRestore();
     });
   });
 
@@ -601,9 +711,45 @@ describe('SignalingServer', () => {
   describe('getStats', () => {
     it('should return totalClients from lobby', async () => {
       const ws = await simulateConnection('10.0.0.1');
-      sendMessage(ws, 'lobby::join', { personalInfo: { name: 'A' } });
+      await sendMessage(ws, 'lobby::join', { personalInfo: { name: 'A' } });
 
       expect(signalingServer.getStats().totalClients).toBe(1);
+    });
+  });
+
+  // ─── clearStaleClients ────────────────────────────────────────
+  describe('clearStaleClients', () => {
+    it('should remove clients with non-OPEN websocket', async () => {
+      const ws1 = await simulateConnection('10.0.0.1');
+      await sendMessage(ws1, 'lobby::join', {
+        personalInfo: { name: 'Alice' },
+      });
+
+      const ws2 = await simulateConnection('10.0.0.2');
+      await sendMessage(ws2, 'lobby::join', { personalInfo: { name: 'Bob' } });
+
+      expect(lobby.getStats().totalClients).toBe(2);
+
+      // Имитируем зависание ws1
+      (ws1 as any).readyState = 2; // CLOSING
+
+      lobby.clearStaleClients();
+
+      expect(lobby.getStats().totalClients).toBe(1);
+      expect(lobby.getMemberByIp('10.0.0.1')).toBeUndefined();
+      expect(lobby.getMemberByIp('10.0.0.2')).toBeDefined();
+    });
+  });
+
+  // ─── getAllCalls ──────────────────────────────────────────────
+  describe('getAllCalls', () => {
+    it('should return all active calls', async () => {
+      expect(callMgr.getAllCalls()).toHaveLength(0);
+
+      const { call } = await setupCall();
+
+      expect(callMgr.getAllCalls()).toHaveLength(1);
+      expect(callMgr.getAllCalls()[0].id).toBe(call.id);
     });
   });
 

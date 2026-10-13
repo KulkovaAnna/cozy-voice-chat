@@ -6,6 +6,7 @@ import RateLimiter from '../security/RateLimiter';
 import config from '../config';
 import PersonalInfo from '../models/PersonalInfo';
 import MESSAGE_TYPES from '../constants/message-types';
+import ERROR_CODES from '../constants/error-codes';
 import Helpers from '../utils/helpers';
 import eventBus from '../utils/event-bus';
 import type LobbyManager from './LobbyManager';
@@ -83,6 +84,10 @@ export default class SignalingServer {
 
       // Setup close handler
       ws.on('close', () => {
+        // Освободить слот подключения (откатить потраченное очко)
+        const ip = req.socket.remoteAddress ?? '';
+        this.rateLimiter.releaseConnection(ip);
+
         const clientData = this.lobbyManager.getMemberByWs(ws);
         if (!clientData) return;
         const offer = this.lobbyManager.getOfferByMemberId(clientData.id);
@@ -112,7 +117,7 @@ export default class SignalingServer {
       // Setup error handler
       ws.on('error', (error) => {
         console.error(`WebSocket error for client ${ip}:`, error);
-        this.lobbyManager.removeMember(ws);
+        this.lobbyManager.clearStaleClients();
       });
     });
   }
@@ -170,6 +175,21 @@ export default class SignalingServer {
     ip: string,
     message: IncomingWsMessage,
   ): Promise<void> {
+    // Rate limiting сообщений: по id клиента, до lobby::join — по IP
+    const client = this.lobbyManager.getMemberByWs(ws);
+    const rateLimitKey = client?.id ?? ip;
+    if (!(await this.rateLimiter.checkMessage(rateLimitKey))) {
+      this.sendToClient(ws, {
+        type: 'error',
+        data: {
+          message: 'Слишком много сообщений',
+          code: 429,
+          errorCode: ERROR_CODES.RATE_LIMIT_EXCEEDED,
+        },
+      });
+      return;
+    }
+
     const data = message.data ?? {};
     try {
       switch (message.type) {
@@ -350,6 +370,23 @@ export default class SignalingServer {
 
     if (!initiator || receiver.id === initiator.id) {
       throw new Error('Вы не можете позвонить сами себе');
+    }
+
+    // Защита от дублирования: отклонить предыдущий активный оффер инициатора
+    const prevOffer = this.lobbyManager.getOfferByMemberId(initiator.id);
+    if (prevOffer) {
+      const prevPeer =
+        prevOffer.initiator.id === initiator.id
+          ? prevOffer.receiver
+          : prevOffer.initiator;
+      this.sendToClient(prevPeer.ws, {
+        type: MESSAGE_TYPES.SEND.ME.CALL_OFFER_DECLINED,
+        data: {
+          callOffer: prevOffer,
+          timestamp: new Date().toISOString(),
+        },
+      });
+      this.lobbyManager.callOffers.delete(prevOffer.id);
     }
 
     const offer = this.lobbyManager.createCallOffer(initiator, receiver);
@@ -586,5 +623,34 @@ export default class SignalingServer {
 
   getStats(): { totalClients: number } {
     return this.lobbyManager.getStats();
+  }
+
+  /** Очистка подписок на eventBus */
+  private unsubscribeFromEventBus(): void {
+    eventBus.off('file:uploaded', this.handleFileUploaded.bind(this));
+    eventBus.off('file:deleted', this.handleFileDeleted.bind(this));
+  }
+
+  /** Graceful shutdown: уведомить всех, закрыть wss */
+  shutdown(): void {
+    const calls = this.callManager.getAllCalls();
+    calls.forEach((call) => {
+      this.broadcastToCall(call.id, {
+        type: MESSAGE_TYPES.SEND.ALL.CALL.CALL_ENDED,
+        data: {
+          callEndingInitiator: null,
+        },
+      });
+    });
+
+    this.wss.clients.forEach((client) => {
+      if (client.readyState === WebSocket.OPEN) {
+        client.close(1001, 'Server shutting down');
+      }
+    });
+
+    this.wss.close();
+    this.unsubscribeFromEventBus();
+    console.info('Signaling server shutdown complete');
   }
 }

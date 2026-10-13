@@ -161,6 +161,16 @@ export class VoiceChatServer {
       console.log('='.repeat(50));
     });
   }
+
+  /** Graceful shutdown */
+  stop(): void {
+    console.info('Закрытие сервера...');
+    this.signalingServer.shutdown();
+    this.server.close(() => {
+      console.info('HTTP-сервер закрыт');
+      process.exit(0);
+    });
+  }
 }
 
 // Обработка ошибок
@@ -174,7 +184,17 @@ process.on('unhandledRejection', (reason) => {
 
 // Запуск сервера
 if (require.main === module) {
-  new VoiceChatServer();
+  const server = new VoiceChatServer();
+
+  // Обработчики graceful shutdown
+  process.on('SIGINT', () => {
+    console.info('Получен SIGINT');
+    server.stop();
+  });
+  process.on('SIGTERM', () => {
+    console.info('Получен SIGTERM');
+    server.stop();
+  });
 }
 
 export default VoiceChatServer;
