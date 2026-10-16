@@ -43,6 +43,7 @@ export default class Call {
    * @param text - текст сообщения
    * @param senderName - опционально имя отправителя
    * @param avatar - опционально аватар отправителя
+   * @param isSystem - системное сообщение (ответ бота)
    * @returns объект сообщения
    */
   addMessage(
@@ -50,8 +51,9 @@ export default class Call {
     text: string,
     senderName: string | null = null,
     avatar: string | null = null,
+    isSystem: boolean = false,
   ): Message {
-    const message = new Message(senderId, text, senderName, avatar);
+    const message = new Message(senderId, text, senderName, avatar, isSystem);
     this.messages.push(message);
     return message;
   }

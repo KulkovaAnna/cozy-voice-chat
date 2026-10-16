@@ -33,6 +33,7 @@ export type MessageDto = {
   timestamp: string;
   senderName?: string;
   avatar?: string;
+  isSystem?: boolean;
 };
 
 export type FileInfoDTO = {

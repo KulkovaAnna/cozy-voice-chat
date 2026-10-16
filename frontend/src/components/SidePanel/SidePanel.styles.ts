@@ -28,6 +28,7 @@ export const CloseButton = styled.button<{ $topOffset?: number }>`
   top: ${({ $topOffset = 0 }) => $topOffset}px;
   background: transparent !important;
   border: none;
+  color: ${({ theme }) => theme.colors.text.primary};
   padding: 8px;
   display: none;
 

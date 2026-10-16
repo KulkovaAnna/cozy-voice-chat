@@ -41,5 +41,6 @@ export type TextMessage = {
   timestamp: string;
   senderAvatar?: string;
   senderName?: string;
+  isSystem?: boolean;
   attachment?: Attachment;
 };

@@ -107,9 +107,15 @@ export default class CallManager {
    * @param callId - ID звонка
    * @param senderId - ID отправителя (должен быть участником)
    * @param text - текст сообщения
+   * @param isSystem - системное сообщение (ответ бота)
    * @returns объект созданного сообщения
    */
-  sendMessage(callId: string, senderId: string, text: string): Message {
+  sendMessage(
+    callId: string,
+    senderId: string,
+    text: string,
+    isSystem: boolean = false,
+  ): Message {
     const call = this.#calls.get(callId);
     if (!call) {
       throw new Error('Звонок не найден');
@@ -127,6 +133,7 @@ export default class CallManager {
       text,
       member.client.personalInfo?.name ?? null,
       member.client.personalInfo?.avatar ?? null,
+      isSystem,
     );
 
     // Возвращаем сообщение, чтобы SignalingServer мог его разослать

@@ -16,7 +16,7 @@ import {
   SendIcon,
   SidePanel,
 } from "@cvc/components";
-import { EmojiPicker } from "@cvc/features";
+import { CommandSuggest, EmojiPicker } from "@cvc/features";
 import { useAuth, useTextChat } from "@cvc/providers";
 
 import * as Styles from "./TextChat.styles";
@@ -113,6 +113,32 @@ export function TextChat() {
     });
   };
 
+  // Вставляет выбранную команду, заменяя уже набранный слэш-префикс
+  const handleCommandSelect = (command: string) => {
+    const input = inputRef.current;
+    const caretPos = input?.selectionStart ?? text.length;
+    const selEnd = input?.selectionEnd ?? text.length;
+
+    // Ищем начало слэш-префикса перед курсором, чтобы заменить его целиком
+    const before = text.slice(0, caretPos);
+    const slashPos = before.lastIndexOf("/");
+    const hasSlash =
+      slashPos !== -1 &&
+      (slashPos === 0 || /\s/.test(before[slashPos - 1] ?? ""));
+    const start = hasSlash ? slashPos : caretPos;
+
+    const insert = "/" + command;
+    setText(text.slice(0, start) + insert + text.slice(selEnd));
+
+    const caret = start + insert.length;
+    requestAnimationFrame(() => {
+      if (!input) return;
+      input.focus();
+      input.setSelectionRange(caret, caret);
+      handleInputResize();
+    });
+  };
+
   useEffect(() => {
     if (msgRef.current) {
       msgRef.current.scrollTo({
@@ -159,6 +185,8 @@ export function TextChat() {
             </Styles.AttachmentWrapper>
 
             <EmojiPicker onSelect={handleEmojiSelect} />
+
+            <CommandSuggest text={text} onSelect={handleCommandSelect} />
 
             <Styles.InputWrapper>
               <Styles.StyledInput

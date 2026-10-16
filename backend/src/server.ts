@@ -7,6 +7,7 @@ import * as fs from 'fs';
 
 import config from './config';
 import SignalingServer from './signaling-v2/SignalingServer';
+import { SlashCommandRegistry } from './signaling-v2/SlashCommands';
 import AuthMiddleware from './security/AuthMiddleware';
 import Helpers from './utils/helpers';
 import FileManagerRoutes from './app/modules/file-manager/file-manager.routes';
@@ -24,6 +25,7 @@ export class VoiceChatServer {
   protected fileManagerController: FileManagerController;
   protected fileManagerRoutes: FileManagerRoutes;
   protected signalingServer: SignalingServer;
+  protected slashCommands: SlashCommandRegistry;
 
   constructor() {
     this.app = express();
@@ -40,12 +42,14 @@ export class VoiceChatServer {
       this.fileManagerService,
     );
     this.fileManagerRoutes = new FileManagerRoutes(this.fileManagerController);
+    this.slashCommands = new SlashCommandRegistry();
     this.signalingServer = new SignalingServer(
       this.server,
       this.lobbyManager,
       this.callManager,
       this.fileManagerService,
     );
+    this.signalingServer.setSlashCommands(this.slashCommands);
 
     this.setupRoutes();
     this.start();
@@ -118,6 +122,17 @@ export class VoiceChatServer {
         uptime: process.uptime(),
         timestamp: new Date().toISOString(),
       });
+    });
+
+    // Поиск слэш-команд с пагинацией
+    this.app.get('/slash-commands', (req, res) => {
+      const q = typeof req.query.q === 'string' ? req.query.q : '';
+      const page = Math.max(1, parseInt(String(req.query.page), 10) || 1);
+      const limit = Math.min(
+        50,
+        Math.max(1, parseInt(String(req.query.limit), 10) || 10),
+      );
+      res.json(this.slashCommands.search(q, page, limit));
     });
 
     this.app.use(

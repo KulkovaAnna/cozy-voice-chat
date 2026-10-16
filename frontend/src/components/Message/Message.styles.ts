@@ -5,6 +5,8 @@ type AnglePosition = "left" | "right";
 
 type AngleProps = { $anglePosition: AnglePosition };
 
+type SystemProps = { $isSystem?: boolean };
+
 export const Container = styled.div<AngleProps>`
   display: flex;
   gap: 4px;
@@ -18,22 +20,23 @@ export const MessageBody = styled.div<AngleProps>`
   align-items: ${({ $anglePosition }) => ($anglePosition === "right" ? "flex-end" : "flex-start")};
 `;
 
-export const Name = styled.span`
+export const Name = styled.span<SystemProps>`
   font-size: 12px;
-  color: ${({ theme }) => theme.colors.text.secondary};
+  color: ${({ theme, $isSystem }) => ($isSystem ? theme.colors.primary.main : theme.colors.text.secondary)};
 `;
 
-export const MessageBubble = styled.div<AngleProps>(
-  ({ $anglePosition, theme }) => `
+export const MessageBubble = styled.div<AngleProps & SystemProps>(
+  ({ $anglePosition, theme, $isSystem }) => `
   background-color: ${theme.colors.background.card};
   padding: 8px;
-    font-size: 14px;
+  font-size: 14px;
   border-radius: ${$anglePosition === "left" ? 0 : "8px"} ${$anglePosition === "right" ? 0 : "8px"} 8px 8px;
   word-wrap: anywhere;
 
   * {
     word-wrap: anywhere;
   }
+    ${$isSystem ? `border: 1px solid ${theme.colors.primary.main}` : ""}}
 `,
 );
 

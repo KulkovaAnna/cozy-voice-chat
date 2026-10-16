@@ -92,7 +92,9 @@ describe('CallManager', () => {
     });
 
     it('should throw for unknown callId', () => {
-      expect(() => callManager.endCall('nonexistent')).toThrow('Нет такого звонка');
+      expect(() => callManager.endCall('nonexistent')).toThrow(
+        'Нет такого звонка',
+      );
     });
   });
 
@@ -108,7 +110,9 @@ describe('CallManager', () => {
     });
 
     it('should throw for unknown callId', () => {
-      expect(() => callManager.getCallMembers('no-id')).toThrow('Нет такого звонка');
+      expect(() => callManager.getCallMembers('no-id')).toThrow(
+        'Нет такого звонка',
+      );
     });
   });
 
@@ -133,9 +137,9 @@ describe('CallManager', () => {
 
     it('should throw for unknown clientId', () => {
       const call = callManager.startCall(createOffer());
-      expect(() => callManager.changeMuteStatus(call.id, 'unknown', true)).toThrow(
-        'Участник не найден',
-      );
+      expect(() =>
+        callManager.changeMuteStatus(call.id, 'unknown', true),
+      ).toThrow('Участник не найден');
     });
   });
 
@@ -157,7 +161,9 @@ describe('CallManager', () => {
       const clientId = call.members[0].client.id;
 
       callManager.changeSpeakingStatus(call.id, clientId, true);
-      expect(callManager.getMemberById(call.id, clientId).isSpeaking).toBe(true);
+      expect(callManager.getMemberById(call.id, clientId).isSpeaking).toBe(
+        true,
+      );
     });
   });
 
@@ -168,7 +174,9 @@ describe('CallManager', () => {
       const clientId = call.members[0].client.id;
 
       callManager.changeScreenSharingStatus(call.id, clientId, true);
-      expect(callManager.getMemberById(call.id, clientId).isScreenSharing).toBe(true);
+      expect(callManager.getMemberById(call.id, clientId).isScreenSharing).toBe(
+        true,
+      );
     });
   });
 
@@ -243,9 +251,9 @@ describe('CallManager', () => {
 
     it('should throw "Отправитель не является участником" for outsider', () => {
       const call = callManager.startCall(createOffer());
-      expect(() => callManager.sendMessage(call.id, 'outsider', 'text')).toThrow(
-        'Отправитель не является участником звонка',
-      );
+      expect(() =>
+        callManager.sendMessage(call.id, 'outsider', 'text'),
+      ).toThrow('Отправитель не является участником звонка');
     });
 
     it('should accumulate multiple messages in order', () => {
@@ -256,7 +264,27 @@ describe('CallManager', () => {
       callManager.sendMessage(call.id, id, 'msg2');
       callManager.sendMessage(call.id, id, 'msg3');
 
-      expect(call.messages.map((m) => m.text)).toEqual(['msg1', 'msg2', 'msg3']);
+      expect(call.messages.map((m) => m.text)).toEqual([
+        'msg1',
+        'msg2',
+        'msg3',
+      ]);
+    });
+
+    it('should set isSystem to false by default', () => {
+      const call = callManager.startCall(createOffer());
+      const senderId = call.members[0].client.id;
+
+      const msg = callManager.sendMessage(call.id, senderId, 'Hello!');
+      expect(msg.isSystem).toBe(false);
+    });
+
+    it('should set isSystem to true when specified', () => {
+      const call = callManager.startCall(createOffer());
+      const senderId = call.members[0].client.id;
+
+      const msg = callManager.sendMessage(call.id, senderId, 'Bot reply', true);
+      expect(msg.isSystem).toBe(true);
     });
   });
 

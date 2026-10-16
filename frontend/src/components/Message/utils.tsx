@@ -1,4 +1,4 @@
-import React from "react";
+import React, { type ReactNode } from "react";
 
 function cleanUrl(url: string): { cleaned: string; trailing: string } {
   // Знаки, которые могут идти после ссылки и не являются её частью
@@ -71,4 +71,18 @@ export function formatTextWithLinks(text: string): React.ReactNode[] {
   }
 
   return parts;
+}
+
+export function formatNewLines(str: ReactNode[]): ReactNode[] {
+  return str.map((part, index) => {
+    if (typeof part === "string") {
+      return part.split("\n").map((line, lineIndex) => (
+        <p key={index + lineIndex}>
+          {line}
+          <br />
+        </p>
+      ));
+    }
+    return part;
+  });
 }

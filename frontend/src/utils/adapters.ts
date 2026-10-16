@@ -45,5 +45,6 @@ export const textMessageAdapter = (serverMsg: MessageDto): TextMessage => {
     senderName: serverMsg.senderName,
     timestamp: serverMsg.timestamp,
     senderAvatar: serverMsg.avatar,
+    isSystem: serverMsg.isSystem,
   };
 };

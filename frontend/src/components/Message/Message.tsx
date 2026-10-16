@@ -5,7 +5,7 @@ import { isImageFile } from "@cvc/utils";
 import { Avatar } from "../Avatar";
 import { DownLoadFileIcon } from "../Icons";
 import * as Styles from "./Message.styles";
-import { formatTextWithLinks } from "./utils";
+import { formatNewLines, formatTextWithLinks } from "./utils";
 
 export type MessageProps = {
   message: TextMessage;
@@ -13,16 +13,27 @@ export type MessageProps = {
 };
 
 export function Message(props: MessageProps) {
-  const { attachment } = props.message;
+  const { attachment, isSystem } = props.message;
   const attachmentUrl = `${API_URLS.BASE_URL}/files`;
+
+  const msg = isSystem
+    ? {
+        senderAvatar: "/coza.svg",
+        senderName: "Cozy",
+        message: props.message.message,
+      }
+    : props.message;
 
   return (
     <Styles.Container $anglePosition={props.anglePosition}>
-      <Avatar src={props.message.senderAvatar} size={24} />
+      <Avatar src={msg.senderAvatar} size={24} />
       <Styles.MessageBody $anglePosition={props.anglePosition}>
-        <Styles.Name>{props.message.senderName}</Styles.Name>
-        <Styles.MessageBubble $anglePosition={props.anglePosition}>
-          {formatTextWithLinks(props.message.message)}
+        <Styles.Name $isSystem={isSystem}>{msg.senderName}</Styles.Name>
+        <Styles.MessageBubble
+          $anglePosition={props.anglePosition}
+          $isSystem={isSystem}
+        >
+          {formatNewLines(formatTextWithLinks(msg.message))}
           {attachment &&
             (isImageFile(attachment.fileName) ? (
               <Styles.Image

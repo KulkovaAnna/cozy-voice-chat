@@ -195,6 +195,12 @@ describe('SignalingServer', () => {
       callMgr,
       fileMgr,
     );
+
+    // Подключаем реестр слэш-команд
+    const SlashCommandRegistry = (
+      await import('../../src/signaling-v2/SlashCommands')
+    ).SlashCommandRegistry;
+    signalingServer.setSlashCommands(new SlashCommandRegistry());
   });
 
   // ─── connection ───────────────────────────────────────────────
@@ -832,6 +838,102 @@ describe('SignalingServer', () => {
       );
       expect(delMsg).toBeDefined();
       expect(delMsg.data.fileId).toBe('file-2');
+    });
+  });
+
+  // ─── Slash commands ───────────────────────────────────────────
+  describe('slash commands', () => {
+    it('should execute /help and send system message to initiator only', async () => {
+      const { ws1, ws2, call } = await setupCall();
+
+      await sendMessage(ws1, 'call::send-message', {
+        callId: call.id,
+        text: '/help',
+      });
+
+      // Сообщение пришло инициатору (ws1)
+      const helpMsg = getSent(ws1).find(
+        (m: any) => m.type === 'all::call::new-message',
+      );
+      expect(helpMsg).toBeDefined();
+      expect(helpMsg.data.isSystem).toBe(true);
+      expect(helpMsg.data.text).toContain('Доступные команды');
+
+      // Сообщение НЕ пришло собеседнику (ws2)
+      const sentToOther = getSent(ws2).find(
+        (m: any) => m.type === 'all::call::new-message',
+      );
+      expect(sentToOther).toBeUndefined();
+    });
+
+    it('should mark slash command response as isSystem', async () => {
+      const { ws1, call } = await setupCall();
+
+      await sendMessage(ws1, 'call::send-message', {
+        callId: call.id,
+        text: '/help',
+      });
+
+      const helpMsg = getSent(ws1).find(
+        (m: any) => m.type === 'all::call::new-message',
+      );
+      expect(helpMsg).toBeDefined();
+      expect(helpMsg.data.isSystem).toBe(true);
+    });
+
+    it('should send error message for unknown command to initiator only', async () => {
+      const { ws1, ws2, call } = await setupCall();
+
+      await sendMessage(ws1, 'call::send-message', {
+        callId: call.id,
+        text: '/unknown-cmd',
+      });
+
+      // Ошибка пришла инициатору
+      const errMsg = getSent(ws1).find(
+        (m: any) => m.type === 'all::call::new-message',
+      );
+      expect(errMsg).toBeDefined();
+      expect(errMsg.data.isSystem).toBe(true);
+      expect(errMsg.data.text).toContain('не найдена');
+
+      // Собеседник не получил ничего
+      const sentToOther = getSent(ws2).find(
+        (m: any) => m.type === 'all::call::new-message',
+      );
+      expect(sentToOther).toBeUndefined();
+    });
+
+    it('should not intercept regular messages starting with /', async () => {
+      const { ws1, ws2, call } = await setupCall();
+
+      await sendMessage(ws1, 'call::send-message', {
+        callId: call.id,
+        text: 'https://example.com/path',
+      });
+
+      const msg = getSent(ws2).find(
+        (m: any) => m.type === 'all::call::new-message',
+      );
+      expect(msg).toBeDefined();
+      expect(msg.data.isSystem).toBe(false);
+      expect(msg.data.text).toBe('https://example.com/path');
+    });
+
+    it('should include senderName in slash command response', async () => {
+      const { ws1, call, alice } = await setupCall();
+
+      await sendMessage(ws1, 'call::send-message', {
+        callId: call.id,
+        text: '/help',
+      });
+
+      // Системное сообщение содержит имя отправителя (пользователь, введший команду)
+      const helpMsg = getSent(ws1).find(
+        (m: any) => m.type === 'all::call::new-message' && m.data.isSystem,
+      );
+      expect(helpMsg).toBeDefined();
+      expect(helpMsg.data.senderName).toBe(alice.personalInfo.name);
     });
   });
 });

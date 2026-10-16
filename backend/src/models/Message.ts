@@ -7,18 +7,21 @@ export default class Message {
   public senderName: string | null;
   public timestamp: string;
   public avatar: string | null;
+  public isSystem: boolean;
 
   /**
    * @param senderId - ID отправителя
    * @param text - текст сообщения
    * @param senderName - опционально имя отправителя
    * @param avatar - опционально аватар отправителя
+   * @param isSystem - системное сообщение (ответ бота)
    */
   constructor(
     senderId: string,
     text: string,
     senderName?: string | null,
     avatar?: string | null,
+    isSystem?: boolean,
   ) {
     this.id = v4();
     this.senderId = senderId;
@@ -26,5 +29,6 @@ export default class Message {
     this.senderName = senderName ?? null;
     this.timestamp = new Date().toISOString();
     this.avatar = avatar ?? null;
+    this.isSystem = isSystem ?? false;
   }
 }

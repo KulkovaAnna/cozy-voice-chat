@@ -22,14 +22,15 @@ import type {
   PersonalInfoData,
 } from '../types';
 import type { MessageHandler } from './message-handlers';
+import { SlashCommandRegistry } from './SlashCommands';
 
 export default class SignalingServer {
   private wss: WebSocket.Server;
   private lobbyManager: LobbyManager;
   private callManager: CallManager;
   private fileManager: FileManagerService;
-  /** Реестр обработчиков входящих сообщений: тип сообщения → обработчик */
   private messageHandlers: Record<string, MessageHandler>;
+  private slashCommands: SlashCommandRegistry | null = null;
   public rateLimiter = new RateLimiter();
 
   constructor(
@@ -536,9 +537,53 @@ export default class SignalingServer {
       throw new Error('Вы не в лобби');
     }
 
+    // Проверяем, является ли текст слэш-командой
+    const slashMatch = text.trim().match(/^\/([\w-]+)(?:\s+(.*))?$/);
+    if (slashMatch && this.slashCommands) {
+      const [, command, args] = slashMatch;
+      this.executeSlashCommand(ws, callId, client.id, command, args);
+      return;
+    }
+
     const message = this.callManager.sendMessage(callId, client.id, text);
 
     this.broadcastToCall(callId, {
+      type: MESSAGE_TYPES.SEND.ALL.CALL.NEW_MESSAGE,
+      data: message,
+    });
+  }
+
+  private async executeSlashCommand(
+    ws: WebSocket,
+    callId: string,
+    senderId: string,
+    command: string,
+    args: string,
+  ): Promise<void> {
+    if (!this.slashCommands) return;
+
+    const result = await this.slashCommands.execute(command, args, senderId);
+    if (!result) {
+      const message = this.callManager.sendMessage(
+        callId,
+        senderId,
+        `Команда «/${command}» не найдена. Используйте /help для списка команд.`,
+        true,
+      );
+      this.sendToClient(ws, {
+        type: MESSAGE_TYPES.SEND.ALL.CALL.NEW_MESSAGE,
+        data: message,
+      });
+      return;
+    }
+
+    const message = this.callManager.sendMessage(
+      callId,
+      senderId,
+      result.text,
+      true,
+    );
+    this.sendToClient(ws, {
       type: MESSAGE_TYPES.SEND.ALL.CALL.NEW_MESSAGE,
       data: message,
     });
@@ -633,6 +678,14 @@ export default class SignalingServer {
   private unsubscribeFromEventBus(): void {
     eventBus.off('file:uploaded', this.handleFileUploaded.bind(this));
     eventBus.off('file:deleted', this.handleFileDeleted.bind(this));
+  }
+
+  setSlashCommands(registry: SlashCommandRegistry): void {
+    this.slashCommands = registry;
+  }
+
+  getSlashCommands(): SlashCommandRegistry | null {
+    return this.slashCommands;
   }
 
   /** Graceful shutdown: уведомить всех, закрыть wss */
