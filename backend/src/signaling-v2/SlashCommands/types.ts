@@ -4,10 +4,14 @@ export interface SlashCommandResult {
   text: string;
 }
 
+/** Сообщает о ходе выполнения команды (показывается только инициатору) */
+export type CommandProgressReporter = (text: string) => void;
+
 /** Обработчик слэш-команды */
 export type CommandHandler = (
   args: string,
   senderId: string,
+  report: CommandProgressReporter,
 ) => SlashCommandResult | Promise<SlashCommandResult>;
 
 /** Описание зарегистрированной команды */

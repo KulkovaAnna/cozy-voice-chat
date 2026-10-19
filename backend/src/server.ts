@@ -13,6 +13,8 @@ import Helpers from './utils/helpers';
 import FileManagerRoutes from './app/modules/file-manager/file-manager.routes';
 import FileManagerService from './app/modules/file-manager/file-manager.service';
 import FileManagerController from './app/modules/file-manager/file-manager.controller';
+import musicPlayerService from './app/modules/music-player/music-player.service';
+import MusicPlayerRoutes from './app/modules/music-player/music-player.routes';
 import LobbyManager from './signaling-v2/LobbyManager';
 import CallManager from './signaling-v2/CallManager';
 
@@ -24,6 +26,8 @@ export class VoiceChatServer {
   protected fileManagerService: FileManagerService;
   protected fileManagerController: FileManagerController;
   protected fileManagerRoutes: FileManagerRoutes;
+  protected musicPlayerService: typeof musicPlayerService;
+  protected musicPlayerRoutes: MusicPlayerRoutes;
   protected signalingServer: SignalingServer;
   protected slashCommands: SlashCommandRegistry;
 
@@ -42,6 +46,8 @@ export class VoiceChatServer {
       this.fileManagerService,
     );
     this.fileManagerRoutes = new FileManagerRoutes(this.fileManagerController);
+    this.musicPlayerService = musicPlayerService;
+    this.musicPlayerRoutes = new MusicPlayerRoutes();
     this.slashCommands = new SlashCommandRegistry();
     this.signalingServer = new SignalingServer(
       this.server,
@@ -138,6 +144,11 @@ export class VoiceChatServer {
     this.app.use(
       FileManagerRoutes.BASE_URL,
       this.fileManagerRoutes.getRouter(),
+    );
+
+    this.app.use(
+      MusicPlayerRoutes.BASE_URL,
+      this.musicPlayerRoutes.getRouter(),
     );
   }
 

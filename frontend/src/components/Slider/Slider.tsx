@@ -7,19 +7,35 @@ interface HorizontalSliderProps {
   width?: number;
   className?: string;
   thumbSize?: number;
+  trackHeight?: number;
   id?: string;
+  step?: number;
+  max?: number;
+  min?: number;
 }
 
 const MIN = 0,
   MAX = 1,
-  STEP = 0.1;
+  STEP = 0.1,
+  TRACK_HEIGHT = 8,
+  THUMB_SIZE = 24;
 
 export function HorizontalSlider(props: HorizontalSliderProps) {
-  const { onChange, value, className, width, thumbSize = 24 } = props;
+  const {
+    onChange,
+    value,
+    className,
+    width,
+    thumbSize = THUMB_SIZE,
+    trackHeight = TRACK_HEIGHT,
+    step = STEP,
+    max = MAX,
+    min = MIN,
+  } = props;
   const containerRef = useRef<HTMLDivElement>(null);
   const [isDragging, setIsDragging] = useState(false);
 
-  const progress = Math.max(MIN, Math.min(MAX, (value - MIN) / (MAX - MIN)));
+  const progress = Math.max(min, Math.min(max, (value - min) / (max - min)));
 
   const getValueFromPosition = useCallback(
     (clientX: number) => {
@@ -34,11 +50,11 @@ export function HorizontalSlider(props: HorizontalSliderProps) {
       relativeX = Math.max(0, Math.min(relativeX, trackWidth));
 
       const progress = relativeX / trackWidth;
-      const rawValue = MIN + progress * (MAX - MIN);
-      const steppedValue = Math.round(rawValue / STEP) * STEP;
-      return Math.min(MAX, Math.max(MIN, steppedValue));
+      const rawValue = min + progress * (max - min);
+      const steppedValue = Math.round(rawValue / step) * step;
+      return Math.min(max, Math.max(min, steppedValue));
     },
-    [thumbSize, value],
+    [thumbSize, value, step, max, min],
   );
 
   const handleMouseDown = (e: React.MouseEvent) => {
@@ -107,8 +123,9 @@ export function HorizontalSlider(props: HorizontalSliderProps) {
       onTouchStart={handleTouchStart}
       className={className}
       thumbSize={thumbSize}
+      trackHeight={trackHeight}
     >
-      <Styles.Track volume={value} />
+      <Styles.Track volume={value} height={trackHeight} />
       <Styles.Thumb progress={progress} size={thumbSize} />
     </Styles.SliderContainer>
   );

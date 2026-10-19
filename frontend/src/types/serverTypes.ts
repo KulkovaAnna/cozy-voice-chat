@@ -53,3 +53,30 @@ export type ServerMessage = {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   data: Record<string, any>;
 };
+
+export type MusicTrackInfo = {
+  url: string;
+  title: string;
+  uploader?: string | null;
+  duration?: number | null;
+};
+
+/** Элемент очереди воспроизведения */
+export type MusicQueueItem = MusicTrackInfo;
+
+export type MusicState = {
+  status: "idle" | "playing" | "paused";
+  track: MusicTrackInfo | null;
+  streamUrl: string | null;
+  /** Очередь воспроизведения (пустой массив, если трек без очереди) */
+  queue: MusicQueueItem[];
+  /** Индекс текущего трека в очереди (-1, если очереди нет) */
+  queueIndex: number;
+};
+
+/** Стадия выполнения слэш-команды (приходит только инициатору) */
+export type CommandStatus = {
+  command: string;
+  status: "started" | "running" | "done";
+  text: string;
+};

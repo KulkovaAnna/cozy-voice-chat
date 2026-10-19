@@ -3,8 +3,8 @@ import {
   useRef,
   useState,
   type ChangeEventHandler,
-  type FormEventHandler,
   type KeyboardEventHandler,
+  type SubmitEventHandler,
 } from "react";
 
 import {
@@ -16,15 +16,19 @@ import {
   SendIcon,
   SidePanel,
 } from "@cvc/components";
-import { CommandSuggest, EmojiPicker } from "@cvc/features";
-import { useAuth, useTextChat } from "@cvc/providers";
+import { CommandSuggest, EmojiPicker, MusicPlayer } from "@cvc/features";
+import { useAuth, useChatNetwork, useTextChat } from "@cvc/providers";
 
 import * as Styles from "./TextChat.styles";
+
+/** Страховка на случай, если статус «done» не дошёл (yt-dlp ждёт 60 с) */
+const COMMAND_TIMEOUT_MS = 90_000;
 
 export function TextChat() {
   const [text, setText] = useState("");
   const [file, setFile] = useState<File | null>(null);
   const [loading, setLoading] = useState(false);
+  const [commandTimedOut, setCommandTimedOut] = useState(false);
 
   const {
     textChatIsOpen,
@@ -34,6 +38,8 @@ export function TextChat() {
     sendTextMessage,
     sendFile,
   } = useTextChat();
+
+  const { commandStatus } = useChatNetwork();
 
   const me = useAuth();
   const msgRef = useRef<HTMLDivElement>(null);
@@ -67,7 +73,23 @@ export function TextChat() {
     }
   };
 
-  const handleSubmit: FormEventHandler<HTMLFormElement> = (e) => {
+  // Страховочный таймаут: если статус «done» не дошёл, индикатор погаснет сам
+  useEffect(() => {
+    if (!commandStatus) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      setCommandTimedOut(false);
+      return;
+    }
+    const timer = setTimeout(
+      () => setCommandTimedOut(true),
+      COMMAND_TIMEOUT_MS,
+    );
+    return () => clearTimeout(timer);
+  }, [commandStatus]);
+
+  const isCommandRunning = !!commandStatus && !commandTimedOut;
+
+  const handleSubmit: SubmitEventHandler<HTMLFormElement> = (e) => {
     e.preventDefault();
     submit();
   };
@@ -169,6 +191,7 @@ export function TextChat() {
         </Styles.MessagesContainer>
         <div>
           {!!file && <FileInfo file={file} />}
+          <MusicPlayer />
           <Styles.FormPanel onSubmit={handleSubmit}>
             <Styles.AttachmentWrapper>
               <label htmlFor="file">
@@ -189,6 +212,12 @@ export function TextChat() {
             <CommandSuggest text={text} onSelect={handleCommandSelect} />
 
             <Styles.InputWrapper>
+              {isCommandRunning && (
+                <Styles.CommandStatusLine>
+                  <LoadingIcon styles={{ width: 12, height: 12 }} />
+                  {commandStatus?.text}
+                </Styles.CommandStatusLine>
+              )}
               <Styles.StyledInput
                 name="message"
                 placeholder="Введите сообщение..."

@@ -2,7 +2,7 @@ export * from "./adapters";
 export * from "./cardAppearance";
 export * from "./emoji";
 export * from "./fileToBase64";
-export * from "./formatBytes";
+export * from "./formatters";
 export * from "./isImageFile";
 export * from "./isURL";
 export * from "./microphones";

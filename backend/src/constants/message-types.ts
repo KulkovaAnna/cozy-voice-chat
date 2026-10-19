@@ -15,6 +15,12 @@ export const MESSAGE_TYPES = Object.freeze({
       SEND_MESSAGE: 'call::send-message',
       START_SCREEN_SHARING: 'call::start-screen-sharing',
       STOP_SCREEN_SHARING: 'call::stop-screen-sharing',
+      MUSIC_PLAY: 'call::music-play',
+      MUSIC_PAUSE: 'call::music-pause',
+      MUSIC_STOP: 'call::music-stop',
+      MUSIC_START: 'call::music-start',
+      MUSIC_NEXT: 'call::music-next',
+      MUSIC_PREV: 'call::music-prev',
     },
   },
   SEND: {
@@ -36,6 +42,10 @@ export const MESSAGE_TYPES = Object.freeze({
         SCREEN_SHARING_STARTED: 'all::call::screen-share-started',
         SCREEN_SHARING_STOPPED: 'all::call::screen-share-stopped',
         PROFILE_UPDATED: 'all::call::profile-updated',
+        MUSIC_STATE_CHANGED: 'all::call::music-state-changed',
+        MUSIC_STARTED: 'all::call::music-started',
+        MUSIC_PAUSED: 'all::call::music-paused',
+        MUSIC_STOPPED: 'all::call::music-stopped',
       },
     },
     ME: {
@@ -44,6 +54,7 @@ export const MESSAGE_TYPES = Object.freeze({
       CALL_OFFER_ACCEPTED: 'me::call-offer-accepted',
       CALL_OFFER_DECLINED: 'me::call-offer-declined',
       LOBBY_JOINED: 'me::lobby-joined',
+      COMMAND_STATUS: 'me::command-status',
     },
   },
 });

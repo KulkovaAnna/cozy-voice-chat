@@ -936,4 +936,275 @@ describe('SignalingServer', () => {
       expect(helpMsg.data.senderName).toBe(alice.personalInfo.name);
     });
   });
+
+  // ─── Музыкальная очередь ──────────────────────────────────────
+  describe('music queue', () => {
+    let music: any;
+
+    beforeEach(async () => {
+      music = (
+        await import('../../src/app/modules/music-player/music-player.service.js')
+      ).default;
+      music.stop();
+    });
+
+    function lastMusicState(ws: MockWS) {
+      const sent = getSent(ws).filter(
+        (m: any) => m.type === 'all::call::music-state-changed',
+      );
+      return sent[sent.length - 1];
+    }
+
+    it('should move to the next track and broadcast the queue', async () => {
+      const { ws1, ws2, call } = await setupCall();
+      music.startQueue([
+        { url: 'https://y/1', title: 'One' },
+        { url: 'https://y/2', title: 'Two' },
+        { url: 'https://y/3', title: 'Three' },
+      ]);
+
+      await sendMessage(ws1, 'call::music-next', {
+        callId: call.id,
+        expectedIndex: 0,
+      });
+
+      expect(music.queueIndex).toBe(1);
+      expect(lastMusicState(ws1).data.queueIndex).toBe(1);
+      expect(lastMusicState(ws2).data.queueIndex).toBe(1);
+      expect(lastMusicState(ws1).data.track.url).toBe('https://y/2');
+    });
+
+    it('should broadcast the whole queue to every participant', async () => {
+      const { ws1, ws2, call } = await setupCall();
+      music.startQueue([
+        { url: 'https://y/1', title: 'One' },
+        { url: 'https://y/2', title: 'Two' },
+      ]);
+
+      await sendMessage(ws1, 'call::music-play', { callId: call.id });
+
+      for (const ws of [ws1, ws2]) {
+        const state = lastMusicState(ws).data;
+        expect(state.status).toBe('playing');
+        expect(state.queue).toHaveLength(2);
+        expect(state.queue[0].title).toBe('One');
+      }
+    });
+
+    it('should move back to the previous track', async () => {
+      const { ws1, call } = await setupCall();
+      music.startQueue([
+        { url: 'https://y/1', title: 'One' },
+        { url: 'https://y/2', title: 'Two' },
+      ]);
+      music.next();
+
+      await sendMessage(ws1, 'call::music-prev', {
+        callId: call.id,
+        expectedIndex: 1,
+      });
+
+      expect(music.queueIndex).toBe(0);
+      expect(lastMusicState(ws1).data.queueIndex).toBe(0);
+    });
+
+    it('should ignore a skip when the client index is stale', async () => {
+      const { ws1, call } = await setupCall();
+      music.startQueue([
+        { url: 'https://y/1', title: 'One' },
+        { url: 'https://y/2', title: 'Two' },
+        { url: 'https://y/3', title: 'Three' },
+      ]);
+
+      // Оба участника нажали «дальше» одновременно: второй запрос устарел
+      await sendMessage(ws1, 'call::music-next', {
+        callId: call.id,
+        expectedIndex: 0,
+      });
+      await sendMessage(ws1, 'call::music-next', {
+        callId: call.id,
+        expectedIndex: 0,
+      });
+
+      expect(music.queueIndex).toBe(1);
+      // Устаревший запрос лишь вернул актуальное состояние
+      expect(lastMusicState(ws1).data.queueIndex).toBe(1);
+    });
+
+    it('should keep the first track when going back from it', async () => {
+      const { ws1, call } = await setupCall();
+      music.startQueue([
+        { url: 'https://y/1', title: 'One' },
+        { url: 'https://y/2', title: 'Two' },
+      ]);
+
+      await sendMessage(ws1, 'call::music-prev', {
+        callId: call.id,
+        expectedIndex: 0,
+      });
+
+      expect(music.queueIndex).toBe(0);
+      expect(lastMusicState(ws1).data.queueIndex).toBe(0);
+    });
+
+    it('should stop the player after the last track', async () => {
+      const { ws1, call } = await setupCall();
+      music.startQueue([
+        { url: 'https://y/1', title: 'One' },
+        { url: 'https://y/2', title: 'Two' },
+      ]);
+
+      await sendMessage(ws1, 'call::music-next', {
+        callId: call.id,
+        expectedIndex: 0,
+      });
+      await sendMessage(ws1, 'call::music-next', {
+        callId: call.id,
+        expectedIndex: 1,
+      });
+
+      expect(music.status).toBe('idle');
+      expect(lastMusicState(ws1).data.status).toBe('idle');
+      expect(lastMusicState(ws1).data.queue).toEqual([]);
+    });
+
+    it('should ignore skips when nothing is queued', async () => {
+      const { ws1, call } = await setupCall();
+
+      await sendMessage(ws1, 'call::music-next', {
+        callId: call.id,
+        expectedIndex: 0,
+      });
+
+      expect(
+        getSent(ws1).some(
+          (m: any) => m.type === 'all::call::music-state-changed',
+        ),
+      ).toBe(false);
+    });
+
+    it('should reset the player when the call ends', async () => {
+      const { ws1, call } = await setupCall();
+      music.startQueue([
+        { url: 'https://y/1', title: 'One' },
+        { url: 'https://y/2', title: 'Two' },
+      ]);
+
+      await sendMessage(ws1, 'call::end', { callId: call.id });
+
+      expect(music.status).toBe('idle');
+      expect(music.queue).toEqual([]);
+    });
+  });
+
+  // ─── Статус выполнения слэш-команд ────────────────────────────
+  describe('command status', () => {
+    beforeEach(async () => {
+      signalingServer.getSlashCommands()!.register({
+        name: 'staged',
+        description: 'Команда со стадиями',
+        handler: async (
+          args: string,
+          _id: string,
+          report: (t: string) => void,
+        ) => {
+          report('Читаю плейлист…');
+          report('Ставлю треки в очередь…');
+          return { text: `готово: ${args}` };
+        },
+      });
+    });
+
+    it('should report stages only to the command initiator', async () => {
+      const { ws1, ws2, call } = await setupCall();
+
+      await sendMessage(ws1, 'call::send-message', {
+        callId: callIdOf(ws1),
+        text: '/staged ok',
+      });
+
+      const statuses = getSent(ws1).filter(
+        (m: any) => m.type === 'me::command-status',
+      );
+
+      expect(statuses.map((m: any) => m.data.status)).toEqual([
+        'started',
+        'running',
+        'running',
+        'done',
+      ]);
+      expect(statuses[0].data.command).toBe('staged');
+      expect(statuses[1].data.text).toBe('Читаю плейлист…');
+      expect(statuses[2].data.text).toBe('Ставлю треки в очередь…');
+      expect(statuses[3].data.text).toBe('');
+
+      // Второй участник не видит статусов чужой команды
+      expect(
+        getSent(ws2).some((m: any) => m.type === 'me::command-status'),
+      ).toBe(false);
+
+      // Ответ команды приходит только инициатору
+      const answer = getSent(ws1).find(
+        (m: any) => m.type === 'all::call::new-message' && m.data.isSystem,
+      );
+      expect(answer.data.text).toBe('готово: ok');
+      expect(
+        getSent(ws2).some(
+          (m: any) => m.type === 'all::call::new-message' && m.data.isSystem,
+        ),
+      ).toBe(false);
+    });
+
+    it('should report done even when the command throws', async () => {
+      signalingServer.getSlashCommands()!.register({
+        name: 'boom',
+        description: 'Падающая команда',
+        handler: async () => {
+          throw new Error('сбой yt-dlp');
+        },
+      });
+
+      const ws1 = await simulateConnection('10.0.0.1');
+      await sendMessage(ws1, 'lobby::join', {
+        personalInfo: { name: 'Alice' },
+      });
+      const ws2 = await simulateConnection('10.0.0.2');
+      await sendMessage(ws2, 'lobby::join', { personalInfo: { name: 'Bob' } });
+
+      const alice = lobby.getMemberByIp('10.0.0.1')!;
+      const bob = lobby.getMemberByIp('10.0.0.2')!;
+      await sendMessage(ws1, 'lobby::initiate-call', { receiverId: bob.id });
+      const offer = lobby.getOfferByMemberId(alice.id)!;
+      await sendMessage(ws2, 'lobby::accept-offer', { offerId: offer.id });
+
+      await sendMessage(ws1, 'call::send-message', {
+        callId: callIdOf(ws1),
+        text: '/boom',
+      });
+
+      const statuses = getSent(ws1).filter(
+        (m: any) => m.type === 'me::command-status',
+      );
+      expect(statuses.map((m: any) => m.data.status)).toEqual([
+        'started',
+        'done',
+      ]);
+
+      // Ошибка команды доходит до инициаторав виде системного сообщения
+      const error = getSent(ws1).find(
+        (m: any) => m.type === 'all::call::new-message' && m.data.isSystem,
+      );
+      expect(error.data.text).toContain('сбой yt-dlp');
+    });
+  });
 });
+
+/** callId активного звонка участника, подключённого к mock-сокету */
+function callIdOf(ws: MockWS): string {
+  const sent = getSent(ws);
+  for (let i = sent.length - 1; i >= 0; i -= 1) {
+    const msg = sent[i];
+    if (msg.type === 'all::call::started') return msg.data.callInfo.id;
+  }
+  throw new Error('Звонок не найден в отправленных сообщениях');
+}

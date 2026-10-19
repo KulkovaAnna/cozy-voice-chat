@@ -18,13 +18,16 @@ export class SlashCommandRegistry {
     command: string,
     args: string,
     senderId: string,
+    report?: (text: string) => void,
   ): Promise<SlashCommandResult | null> {
     const name = command.toLowerCase();
     const cmd = this.commands.get(name);
     if (!cmd) {
       return null;
     }
-    return cmd.handler(args, senderId);
+
+    const progress: (text: string) => void = report ?? (() => {});
+    return cmd.handler(args, senderId, progress);
   }
 
   /** Получить список всех команд */

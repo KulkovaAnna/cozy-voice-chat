@@ -9,6 +9,7 @@ import MESSAGE_TYPES from '../constants/message-types';
 import ERROR_CODES from '../constants/error-codes';
 import Helpers from '../utils/helpers';
 import eventBus from '../utils/event-bus';
+import musicPlayerService from '../app/modules/music-player/music-player.service';
 import type LobbyManager from './LobbyManager';
 import type CallManager from './CallManager';
 import type FileManagerService from '../app/modules/file-manager/file-manager.service';
@@ -23,6 +24,7 @@ import type {
 } from '../types';
 import type { MessageHandler } from './message-handlers';
 import { SlashCommandRegistry } from './SlashCommands';
+import type { SlashCommandResult } from './SlashCommands/types';
 
 export default class SignalingServer {
   private wss: WebSocket.Server;
@@ -286,6 +288,40 @@ export default class SignalingServer {
       [MESSAGE_TYPES.RECEIVE.CALL.STOP_SCREEN_SHARING]: (ws, _ip, data) => {
         this.handleStopScreenSharing(ws, String(data.callId));
       },
+
+      [MESSAGE_TYPES.RECEIVE.CALL.MUSIC_PLAY]: (ws, _ip, data) => {
+        this.handleMusicPlay(ws, String(data.callId));
+      },
+
+      [MESSAGE_TYPES.RECEIVE.CALL.MUSIC_PAUSE]: (ws, _ip, data) => {
+        this.handleMusicPause(ws, String(data.callId));
+      },
+
+      [MESSAGE_TYPES.RECEIVE.CALL.MUSIC_STOP]: (ws, _ip, data) => {
+        this.handleMusicStop(ws, String(data.callId));
+      },
+
+      [MESSAGE_TYPES.RECEIVE.CALL.MUSIC_START]: (ws, _ip, data) => {
+        this.handleMusicStart(ws, String(data.callId));
+      },
+
+      [MESSAGE_TYPES.RECEIVE.CALL.MUSIC_NEXT]: (ws, _ip, data) => {
+        this.handleMusicSkip(
+          ws,
+          String(data.callId),
+          1,
+          Number(data.expectedIndex),
+        );
+      },
+
+      [MESSAGE_TYPES.RECEIVE.CALL.MUSIC_PREV]: (ws, _ip, data) => {
+        this.handleMusicSkip(
+          ws,
+          String(data.callId),
+          -1,
+          Number(data.expectedIndex),
+        );
+      },
     };
   }
 
@@ -481,6 +517,8 @@ export default class SignalingServer {
       },
     });
     this.callManager.endCall(callId);
+    // Плеер живёт на один звонок: сбрасываем трек и зависшую загрузку
+    musicPlayerService.stop();
     this.fileManager.cleanDownloads().catch(console.error);
   }
 
@@ -562,7 +600,47 @@ export default class SignalingServer {
   ): Promise<void> {
     if (!this.slashCommands) return;
 
-    const result = await this.slashCommands.execute(command, args, senderId);
+    // Сразу сообщаем инициатору, что команда принята в работу:
+    // разбор ссылок через yt-dlp занимает несколько секунд
+    type CommandStatus = 'started' | 'running' | 'done';
+    const sendStatus = (status: CommandStatus, text: string): void => {
+      this.sendToClient(ws, {
+        type: MESSAGE_TYPES.SEND.ME.COMMAND_STATUS,
+        data: { command, status, text },
+      });
+    };
+
+    let result: SlashCommandResult | null;
+
+    sendStatus('started', `Выполняю /${command}…`);
+
+    try {
+      result = await this.slashCommands.execute(
+        command,
+        args,
+        senderId,
+        (text) => sendStatus('running', text),
+      );
+    } catch (error) {
+      // Команда упала (например, yt-dlp не смог разобрать ссылку) —
+      // сообщаем об этом инициатору и гасим индикатор
+      const detail = error instanceof Error ? error.message : String(error);
+      const message = this.callManager.sendMessage(
+        callId,
+        senderId,
+        `Ошибка при выполнении /${command}: ${detail}`,
+        true,
+      );
+      this.sendToClient(ws, {
+        type: MESSAGE_TYPES.SEND.ALL.CALL.NEW_MESSAGE,
+        data: message,
+      });
+      sendStatus('done', '');
+      return;
+    }
+
+    sendStatus('done', '');
+
     if (!result) {
       const message = this.callManager.sendMessage(
         callId,
@@ -587,6 +665,11 @@ export default class SignalingServer {
       type: MESSAGE_TYPES.SEND.ALL.CALL.NEW_MESSAGE,
       data: message,
     });
+
+    // Если плеер запустился — рассылаем состояние музыки всем в звонке
+    if (musicPlayerService.isPlaying()) {
+      this.broadcastMusicState(callId);
+    }
   }
 
   private handleChangeSpeakingStatus(
@@ -629,6 +712,72 @@ export default class SignalingServer {
       data: {
         client,
         callInfo: this.callManager.getCallById(callId),
+      },
+    });
+  }
+
+  /** Запуск воспроизведения текущего трека (кнопка Play) */
+  private handleMusicPlay(_ws: WebSocket, callId: string): void {
+    if (!musicPlayerService.isPlaying()) return;
+    musicPlayerService.setStatus('playing');
+    this.broadcastMusicState(callId);
+  }
+
+  /** Приостановка воспроизведения (кнопка Pause) */
+  private handleMusicPause(_ws: WebSocket, callId: string): void {
+    if (!musicPlayerService.isPlaying()) return;
+    musicPlayerService.setStatus('paused');
+    this.broadcastMusicState(callId);
+  }
+
+  /** Остановка и сброс (кнопка Stop) */
+  private handleMusicStop(_ws: WebSocket, callId: string): void {
+    musicPlayerService.stop();
+    this.broadcastMusicState(callId);
+  }
+
+  /** Возобновление воспроизведения (после /play) */
+  private handleMusicStart(_ws: WebSocket, callId: string): void {
+    if (!musicPlayerService.isPlaying()) return;
+    this.broadcastMusicState(callId);
+  }
+
+  /**
+   * Переключение трека в очереди (⏮ / ⏭).
+   * @param expectedIndex — индекс, который видел клиент. Если сервер уже
+   *   ушёл вперёд (оба участника нажали одновременно), переключение
+   *   пропускается и клиенту просто возвращается актуальное состояние.
+   */
+  private handleMusicSkip(
+    _ws: WebSocket,
+    callId: string,
+    direction: 1 | -1,
+    expectedIndex: number,
+  ): void {
+    if (!musicPlayerService.isPlaying()) return;
+
+    const isStale =
+      Number.isFinite(expectedIndex) &&
+      expectedIndex !== musicPlayerService.queueIndex;
+
+    if (!isStale) {
+      if (direction > 0) {
+        musicPlayerService.next();
+      } else {
+        musicPlayerService.prev();
+      }
+    }
+
+    this.broadcastMusicState(callId);
+  }
+
+  /** Рассылает текущее состояние плеера всем участникам звонка */
+  private broadcastMusicState(callId: string): void {
+    this.broadcastToCall(callId, {
+      type: MESSAGE_TYPES.SEND.ALL.CALL.MUSIC_STATE_CHANGED,
+      data: {
+        ...musicPlayerService.state,
+        timestamp: new Date().toISOString(),
       },
     });
   }

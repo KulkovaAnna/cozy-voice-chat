@@ -5,4 +5,5 @@ export * from "./CommandSuggest";
 export * from "./EditableNickname";
 export * from "./EmojiPicker";
 export * from "./EnterUserNameForm";
+export * from "./MusicPlayer";
 export * from "./WaitCallModal";

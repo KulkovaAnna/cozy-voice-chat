@@ -18,6 +18,10 @@ type RouterParams = {
   // Сообщения
   handleNewMessage: (data: ServerMessage) => void;
   handleFileReceived: (data: ServerMessage) => void;
+  // Музыка
+  handleMusicStateChanged: (data: ServerMessage) => void;
+  // Стадия выполнения моей слэш-команды
+  handleCommandStatus: (data: ServerMessage) => void;
 };
 
 export function useChatMessageRouter(params: RouterParams) {
@@ -82,6 +86,14 @@ export function useChatMessageRouter(params: RouterParams) {
         }
         case "all::call::profile-updated": {
           params.handleCallProfileUpdated(data);
+          break;
+        }
+        case "all::call::music-state-changed": {
+          params.handleMusicStateChanged(data);
+          break;
+        }
+        case "me::command-status": {
+          params.handleCommandStatus(data);
           break;
         }
       }

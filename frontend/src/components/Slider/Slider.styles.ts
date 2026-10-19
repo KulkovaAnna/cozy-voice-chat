@@ -3,10 +3,11 @@ import styled from "@emotion/styled";
 export const SliderContainer = styled.div<{
   disabled?: boolean;
   thumbSize: number;
+  trackHeight: number;
 }>`
   position: relative;
   width: 100%;
-  height: 32px;
+  height: ${({ thumbSize, trackHeight }) => Math.max(thumbSize, trackHeight)}px;
   padding: 0 ${({ thumbSize }) => thumbSize / 2}px; /* отступы под размер бегунка */
   box-sizing: border-box; /* чтобы padding входил в ширину */
   touch-action: none;
@@ -15,12 +16,12 @@ export const SliderContainer = styled.div<{
   user-select: none;
 `;
 
-export const Track = styled.div<{ volume: number }>`
+export const Track = styled.div<{ volume: number; height: number }>`
   position: absolute;
   top: 50%;
   left: 0;
   right: 0;
-  height: 8px;
+  height: ${({ height }) => height}px;
   background: ${({ volume }) =>
     `rgb(${255 - 203 * volume}, ${149 + 50 * volume}, ${89 * volume})`};
   border-radius: 2px;

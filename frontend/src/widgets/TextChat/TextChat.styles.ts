@@ -75,3 +75,22 @@ export const AttachmentWrapper = styled.div`
     bottom: -1000px;
   }
 `;
+
+/** Тонкая строка индикатора выполнения слэш-команды */
+export const CommandStatusLine = styled.div`
+  position: absolute;
+  bottom: 100%;
+  left: 0;
+  right: 0;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  height: 18px;
+  font-size: 11px;
+  line-height: 18px;
+  color: ${({ theme }) => theme.colors.text.secondary};
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  pointer-events: none;
+`;

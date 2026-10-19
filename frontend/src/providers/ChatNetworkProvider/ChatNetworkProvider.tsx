@@ -8,7 +8,12 @@ import {
 
 import { usePeer, useProfileSettings } from "@cvc/hooks";
 
-import type { CardAppearance, TextMessage } from "@cvc/types";
+import type {
+  CardAppearance,
+  CommandStatus,
+  ServerMessage,
+  TextMessage,
+} from "@cvc/types";
 import { useAuth } from "../AuthProvider";
 import { ChatNetworkContext } from "./ChatNetworkContext";
 import {
@@ -24,6 +29,9 @@ import {
 export function ChatNetworkProvider(props: PropsWithChildren) {
   const socketRef = useRef<WebSocket | null>(null);
   const [textMessages, setTextMessages] = useState<Array<TextMessage>>([]);
+  const [commandStatus, setCommandStatus] = useState<CommandStatus | null>(
+    null,
+  );
 
   const { user, updateUser } = useAuth();
 
@@ -62,6 +70,47 @@ export function ChatNetworkProvider(props: PropsWithChildren) {
 
   const lobby = useChatLobby({ user, send });
   const callHook = useChatCall({ user, send, peerRef });
+
+  const playMusic = useCallback(() => {
+    const call = callHook.callInfoRef.current;
+    if (!call) return;
+    send("call::music-play", { callId: call.id });
+  }, [send, callHook.callInfoRef]);
+
+  const pauseMusic = useCallback(() => {
+    const call = callHook.callInfoRef.current;
+    if (!call) return;
+    send("call::music-pause", { callId: call.id });
+  }, [send, callHook.callInfoRef]);
+
+  const stopMusic = useCallback(() => {
+    const call = callHook.callInfoRef.current;
+    if (!call) return;
+    send("call::music-stop", { callId: call.id });
+  }, [send, callHook.callInfoRef]);
+
+  /**
+   * Переключение трека в очереди. expectedIndex — трек, который видит
+   * клиент: сервер пропустит переключение, если очередь уже сдвинулась.
+   */
+  const nextMusic = useCallback(
+    (expectedIndex: number) => {
+      const call = callHook.callInfoRef.current;
+      if (!call) return;
+      send("call::music-next", { callId: call.id, expectedIndex });
+    },
+    [send, callHook.callInfoRef],
+  );
+
+  const prevMusic = useCallback(
+    (expectedIndex: number) => {
+      const call = callHook.callInfoRef.current;
+      if (!call) return;
+      send("call::music-prev", { callId: call.id, expectedIndex });
+    },
+    [send, callHook.callInfoRef],
+  );
+
   const messages = useChatMessages({
     send,
     callInfoRef: callHook.callInfoRef,
@@ -95,7 +144,27 @@ export function ChatNetworkProvider(props: PropsWithChildren) {
   const handleCallEnded = useCallback(() => {
     callHook.handleCallEnded();
     setTextMessages([]);
+    setCommandStatus(null);
   }, [callHook]);
+
+  /**
+   * Стадия выполнения моей слэш-команды. Приходит только инициатору,
+   * поэтому состояние держим локально и не кладём в историю сообщений.
+   */
+  const handleCommandStatus = useCallback((data: ServerMessage) => {
+    const status = (data.data as { status?: string })?.status;
+    if (status === "done") {
+      setCommandStatus(null);
+      return;
+    }
+    setCommandStatus(data.data as unknown as CommandStatus);
+  }, []);
+
+  const handleMusicStateChanged = useCallback((data: ServerMessage) => {
+    window.dispatchEvent(
+      new CustomEvent("music::state-changed", { detail: data }),
+    );
+  }, []);
 
   const profileSettings = useProfileSettings();
 
@@ -148,6 +217,8 @@ export function ChatNetworkProvider(props: PropsWithChildren) {
     handleCallProfileUpdated: callHook.handleCallProfileUpdated,
     handleNewMessage: messages.handleNewMessage,
     handleFileReceived: messages.handleFileReceived,
+    handleMusicStateChanged,
+    handleCommandStatus,
   });
 
   useChatSignaling({
@@ -168,8 +239,14 @@ export function ChatNetworkProvider(props: PropsWithChildren) {
         isMyUserScreenSharing: callHook.isMyUserScreenSharing,
         localScreenStream,
         remoteScreenStream,
+        commandStatus,
         beginScreenShare,
         endScreenShare,
+        playMusic,
+        pauseMusic,
+        stopMusic,
+        nextMusic,
+        prevMusic,
         joinToLobby: lobby.joinToLobby,
         callToUser: lobby.callToUser,
         acceptCallOffer: lobby.acceptCallOffer,
