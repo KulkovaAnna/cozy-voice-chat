@@ -9,6 +9,18 @@ export default defineConfig(({ mode }) => {
 
   return {
     plugins: [react({ jsxImportSource: "@emotion/react" })],
+    build: {
+      rollupOptions: {
+        output: {
+          manualChunks: {
+            vendor: ["react", "react-dom", "react-router"],
+            emotion: ["@emotion/react", "@emotion/styled"],
+            peer: ["peerjs"],
+            emoji: ["emoji-picker-react"],
+          },
+        },
+      },
+    },
     resolve: {
       alias: {
         "@cvc": path.join(path.dirname(fileURLToPath(import.meta.url)), "src"),
