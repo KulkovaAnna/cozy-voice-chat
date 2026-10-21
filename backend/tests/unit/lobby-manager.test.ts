@@ -162,6 +162,7 @@ describe('LobbyManager', () => {
           color: '#ff0000',
           image: null,
           imageOpacity: 1,
+          backgroundBlur: 0,
         },
         avatarBorder: { style: 'solid', color: '#00ff00', width: 4 },
         textColor: '#ffffff',

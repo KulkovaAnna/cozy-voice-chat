@@ -40,6 +40,8 @@ export interface CardBackground {
   // Прозрачность картинки фона: 1 — полностью непрозрачная, 0 — невидимая.
   // Используется только при type === "image".
   imageOpacity: number;
+  // Размытие фона карточки (px). 0 — без размытия.
+  backgroundBlur: number;
 }
 
 // Внешний вид карточек пользователя (лобби и звонок).
@@ -67,6 +69,7 @@ export const DEFAULT_CARD_BACKGROUND: CardBackground = {
   color: null,
   image: null,
   imageOpacity: 1,
+  backgroundBlur: 0,
 };
 
 export const DEFAULT_CARD_APPEARANCE: CardAppearance = {

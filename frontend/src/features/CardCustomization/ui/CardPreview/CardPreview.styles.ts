@@ -36,6 +36,7 @@ const previewCard = {
   borderRadius: "12px",
   padding: "16px",
   boxSizing: "border-box" as const,
+  overflow: "hidden",
 };
 
 export const LobbyCard = styled.div(({ theme }) => ({

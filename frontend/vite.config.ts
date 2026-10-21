@@ -10,6 +10,7 @@ export default defineConfig(({ mode }) => {
   return {
     plugins: [react({ jsxImportSource: "@emotion/react" })],
     build: {
+      chunkSizeWarningLimit: 800,
       rollupOptions: {
         output: {
           manualChunks: {
@@ -17,6 +18,12 @@ export default defineConfig(({ mode }) => {
             emotion: ["@emotion/react", "@emotion/styled"],
             peer: ["peerjs"],
             emoji: ["emoji-picker-react"],
+            hooks: [
+              "zustand",
+              "react-hook-form",
+              "react-modal",
+              "react-toastify",
+            ],
           },
         },
       },

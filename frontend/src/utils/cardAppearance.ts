@@ -7,6 +7,8 @@ import type { CardAppearance, CardBackground } from "../types";
 const CARD_IMAGE_VAR = "--cvc-card-image";
 /** CSS-переменная с прозрачностью фоновой картинки карточки */
 const CARD_IMAGE_OPACITY_VAR = "--cvc-card-image-opacity";
+/** CSS-переменная с размытием фоновой картинки карточки */
+const CARD_BLUR_VAR = "--cvc-card-blur";
 
 /**
  * Слой фоновой картинки карточки.
@@ -34,6 +36,7 @@ export const cardImageLayerStyles = {
     backgroundSize: "cover",
     backgroundPosition: "center",
     opacity: `var(${CARD_IMAGE_OPACITY_VAR}, 1)`,
+    filter: `blur(var(${CARD_BLUR_VAR}, 0px))`,
   },
 } satisfies CSSObject;
 
@@ -47,6 +50,13 @@ function resolveImageOpacity(background: CardBackground): number {
   const opacity = background.imageOpacity;
   if (typeof opacity !== "number" || !Number.isFinite(opacity)) return 1;
   return Math.min(1, Math.max(0, opacity));
+}
+
+/** Размытие фона в допустимом диапазоне 0..20px. */
+function resolveBackgroundBlur(background: CardBackground): number {
+  const blur = background.backgroundBlur;
+  if (typeof blur !== "number" || !Number.isFinite(blur)) return 0;
+  return Math.min(20, Math.max(0, blur));
 }
 
 /**
@@ -63,16 +73,18 @@ export function backgroundToCss(
   switch (background.type) {
     case "color":
       return background.color
-        ? {
+        ? ({
             backgroundImage: `linear-gradient(${background.color}, ${background.color})`,
-          }
+            [CARD_BLUR_VAR]: "0px",
+          } as CSSProperties & Record<string, string>)
         : undefined;
     case "image":
       return background.image
         ? ({
             [CARD_IMAGE_VAR]: toCssUrl(background.image),
             [CARD_IMAGE_OPACITY_VAR]: String(resolveImageOpacity(background)),
-          } as CSSProperties)
+            [CARD_BLUR_VAR]: `${resolveBackgroundBlur(background)}px`,
+          } as CSSProperties & Record<string, string>)
         : undefined;
     case "none":
     default:

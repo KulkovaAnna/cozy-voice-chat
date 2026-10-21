@@ -35,6 +35,7 @@ export interface CardBackgroundData {
   color: string | null;
   image: string | null;
   imageOpacity: number;
+  backgroundBlur: number;
 }
 
 /** Внешний вид карточек пользователя (лобби и звонок) */

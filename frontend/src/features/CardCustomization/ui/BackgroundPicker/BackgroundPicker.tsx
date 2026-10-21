@@ -31,6 +31,10 @@ export function BackgroundPicker(props: BackgroundPickerProps) {
     props.onChange({ ...props.value, imageOpacity: 1 - transparency });
   };
 
+  const changeBlur = (blur: number) => {
+    props.onChange({ ...props.value, backgroundBlur: blur });
+  };
+
   const uploadImage = async (file: File) => {
     setIsUploading(true);
     try {
@@ -113,6 +117,23 @@ export function BackgroundPicker(props: BackgroundPickerProps) {
           />
           <Styles.OpacityValue>
             {Math.round((1 - (props.value.imageOpacity ?? 1)) * 100)}%
+          </Styles.OpacityValue>
+        </Styles.Row>
+      )}
+      {(props.value.type === "color" ||
+        (props.value.type === "image" && props.value.image)) && (
+        <Styles.Row>
+          <Label>Размытие фона</Label>
+          <Range
+            min={0}
+            max={10}
+            step={1}
+            value={props.value.backgroundBlur}
+            onChange={changeBlur}
+            aria-label={`Размытие фона: ${props.label}`}
+          />
+          <Styles.OpacityValue>
+            {props.value.backgroundBlur}px
           </Styles.OpacityValue>
         </Styles.Row>
       )}

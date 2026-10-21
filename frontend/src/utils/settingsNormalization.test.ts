@@ -62,11 +62,27 @@ describe("normalizeSettings", () => {
     expect(result.profile.cardAppearance.background.type).toBe("color");
     expect(result.profile.cardAppearance.background.color).toBe("#ff0000");
     expect(result.profile.cardAppearance.background.imageOpacity).toBe(0.5);
+    expect(result.profile.cardAppearance.background.backgroundBlur).toBe(0);
     expect(result.profile.cardAppearance.avatarBorder.style).toBe("dashed");
     expect(result.profile.cardAppearance.avatarBorder.color).toBe("#ffffff");
     expect(result.profile.cardAppearance.avatarBorder.width).toBe(5);
     expect(result.profile.cardAppearance.textColor).toBe("#000000");
     expect(result.profile.cardAppearance.textShadow).toBe(true);
+  });
+
+  it("валидный backgroundBlur сохраняется", () => {
+    const result = normalizeSettings({
+      profile: {
+        cardAppearance: {
+          background: {
+            type: "image",
+            image: "bg.png",
+            backgroundBlur: 8,
+          },
+        },
+      },
+    });
+    expect(result.profile.cardAppearance.background.backgroundBlur).toBe(8);
   });
 
   it("неизвестные ключи просто теряются", () => {
@@ -92,6 +108,43 @@ describe("normalizeSettings", () => {
       },
     });
     expect(result.profile.cardAppearance.background.imageOpacity).toBe(1);
+  });
+
+  it("out-of-range backgroundBlur → fallback", () => {
+    const result = normalizeSettings({
+      profile: {
+        cardAppearance: {
+          background: { type: "color", color: "#fff", backgroundBlur: 100 },
+        },
+      },
+    });
+    expect(result.profile.cardAppearance.background.backgroundBlur).toBe(0);
+  });
+
+  it("валидный backgroundBlur сохраняется", () => {
+    const result = normalizeSettings({
+      profile: {
+        cardAppearance: {
+          background: {
+            type: "image",
+            image: "bg.png",
+            backgroundBlur: 8,
+          },
+        },
+      },
+    });
+    expect(result.profile.cardAppearance.background.backgroundBlur).toBe(8);
+  });
+
+  it("backgroundBlur == 0 сохраняется", () => {
+    const result = normalizeSettings({
+      profile: {
+        cardAppearance: {
+          background: { type: "color", color: "#fff", backgroundBlur: 0 },
+        },
+      },
+    });
+    expect(result.profile.cardAppearance.background.backgroundBlur).toBe(0);
   });
 
   it("невалидный enum → fallback", () => {

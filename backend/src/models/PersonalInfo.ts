@@ -27,6 +27,7 @@ const DEFAULT_BACKGROUND: CardBackgroundData = {
   color: null,
   image: null,
   imageOpacity: 1,
+  backgroundBlur: 0,
 };
 
 /** Максимальная длина URL/строки цвета в настройках карточки */
@@ -41,6 +42,11 @@ function normalizeImageOpacity(value: unknown): number {
   }
 
   return Math.min(1, Math.max(0, value));
+}
+
+function normalizeBackgroundBlur(value: unknown): number {
+  if (typeof value !== 'number' || !Number.isFinite(value)) return 0;
+  return Math.min(20, Math.max(0, Math.round(value)));
 }
 
 function normalizeBackground(raw: unknown): CardBackgroundData {
@@ -64,6 +70,7 @@ function normalizeBackground(raw: unknown): CardBackgroundData {
         ? bg.image
         : null,
     imageOpacity: normalizeImageOpacity(bg.imageOpacity),
+    backgroundBlur: normalizeBackgroundBlur(bg.backgroundBlur),
   };
 }
 

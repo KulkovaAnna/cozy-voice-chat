@@ -84,6 +84,12 @@ function parseProfile(raw: unknown): ProfileSettings {
           1,
           DEFAULT_CARD_BACKGROUND.imageOpacity,
         ),
+        backgroundBlur: readNumber(
+          background.backgroundBlur,
+          0,
+          10,
+          DEFAULT_CARD_BACKGROUND.backgroundBlur,
+        ),
       },
       avatarBorder: {
         style: readEnum(
