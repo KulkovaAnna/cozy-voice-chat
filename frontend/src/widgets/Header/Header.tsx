@@ -1,4 +1,5 @@
 import { Avatar } from "@cvc/components";
+import { PwaInstall } from "@cvc/features";
 import { useProfileSettings } from "@cvc/hooks";
 import { useSearchParams } from "react-router";
 import * as Styles from "./Header.styles";
@@ -31,6 +32,7 @@ export const Header = () => {
         <h1>Cozy Voice Chat</h1>
       </Styles.SiteLogo>
       <Styles.RightPanel>
+        <PwaInstall />
         <UserName />
         <Styles.InvisibleButton onClick={openSettings} size={40}>
           <Avatar key="avatar" src={avatar ?? undefined} size={40} />

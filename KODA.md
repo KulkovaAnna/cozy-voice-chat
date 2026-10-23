@@ -17,6 +17,7 @@
 - Демонстрация экрана (Screen Sharing).
 - Picture-in-Picture оверлей: always-on-top окно (Document PiP API) с аватарами участников, подсветкой говорящего, кнопками мута и завершения звонка. Открывается автоматически при потере фокуса таба (mediaSession-действие `enterpictureinpicture`, Chrome/Edge 120+), закрывается при возврате на таб. Автопоявление можно отключить в настройках (вкладка «Интерфейс» панели настроек).
 - Кастомизация профиля (имя, аватар), тёмная и светлая темы, мобильный адаптив.
+- PWA: установка как приложение (манифест + service worker на Workbox через `vite-plugin-pwa`), отдельное окно без вкладок, офлайн-шелл, автообновление с тостом, системные уведомления о входящем звонке и значок непрочитанных сообщений. Web Push не используется — уведомления идут прямо со страницы по уже существующему WS-соединению.
 - Кастомизация карточки пользователя: фон карточки в лобби и в звонке — цвет или картинка с регулируемой прозрачностью и размытием, стилизуемая рамка аватара (стиль/цвет/толщина) и оформление текста карточки (цвет, тень). Живое превью и мгновенная синхронизация с участниками.
 - Живое обновление профиля: смена имени/аватара/карточки мгновенно рассылается участникам лобби и звонка (`lobby::update-profile` → `all::lobby::profile-updated` / `all::call::profile-updated`), без перезагрузки страницы.
 - HTTPS «из коробки» (нужен для Screen Sharing и PiP API).
@@ -31,6 +32,7 @@
 
 - Данные пользователя (имя, id) хранятся в `localStorage` браузера; аватар и фон карточки загружаются на сервер (папка `uploads/profile`) и хранятся на диске.
 - PiP работает только в Chromium-браузерах (Document PiP API + mediaSession `enterpictureinpicture`, Chrome/Edge 120+); в Firefox/Safari окно не появится. При первом автооткрытии браузер может запросить разрешение.
+- PWA привязано к origin с портом: установка на `https://<IP>:4173` и на `:5173` — это два разных приложения с раздельным `localStorage`. Нужен HTTPS и доверенный на клиентской машине mkcert CA. Офлайн доступна только оболочка: backend (`:8080`), файлы и музыка не кэшируются.
 
 ---
 
@@ -40,6 +42,8 @@
 
 - **React 19** + **TypeScript**
 - **Vite 7** — сборщик и dev-сервер
+- **vite-plugin-pwa** — манифест + service worker (Workbox generateSW)
+- **@fontsource-variable/nunito** — саморазмещаемый шрифт Nunito (latin + cyrillic + cyrillic-ext)
 - **PeerJS** — обёртка над WebRTC
 - **Emotion** (`@emotion/react`, `@emotion/styled`) — стилизация (JSX-источник — `@emotion/react`)
 - **Zustand** — управление состоянием настроек (`settingsStore`) и несохранённых изменений (`unsavedChangesStore`)
@@ -138,7 +142,8 @@ widgets/               # Слой widgets: композиционные блок
                        #   ControlPanel, TextChat, UserCard, PiPWidget
 features/              # Слой features: прикладные фичи
                         #   AcceptCallModal, WaitCallModal, CallButton, CardCustomization,
-                        #   EditableNickname, EnterUserNameForm, EmojiPicker, MusicPlayer
+                        #   EditableNickname, EnterUserNameForm, EmojiPicker, MusicPlayer,
+                        #   PwaInstall
 components/            # Слой components: презентационный UI-кит
                         #   Avatar, Button, Card, Column, Row, Input, Icons, Message,
                         #   SidePanel, Slider, Range, ColorInput, Select, Toggle,
@@ -147,12 +152,14 @@ providers/             # Слой providers: AuthProvider, ChatNetworkProvider,
                        #   TextChatProvider, ThemeColorProvider, PiPProvider
 hooks/                 # Слой hooks: usePeer, useLocalStorage, useClickOutside,
                        #   usePageVisibility, useDocumentPictureInPicture, useSettings,
-                       #   useMicrophones, useDefaultDeviceName, useUnsavedChangesGuard
+                       #   useMicrophones, useDefaultDeviceName, useUnsavedChangesGuard,
+                       #   usePwaInstall, usePwaUpdate
 theme/                 # Слой theme: тема и GlobalStyles (Emotion)
 types/                 # Слой types: общие типы (clientTypes, serverTypes, settings)
 utils/                 # Слой utils: adapters, cardAppearance, fileToBase64,
                        #   settingsStore (Zustand), settingsNormalization, unsavedChangesStore (Zustand),
-                       #   microphones (устройства ввода и MediaTrackConstraints), SpeechDetection
+                       #   microphones (устройства ввода и MediaTrackConstraints), SpeechDetection,
+                       #   notifications (Notification API + setAppBadge)
 assets/                # Статические ресурсы (изображения)
 ```
 
@@ -200,6 +207,14 @@ app → pages → widgets → features → {components, providers} → hooks →
   - `providers/PiPProvider` — контекст `{ isSupported, isOpen, pipWindow, open, openAuto, close }`; на время активного звонка регистрирует mediaSession-действие `enterpictureinpicture`, которое браузер само вызывает при переключении с таба (открытие без user-жеста; Chrome 120+, условие — активный захват микрофона через `getUserMedia`). Читает `settings.pip.autoOpen` и пропускает регистрацию действия, если пользователь отключил автопоявление.
   - `widgets/PiPWidget` — рендерится на странице `Call`, контент монтируется через `createPortal` в `pipWindow.document.body` (портал сохраняет все контексты). Показывает аватары участников с подсветкой говорящего и бейджем mute, кнопки мута и завершения звонка; закрывает окно при завершении звонка.
   - Важные нюансы: `onClick`-обработчики внутри портала работают штатно (React 19 корректно пробрасывает события через порталы в другой document); кнопка завершения звонка вызывается обёрткой `() => endCall()` — прямой `onClick={endCall}` передал бы React-событие первым аргументом в `endCall(nextCallInfo?: CallInfo)` и сломал `callId`.
+- **PWA** — генерируется `vite-plugin-pwa` (generateSW + Workbox):
+  - `frontend/vite.config.ts`: `VitePWA` плагин генерирует `dist/sw.js` и `dist/manifest.webmanifest`. Прекещ 27 файлов (JS/CSS/HTML, шрифты Nunito, иконки, аудио, jpg из assets). `globPatterns: "**/*.{js,css,html,ico,png,svg,jpg,jpeg,webp,woff2,mp3,gif}"`. `navigateFallback: "index.html"` — офлайн-шелл через `NavigationRoute`. `registerType: "autoUpdate"` — новая версия ставится и активируется автоматически; `onNeedReload` перехватывается в `features/PwaInstall` и показывает тост «Доступна новая версия» с кнопкой «Обновить» (чтобы не оборвать идущий звонок).
+  - `public/icons/`: `icon-192.png` (192x192, `purpose: "any"`), `icon-512.png` (512x512, `purpose: "any"` + `purpose: "maskable"`).
+  - `public/index.html`: `lang="ru"`, `theme-color` meta, `apple-touch-icon` (iOS). `<link rel="manifest">` инжектит плагин автоматически.
+  - `features/PwaInstall/ui/PwaInstall.tsx`: хуки `usePwaInstall` (перехват `beforeinstallprompt` → кнопка «Установить» в шапке) + `usePwaUpdate` (`useRegisterSW` из `virtual:pwa-register/react` → тост обновления). В dev-режиме (`devOptions.enabled: false`) `useRegisterSW` возвращает заглушку — `yarn dev` не меняется.
+  - `utils/notifications.ts`: `notifyIncomingCall(name)` — системное уведомление при входящем звонке; `setAppBadge(count)` / `clearAppBadge()` — счётчик непрочитанных на значке приложения. Вызываются из `ChatNetworkProvider` при `me::call-offer` и при приёме сообщений в фоновой вкладке.
+  - Web Push не используется — уведомления идут прямо со страницы по уже существующему WS-соединению. Push-сервис противоречит идее «никакого облака» и не работает без интернета.
+  - Шрифты: `@fontsource-variable/nunito` — саморазмещаемый variable font (latin + cyrillic + cyrillic-ext, веса 200–900, один файл `.woff2` на подмножество). Подключается в `main.tsx` как `import '@fontsource-variable/nunito/index.css'`. Google Fonts удалены из `index.html`.
 - **Настройки приложения (`AppSettings`)** — хранятся в `localStorage` (`app.settings`) через Zustand-стор `utils/settingsStore.ts` (`useSettingsStore`). Секции: `audio` (устройство ввода, noiseSuppression, echoCancellation, autoGainControl), `pip` (`autoOpen` — автопоявление PiP-окна), `profile` (`avatar` — аватар, `cardAppearance` — внешний вид карточек). Панель настроек в хедере: вкладки «Профиль», «Кастомизация» (тема + карточка пользователя), «Интерфейс» (PiP), «Микрофон». Типы в `types/settings.ts`, действия — `useSettingActions()` из `hooks/useSettings.ts` (включая `setAudio`/`setPip`/`setProfile`/`setInputDeviceId`). Стор использует middleware `persist` (сериализация в `localStorage` с `partialize` по секциям). Точечные подписки — нативные селекторы Zustand (`useSettingsStore((s) => s.audio)`). Императивное чтение — `useSettingsStore.getState()`. Cross-tab синхронизация через событие `storage` + `useSettingsStore.setState(normalizeSettings(parsed))`.
   - Валидация из хранилища — чистая функция `normalizeSettings(raw)` в `utils/settingsNormalization.ts` (без привязки к стору): известные поля читаются по именам с проверкой типов, неизвестные ключи теряются. Профиль собирается `parseProfile()` — вложенность (`profile` → `cardAppearance` → `background`/`avatarBorder`) раскрывается через `asRecord()`; примитивы читаются хелперами `readString`/`readBoolean`/`readEnum`/`readNumber` (последний валидирует диапазон). Миграций между версиями схемы нет: `v3 → v4` (перенос аватара из объекта `user`) применена, объект `user` в `localStorage` больше не читается.
 - **Стор несохранённых изменений** — `utils/unsavedChangesStore.ts` на Zustand: `useUnsavedChangesStore` (Map охранников + `register`/`unregister`). Публичный API — императивные обёртки `registerUnsavedChanges`/`hasUnsavedChanges`/`getUnsavedChangesNames`/`saveAllUnsavedChanges`, потребители (`SettingsPanel`, `useUnsavedChangesGuard`) не менялись. Баррель `utils/index.ts` реэкспортирует только эти функции — сам Zustand-стор доступен по прямому пути `@cvc/utils/unsavedChangesStore`.
@@ -275,15 +290,15 @@ yarn dev
 
 **Frontend (`frontend/package.json`):**
 
-| Команда           | Действие                                                      |
-| ----------------- | ------------------------------------------------------------- |
-| `yarn dev`        | Vite dev-сервер с `--host` (HTTPS, порт 5173)                 |
-| `yarn build`      | `tsc -b && vite build`                                        |
-| `yarn preview`    | Предпросмотр сборки (`vite preview --host`)                   |
-| `yarn lint`       | Запуск ESLint                                                 |
-| `yarn test`       | Unit-тесты фронтенда (`vitest run`)                           |
-| `yarn test:watch` | Тесты фронтенда в watch-режиме                                |
-| `yarn ps:start`   | PeerJS-сервер на порту 9000 с SSL-сертификатами из `../cert/` |
+| Команда           | Действие                                                                                  |
+| ----------------- | ----------------------------------------------------------------------------------------- |
+| `yarn dev`        | Vite dev-сервер с `--host` (HTTPS, порт 5173)                                             |
+| `yarn build`      | `tsc -b && vite build` (генерирует `dist/sw.js` и `dist/manifest.webmanifest`)            |
+| `yarn preview`    | Предпросмотр сборки (`vite preview --host`) — canonical-адрес для установки PWA (`:4173`) |
+| `yarn lint`       | Запуск ESLint                                                                             |
+| `yarn test`       | Unit-тесты фронтенда (`vitest run`)                                                       |
+| `yarn test:watch` | Тесты фронтенда в watch-режиме                                                            |
+| `yarn ps:start`   | PeerJS-сервер на порту 9000 с SSL-сертификатами из `../cert/`                             |
 
 > Vite-конфиг читает `SSL_KEY_PATH` / `SSL_CERT_PATH` из env и поднимает HTTPS на `0.0.0.0:5173`. Если файлы сертификатов отсутствуют — dev-сервер не стартует.
 

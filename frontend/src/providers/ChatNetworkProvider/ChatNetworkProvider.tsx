@@ -8,6 +8,13 @@ import {
 
 import { usePeer, useProfileSettings } from "@cvc/hooks";
 
+import {
+  clearAppBadge,
+  notifyIncomingCall,
+  requestNotificationPermission,
+  setAppBadge,
+} from "@cvc/utils/notifications";
+
 import type {
   CardAppearance,
   CommandStatus,
@@ -141,10 +148,15 @@ export function ChatNetworkProvider(props: PropsWithChildren) {
     [initialize, updateUser],
   );
 
+  // Счётчик сообщений, пришедших, пока вкладка была скрыта.
+  const unreadCount = useRef(0);
+
   const handleCallEnded = useCallback(() => {
     callHook.handleCallEnded();
     setTextMessages([]);
     setCommandStatus(null);
+    unreadCount.current = 0;
+    clearAppBadge();
   }, [callHook]);
 
   /**
@@ -204,10 +216,58 @@ export function ChatNetworkProvider(props: PropsWithChildren) {
     updateProfile(profile);
   }, [profileSettings, updateProfile, user.id, user.name]);
 
+  // ── Нативные уведомления и значок непрочитанных ────────────────────────
+  // Push-сервис не используем: о звонке и сообщениях нам говорит наш же WS,
+  // поэтому достаточно Notification API прямо со страницы.
+
+  /**
+   * Входящий звонок — системное уведомление. Разрешение запрашиваем лениво,
+   * в момент реального вызова, а не при заходе на страницу.
+   */
+  const handleCallOffer = useCallback(
+    (data: ServerMessage) => {
+      lobby.handleCallOffer(data);
+
+      // me::call-initiated — это наш собственный исходящий звонок,
+      // уведомлять нас о нём не за чем.
+      if (data.type !== "me::call-offer") return;
+
+      void requestNotificationPermission().then((permission) => {
+        if (permission !== "granted") return;
+        const initiator = data.data.callOffer?.initiator;
+        notifyIncomingCall(initiator?.name ?? "Собеседник");
+      });
+    },
+    [lobby],
+  );
+
+  /** Сообщения, пришедшие в фоновую вкладку, считаем непрочитанными. */
+  const handleNewMessage = useCallback(
+    (data: ServerMessage) => {
+      messages.handleNewMessage(data);
+      if (!document.hidden) return;
+      unreadCount.current += 1;
+      setAppBadge(unreadCount.current);
+    },
+    [messages],
+  );
+
+  // Вернулись во вкладку — значок больше не нужен.
+  useEffect(() => {
+    const onVisibilityChange = () => {
+      if (document.hidden) return;
+      unreadCount.current = 0;
+      clearAppBadge();
+    };
+    document.addEventListener("visibilitychange", onVisibilityChange);
+    return () =>
+      document.removeEventListener("visibilitychange", onVisibilityChange);
+  }, []);
+
   const { route } = useChatMessageRouter({
     handleLobbyJoined: lobby.handleLobbyJoined,
     onMeLobbyJoined,
-    handleCallOffer: lobby.handleCallOffer,
+    handleCallOffer,
     handleCallOfferDeclined: lobby.handleCallOfferDeclined,
     setCallOfferNull: lobby.clearCallOffer,
     handleCallStarted: callHook.handleCallStarted,
@@ -215,7 +275,7 @@ export function ChatNetworkProvider(props: PropsWithChildren) {
     handleOnlineChanged: callHook.handleOnlineChanged,
     handleCallStateChanged: callHook.handleCallStateChanged,
     handleCallProfileUpdated: callHook.handleCallProfileUpdated,
-    handleNewMessage: messages.handleNewMessage,
+    handleNewMessage,
     handleFileReceived: messages.handleFileReceived,
     handleMusicStateChanged,
     handleCommandStatus,

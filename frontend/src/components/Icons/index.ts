@@ -12,6 +12,7 @@ export * from "./EmojiIcon";
 export * from "./EndCallIcon";
 export * from "./ExitIIcon";
 export * from "./FileUploadIcon";
+export * from "./InstallAppIcon";
 export * from "./LoadingIcon";
 export * from "./MicOffIcon";
 export * from "./MicOnIcon";
