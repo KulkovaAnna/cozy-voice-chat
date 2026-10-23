@@ -6,6 +6,8 @@ import {
   type PropsWithChildren,
 } from "react";
 
+import { toast } from "react-toastify";
+
 import { usePeer, useProfileSettings } from "@cvc/hooks";
 
 import {
@@ -252,6 +254,18 @@ export function ChatNetworkProvider(props: PropsWithChildren) {
     [messages],
   );
 
+  /**
+   * Ошибки от сервера (занят, не найден, rate limit) — показываем как toast.
+   * Сервер шлёт type="error" с data.message — текст уже на русском.
+   */
+  const handleError = useCallback((data: ServerMessage) => {
+    const message =
+      typeof data.data?.message === "string"
+        ? data.data.message
+        : "Что-то пошло не так";
+    toast(message, { type: "error" });
+  }, []);
+
   // Вернулись во вкладку — значок больше не нужен.
   useEffect(() => {
     const onVisibilityChange = () => {
@@ -279,6 +293,7 @@ export function ChatNetworkProvider(props: PropsWithChildren) {
     handleFileReceived: messages.handleFileReceived,
     handleMusicStateChanged,
     handleCommandStatus,
+    handleError,
   });
 
   useChatSignaling({

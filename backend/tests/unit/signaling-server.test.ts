@@ -369,6 +369,82 @@ describe('SignalingServer', () => {
       // Новый оффер существует
       expect(offer2).toBeDefined();
     });
+
+    it('should decline previous offer of the receiver when someone else calls them', async () => {
+      const ws1 = await simulateConnection('10.0.0.1');
+      await sendMessage(ws1, 'lobby::join', {
+        personalInfo: { name: 'Alice' },
+      });
+
+      const ws2 = await simulateConnection('10.0.0.2');
+      await sendMessage(ws2, 'lobby::join', { personalInfo: { name: 'Bob' } });
+
+      const ws3 = await simulateConnection('10.0.0.3');
+      await sendMessage(ws3, 'lobby::join', {
+        personalInfo: { name: 'Charlie' },
+      });
+
+      const bob = lobby.getMemberByIp('10.0.0.2')!;
+      const charlie = lobby.getMemberByIp('10.0.0.3')!;
+
+      // Charlie звонит Bob
+      await sendMessage(ws3, 'lobby::initiate-call', { receiverId: bob.id });
+      const offer1 = lobby.getOfferByMemberId(bob.id)!;
+
+      // Alice тоже звонит Bob — оффер от Charlie должен быть отклонён
+      await sendMessage(ws1, 'lobby::initiate-call', { receiverId: bob.id });
+
+      expect(lobby.getOfferById(offer1.id)).toBeUndefined();
+      const declined = getSent(ws3).find(
+        (m: any) => m.type === 'me::call-offer-declined',
+      );
+      expect(declined).toBeDefined();
+      // Новый оффер от Alice к Bob создан
+      const offer2 = lobby.getOfferByMemberId(bob.id)!;
+      expect(offer2).toBeDefined();
+      expect(offer2.initiator.id).not.toBe(charlie.id);
+    });
+
+    it('should send error when calling a user who is already in a call', async () => {
+      // Alice и Bob создают звонок
+      await setupCall();
+
+      // Charlie пытается позвонить Bob, который уже в звонке
+      const ws3 = await simulateConnection('10.0.0.3');
+      await sendMessage(ws3, 'lobby::join', {
+        personalInfo: { name: 'Charlie' },
+      });
+      const bob = lobby.getMemberByIp('10.0.0.2')!;
+
+      await sendMessage(ws3, 'lobby::initiate-call', { receiverId: bob.id });
+
+      const err = getSent(ws3).find((m: any) => m.type === 'error');
+      expect(err).toBeDefined();
+      expect(err.data.message).toContain('сейчас в другом звонке');
+      // Оффер не должен быть создан
+      expect(lobby.getOfferByMemberId(bob.id)).toBeUndefined();
+    });
+
+    it('should send error when initiator is already in a call', async () => {
+      const { ws1 } = await setupCall();
+
+      // Charlie присоединяется к лобби
+      const ws3 = await simulateConnection('10.0.0.3');
+      await sendMessage(ws3, 'lobby::join', {
+        personalInfo: { name: 'Charlie' },
+      });
+      const charlie = lobby.getMemberByIp('10.0.0.3')!;
+
+      // Alice, которая уже в звонке, пытается позвонить Charlie
+      await sendMessage(ws1, 'lobby::initiate-call', {
+        receiverId: charlie.id,
+      });
+
+      const err = getSent(ws1).find((m: any) => m.type === 'error');
+      expect(err).toBeDefined();
+      expect(err.data.message).toContain('Вы уже в звонке');
+      expect(lobby.getOfferByMemberId(charlie.id)).toBeUndefined();
+    });
   });
 
   // ─── lobby::accept-offer ──────────────────────────────────────

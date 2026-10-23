@@ -401,6 +401,29 @@ export default class SignalingServer {
     }
   }
 
+  /**
+   * Отклоняет активный оффер участника: уведомляет вторую сторону и удаляет оффер.
+   * Используется для защиты от дублирования — у одного участника не может
+   * быть одновременно несколько висящих офферов.
+   */
+  private declineMemberOffer(memberId: string): void {
+    const offer = this.lobbyManager.getOfferByMemberId(memberId);
+    if (!offer) return;
+
+    const peer =
+      offer.initiator.id === memberId ? offer.receiver : offer.initiator;
+
+    this.sendToClient(peer.ws, {
+      type: MESSAGE_TYPES.SEND.ME.CALL_OFFER_DECLINED,
+      data: {
+        callOffer: offer,
+        timestamp: new Date().toISOString(),
+      },
+    });
+
+    this.lobbyManager.callOffers.delete(offer.id);
+  }
+
   private handleInitiateCall(ws: WebSocket, receiverId: string): void {
     const initiator = this.lobbyManager.getMemberByWs(ws);
     const receiver = this.lobbyManager.getMemberById(receiverId);
@@ -413,22 +436,24 @@ export default class SignalingServer {
       throw new Error('Вы не можете позвонить сами себе');
     }
 
-    // Защита от дублирования: отклонить предыдущий активный оффер инициатора
-    const prevOffer = this.lobbyManager.getOfferByMemberId(initiator.id);
-    if (prevOffer) {
-      const prevPeer =
-        prevOffer.initiator.id === initiator.id
-          ? prevOffer.receiver
-          : prevOffer.initiator;
-      this.sendToClient(prevPeer.ws, {
-        type: MESSAGE_TYPES.SEND.ME.CALL_OFFER_DECLINED,
-        data: {
-          callOffer: prevOffer,
-          timestamp: new Date().toISOString(),
-        },
-      });
-      this.lobbyManager.callOffers.delete(prevOffer.id);
+    // Занятость: участники активного звонка не могут ни звонить, ни принимать
+    // вызовы. Иначе оффер «висит» — получатель его не видит, а звонящий ждёт.
+    if (this.callManager.getClientCall(initiator.id)) {
+      throw new Error('Вы уже в звонке. Сначала завершите текущий');
     }
+
+    if (this.callManager.getClientCall(receiver.id)) {
+      const receiverName =
+        receiver.personalInfo?.name?.trim() || 'Пользователь';
+      throw new Error(`${receiverName} сейчас в другом звонке`);
+    }
+
+    // Защита от дублирования: отклонить предыдущий активный оффер инициатора
+    this.declineMemberOffer(initiator.id);
+
+    // Если получателя уже кто-то зовёт — отклоняем тот оффер, иначе у получателя
+    // окажется два висящих вызова и первый потеряется.
+    this.declineMemberOffer(receiver.id);
 
     const offer = this.lobbyManager.createCallOffer(initiator, receiver);
 
@@ -469,6 +494,9 @@ export default class SignalingServer {
     });
 
     const call = this.callManager.startCall(currentOffer);
+
+    // Оффер больше не нужен — звонок начался
+    this.lobbyManager.callOffers.delete(offerId);
 
     this.broadcastToCall(call.id, {
       type: MESSAGE_TYPES.SEND.ALL.CALL.CALL_STARTED,

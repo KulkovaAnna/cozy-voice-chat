@@ -22,6 +22,8 @@ type RouterParams = {
   handleMusicStateChanged: (data: ServerMessage) => void;
   // Стадия выполнения моей слэш-команды
   handleCommandStatus: (data: ServerMessage) => void;
+  // Ошибки от сервера
+  handleError: (data: ServerMessage) => void;
 };
 
 export function useChatMessageRouter(params: RouterParams) {
@@ -94,6 +96,10 @@ export function useChatMessageRouter(params: RouterParams) {
         }
         case "me::command-status": {
           params.handleCommandStatus(data);
+          break;
+        }
+        case "error": {
+          params.handleError(data);
           break;
         }
       }
