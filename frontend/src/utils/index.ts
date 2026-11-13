@@ -1,4 +1,5 @@
 export * from "./adapters";
+export * from "./attachments";
 export * from "./cardAppearance";
 export * from "./emoji";
 export * from "./fileToBase64";

@@ -41,8 +41,11 @@ export function TextChatProvider(props: PropsWithChildren) {
     }
   }, [isOpen, isTabVisible]);
 
-  const sendFile = async (file: File) => {
-    if (!callInfo) return;
+  const sendFile = async (
+    file: File,
+  ): Promise<{ fileId: string } | null> => {
+    if (!callInfo) return null;
+
     const formData = new FormData();
     formData.append("file", file);
     formData.append("callId", callInfo.id);
@@ -52,10 +55,11 @@ export function TextChatProvider(props: PropsWithChildren) {
     });
 
     if (res.ok) {
-      return res.json();
-    } else {
-      toast("Что-то пошло не так", { type: "error" });
+      return (await res.json()) as { fileId: string };
     }
+
+    toast("Что-то пошло не так", { type: "error" });
+    return null;
   };
 
   return (

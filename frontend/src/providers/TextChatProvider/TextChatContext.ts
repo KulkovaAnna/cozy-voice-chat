@@ -10,7 +10,7 @@ export type TextChatContextType = {
   switchTextChatIsOpen: VoidFunction;
   readMessages: VoidFunction;
   sendTextMessage: (msg: string) => void;
-  sendFile: (file: File) => Promise<{ fileId: string }>;
+  sendFile: (file: File) => Promise<{ fileId: string } | null>;
   emojiReaction: EmojiReaction | null;
 };
 
@@ -21,6 +21,6 @@ export const TextChatContext = createContext<TextChatContextType>({
   switchTextChatIsOpen: () => {},
   readMessages: () => {},
   sendTextMessage: () => {},
-  sendFile: async () => ({ fileId: "" }),
+  sendFile: async () => null,
   emojiReaction: null,
 });

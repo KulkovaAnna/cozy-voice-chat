@@ -1,15 +1,18 @@
 import {
+  useCallback,
   useEffect,
   useRef,
   useState,
   type ChangeEventHandler,
+  type DragEventHandler,
   type KeyboardEventHandler,
   type SubmitEventHandler,
 } from "react";
+import { toast } from "react-toastify";
 
 import {
   AttachmentIcon,
-  FileInfo,
+  CloseIcon,
   IconButton,
   LoadingIcon,
   Message,
@@ -18,6 +21,12 @@ import {
 } from "@cvc/components";
 import { CommandSuggest, EmojiPicker, MusicPlayer } from "@cvc/features";
 import { useAuth, useChatNetwork, useTextChat } from "@cvc/providers";
+import {
+  extractClipboardFiles,
+  extractDroppedFiles,
+  isFileDrag,
+  namePastedFile,
+} from "@cvc/utils";
 
 import * as Styles from "./TextChat.styles";
 
@@ -45,7 +54,95 @@ export function TextChat() {
   const msgRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const audioRef = useRef<HTMLAudioElement>(null);
-  const attachmentRef = useRef<HTMLInputElement>(null);
+  const dragDepthRef = useRef(0);
+  const [isDragActive, setIsDragActive] = useState(false);
+
+  const attachFile = useCallback((incoming: File | null) => {
+    if (!incoming) return;
+    setFile(incoming);
+    requestAnimationFrame(() => inputRef.current?.focus());
+  }, []);
+
+  // Счётчик глубины: dragleave срабатывает и на дочерних элементах,
+  // поэтому подсветку снимаем только когда курсор покинул всю панель
+  const handleDragEnter: DragEventHandler<HTMLDivElement> = (e) => {
+    if (!textChatIsOpen || !isFileDrag(e.dataTransfer)) return;
+    e.preventDefault();
+    dragDepthRef.current += 1;
+    setIsDragActive(true);
+  };
+
+  const handleDragOver: DragEventHandler<HTMLDivElement> = (e) => {
+    if (!textChatIsOpen || !isFileDrag(e.dataTransfer)) return;
+    e.preventDefault();
+    e.dataTransfer.dropEffect = "copy";
+  };
+
+  const handleDragLeave: DragEventHandler<HTMLDivElement> = (e) => {
+    if (!isFileDrag(e.dataTransfer)) return;
+    dragDepthRef.current = Math.max(0, dragDepthRef.current - 1);
+    if (dragDepthRef.current === 0) setIsDragActive(false);
+  };
+
+  const handleDrop: DragEventHandler<HTMLDivElement> = (e) => {
+    if (!isFileDrag(e.dataTransfer)) return;
+
+    e.preventDefault();
+    dragDepthRef.current = 0;
+    setIsDragActive(false);
+
+    if (!textChatIsOpen) return;
+
+    const dropped = extractDroppedFiles(e.dataTransfer);
+
+    if (dropped.length === 0) {
+      toast("Папки пока не поддерживаются", { type: "info" });
+      return;
+    }
+    if (dropped.length > 1) {
+      toast("Можно прикрепить только один файл", { type: "info" });
+    }
+    attachFile(dropped[0]);
+  };
+
+  // Подсветку сбрасываем при закрытии чата, чтобы она не «залипла»
+  useEffect(() => {
+    if (textChatIsOpen) return;
+    dragDepthRef.current = 0;
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setIsDragActive(false);
+  }, [textChatIsOpen]);
+
+  // Вставка файла или скриншота из буфера обмена — только при открытом чате.
+  // Поля ввода вне панели (например, в настройках) не перехватываем.
+  useEffect(() => {
+    if (!textChatIsOpen) return;
+
+    const handlePaste = (event: ClipboardEvent) => {
+      const target = event.target;
+      if (
+        target instanceof HTMLElement &&
+        target !== inputRef.current &&
+        (target.isContentEditable ||
+          target.tagName === "INPUT" ||
+          target.tagName === "TEXTAREA")
+      ) {
+        return;
+      }
+
+      const pasted = extractClipboardFiles(event.clipboardData);
+      if (pasted.length === 0) return;
+
+      event.preventDefault();
+      if (pasted.length > 1) {
+        toast("Можно прикрепить только один файл", { type: "info" });
+      }
+      attachFile(namePastedFile(pasted[0]));
+    };
+
+    document.addEventListener("paste", handlePaste);
+    return () => document.removeEventListener("paste", handlePaste);
+  }, [attachFile, textChatIsOpen]);
 
   const handleInputChange: ChangeEventHandler<
     HTMLInputElement | HTMLTextAreaElement
@@ -63,7 +160,9 @@ export function TextChat() {
   const submit = async () => {
     if (file) {
       setLoading(true);
-      await sendFile(file).finally(() => setLoading(false));
+      const result = await sendFile(file).finally(() => setLoading(false));
+      // При ошибке вложение остаётся, чтобы можно было повторить отправку
+      if (!result) return;
       setFile(null);
     }
     if (text) {
@@ -111,7 +210,10 @@ export function TextChat() {
   };
 
   const handleFileSelect: ChangeEventHandler<HTMLInputElement> = (e) => {
-    setFile(e.target.files?.[0] || null);
+    const selected = e.target.files?.[0] || null;
+    // Сбрасываем значение, иначе тот же файл нельзя выбрать повторно
+    e.target.value = "";
+    attachFile(selected);
   };
 
   // Вставляет выбранную эмодзи в позицию курсора (или в конец, если курсора нет).
@@ -178,7 +280,20 @@ export function TextChat() {
 
   return (
     <SidePanel isOpen={textChatIsOpen} onClose={switchTextChatIsOpen}>
-      <Styles.Container>
+      <Styles.Container
+        onDragEnter={handleDragEnter}
+        onDragOver={handleDragOver}
+        onDragLeave={handleDragLeave}
+        onDrop={handleDrop}
+      >
+        {isDragActive && (
+          <Styles.DropOverlay>
+            <AttachmentIcon />
+            <Styles.DropOverlayText>
+              Перетащите сюда файл, чтобы прикрепить его к сообщению
+            </Styles.DropOverlayText>
+          </Styles.DropOverlay>
+        )}
         <Styles.MessagesContainer ref={msgRef}>
           {messages.map((msg) => {
             const position = msg.senderId === me.user.id ? "right" : "left";
@@ -190,7 +305,19 @@ export function TextChat() {
           })}
         </Styles.MessagesContainer>
         <div>
-          {!!file && <FileInfo file={file} />}
+          {!!file && (
+            <Styles.AttachmentRow>
+              <Styles.StyledFileInfo file={file} />
+              <Styles.RemoveAttachmentButton
+                type="button"
+                title="Убрать файл"
+                aria-label="Убрать файл"
+                onClick={() => setFile(null)}
+              >
+                <CloseIcon />
+              </Styles.RemoveAttachmentButton>
+            </Styles.AttachmentRow>
+          )}
           <MusicPlayer />
           <Styles.FormPanel onSubmit={handleSubmit}>
             <Styles.AttachmentWrapper>
@@ -199,7 +326,6 @@ export function TextChat() {
               </label>
               <input
                 onChange={handleFileSelect}
-                ref={attachmentRef}
                 name="file"
                 type="file"
                 id="file"
