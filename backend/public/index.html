@@ -326,15 +326,10 @@
         </tr>
         <tr>
           <td><code>all::call::new-message</code></td>
-          <td>Новое текстовое сообщение в звонке</td>
-        </tr>
-        <tr>
-          <td><code>all::call::file-received</code></td>
-          <td>В звонок загружен файл (с fileId)</td>
-        </tr>
-        <tr>
-          <td><code>all::call::file-deleted</code></td>
-          <td>Файл удалён из звонка</td>
+          <td>
+            Новое текстовое сообщение в звонке (несёт массив
+            <code class="inline">attachments</code>)
+          </td>
         </tr>
         <tr>
           <td><code>all::call::screen-share-started</code></td>
@@ -349,18 +344,27 @@
       <h2>📁 REST API для файлов (<code class="inline">/files</code>)</h2>
       <div class="step">
         Файлы передаются вне WebSocket через HTTP (multer). Загрузка привязана к
-        активному звонку параметром <code class="inline">callId</code>.
+        активному звонку параметрами <code class="inline">callId</code> и
+        <code class="inline">clientId</code>. К одному сообщению можно
+        прикрепить до 10 файлов: сначала загрузите их одной пачкой, затем
+        отправьте сообщение с массивом
+        <code class="inline">attachmentIds</code>.
         <div class="code">
-          # Загрузка файла (multipart/form-data: file + callId) curl -F
-          "file=@document.pdf" -F "callId=CALL_ID"
-          http://localhost:8080/files/upload # Скачать файл curl -OJ
+          # Загрузка вложений (multipart/form-data: несколько files + callId +
+          clientId) curl -F "files=@document.pdf" -F "files=@photo.png" -F
+          "callId=CALL_ID" -F "clientId=CLIENT_ID"
+          http://localhost:8080/files/attachments # Ответ: { "files": [{ "id",
+          "fileName", "fileSize" }] } # Скачать файл curl -OJ
           http://localhost:8080/files/download/FILE_ID # Открыть/просмотреть
-          файл (inline) http://localhost:8080/files/view/FILE_ID # Удалить файл
-          curl -X DELETE http://localhost:8080/files/delete/FILE_ID
+          файл (inline) http://localhost:8080/files/view/FILE_ID
         </div>
-        После успешной загрузки всем участникам звонка рассылается событие
-        <code class="inline">all::call::file-received</code>, после удаления —
-        <code class="inline">all::call::file-deleted</code>.
+        Файлы «закрепляются» за сообщением при отправке
+        <code class="inline">call::send-message</code> с
+        <code class="inline">attachmentIds</code>: сервер рассылает участникам
+        <code class="inline">all::call::new-message</code> вместе с массивом
+        <code class="inline">attachments</code> (id, имя, размер). Один файл
+        нельзя прикрепить к двум сообщениям. Незакреплённые файлы и вложения
+        звонка удаляются при его завершении.
       </div>
 
       <h2>🛡️ Безопасность</h2>

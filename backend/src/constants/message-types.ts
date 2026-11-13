@@ -37,8 +37,6 @@ export const MESSAGE_TYPES = Object.freeze({
         MUTE_STATUS_CHANGED: 'all::call::mute-changed',
         SPEAKING_STATUS_CHANGED: 'all::call::speaking-changed',
         NEW_MESSAGE: 'all::call::new-message',
-        FILE_RECEIVED: 'all::call::file-received',
-        FILE_DELETED: 'all::call::file-deleted',
         SCREEN_SHARING_STARTED: 'all::call::screen-share-started',
         SCREEN_SHARING_STOPPED: 'all::call::screen-share-stopped',
         PROFILE_UPDATED: 'all::call::profile-updated',

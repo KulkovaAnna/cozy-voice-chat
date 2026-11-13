@@ -9,10 +9,11 @@ import type {
   ProfileFileMetadata,
   ProfileUploadResult,
   ProfileViewResult,
-  UploadResult,
+  UploadedFile,
   ViewResult,
 } from './file-manager.types';
-import type { HttpError } from '../../../types';
+import { MAX_ATTACHMENTS } from './file-manager.types';
+import type { FileAttachment, HttpError } from '../../../types';
 
 type MulterFile = NonNullable<Request['file']>;
 
@@ -74,46 +75,211 @@ export default class FileManagerService {
   }
 
   /**
-   * Загружает файл и сохраняет метаданные.
-   * @param file - объект файла от multer
-   * @param senderIp - IP отправителя
-   * @param callId - идентификатор звонка
+   * Находит отправителя по clientId (точнее, чем IP: с одного IP может быть
+   * несколько вкладок). IP дополнительно сверяется, чтобы нельзя было
+   * загрузить файл от имени чужого клиента.
    */
-  async uploadFile(
-    file: MulterFile,
-    senderIp: string,
-    callId: string,
-  ): Promise<UploadResult> {
-    const sender = this.lobbyManager.getMemberByIp(senderIp);
-    const call = this.callManager.getCallById(callId);
-    if (!sender) {
+  #resolveSender(senderIp: string, clientId: string) {
+    const byId = clientId
+      ? this.lobbyManager.getMemberById(clientId)
+      : undefined;
+
+    if (byId) {
+      if (senderIp && byId.ip !== senderIp) {
+        const error: HttpError = new Error(
+          'Нельзя загружать файлы от имени другого клиента',
+        );
+        error.status = 403;
+        throw error;
+      }
+      return byId;
+    }
+
+    const byIp = this.lobbyManager.getMemberByIp(senderIp);
+    if (!byIp) {
       const error: HttpError = new Error('Отправитель не найден');
       error.status = 404;
       throw error;
     }
+    return byIp;
+  }
 
+  /** Откатывает уже сохранённые файлы и временные файлы multer */
+  async #rollbackAttachments(
+    files: UploadedFile[],
+    saved: Array<{ id: string; meta: FileMetadata }>,
+  ): Promise<void> {
+    await Promise.all([
+      ...files.map((file) =>
+        fs.promises.unlink(file.path).catch(() => undefined),
+      ),
+      ...saved.map(({ meta }) =>
+        fs.promises.unlink(meta.path).catch(() => undefined),
+      ),
+    ]);
+    saved.forEach(({ id }) => this.#fileMetadata.delete(id));
+  }
+
+  /**
+   * Загружает файлы, которые затем прикрепляются к сообщению по ID.
+   * Файлы не рассылаются отдельным событием: клиент получает их ID,
+   * отправляет их вместе с текстом в call::send-message, а сервер
+   * помечает файлы как прикреплённые (claimAttachments).
+   */
+  async uploadAttachments(
+    files: UploadedFile[],
+    senderIp: string,
+    callId: string,
+    clientId: string,
+  ): Promise<FileAttachment[]> {
+    if (!callId) {
+      const error: HttpError = new Error('Не указан callId');
+      error.status = 400;
+      throw error;
+    }
+
+    if (!clientId) {
+      const error: HttpError = new Error('Не указан clientId');
+      error.status = 400;
+      throw error;
+    }
+
+    if (files.length === 0) {
+      const error: HttpError = new Error('Файлы не загружены');
+      error.status = 400;
+      throw error;
+    }
+
+    if (files.length > MAX_ATTACHMENTS) {
+      const error: HttpError = new Error(
+        `За один раз можно прикрепить не больше ${MAX_ATTACHMENTS} файлов`,
+      );
+      error.status = 400;
+      throw error;
+    }
+
+    const sender = this.#resolveSender(senderIp, clientId);
+    const call = this.callManager.getCallById(callId);
     if (!call) {
       const error: HttpError = new Error('Звонок не найден');
       error.status = 404;
       throw error;
     }
 
-    const fileId = uuidv4();
-    const ext = path.extname(file.originalname);
-    const saveName = `${fileId}${ext}`;
-    const savePath = path.join(this.#chatDir, saveName);
+    if (!call.members.some((member) => member.client.id === sender.id)) {
+      const error: HttpError = new Error(
+        'Отправитель не является участником звонка',
+      );
+      error.status = 403;
+      throw error;
+    }
 
-    await fs.promises.rename(file.path, savePath);
+    const saved: Array<{ id: string; meta: FileMetadata }> = [];
 
-    this.#fileMetadata.set(fileId, {
-      path: savePath,
-      originalName: file.originalname,
-      senderId: sender.id,
-      callId,
-      createdAt: Date.now(),
+    try {
+      for (const file of files) {
+        const fileId = uuidv4();
+        const ext = path.extname(file.originalname);
+        const saveName = `${fileId}${ext}`;
+        const savePath = path.join(this.#chatDir, saveName);
+
+        await fs.promises.rename(file.path, savePath);
+
+        const meta: FileMetadata = {
+          path: savePath,
+          originalName: file.originalname,
+          senderId: sender.id,
+          callId,
+          createdAt: Date.now(),
+          size: file.size,
+          claimed: false,
+        };
+        this.#fileMetadata.set(fileId, meta);
+        saved.push({ id: fileId, meta });
+      }
+    } catch (error) {
+      // Частично загруженное сообщение не нужно: убираем всё
+      await this.#rollbackAttachments(files, saved);
+      throw error;
+    }
+
+    return saved.map(({ id, meta }) => ({
+      id,
+      fileName: meta.originalName,
+      fileSize: meta.size,
+    }));
+  }
+
+  /**
+   * Помечает файлы как прикреплённые к сообщению.
+   * Сначала валидируется весь список, и только потом файлы помечаются —
+   * частично прикреплённых сообщений быть не должно.
+   */
+  claimAttachments(
+    fileIds: string[],
+    senderId: string,
+    callId: string,
+  ): FileAttachment[] {
+    if (fileIds.length === 0) return [];
+
+    if (fileIds.length > MAX_ATTACHMENTS) {
+      const error: HttpError = new Error(
+        `К сообщению можно прикрепить не больше ${MAX_ATTACHMENTS} файлов`,
+      );
+      error.status = 400;
+      throw error;
+    }
+
+    if (new Set(fileIds).size !== fileIds.length) {
+      const error: HttpError = new Error(
+        'Файлы не должны повторяться в одном сообщении',
+      );
+      error.status = 400;
+      throw error;
+    }
+
+    const metas = fileIds.map((fileId) => {
+      const meta = this.#fileMetadata.get(fileId);
+      if (!meta) {
+        const error: HttpError = new Error('Файл не найден или уже удалён');
+        error.status = 404;
+        throw error;
+      }
+
+      if (meta.senderId !== senderId) {
+        const error: HttpError = new Error('Нельзя прикрепить чужой файл');
+        error.status = 403;
+        throw error;
+      }
+
+      if (meta.callId !== callId) {
+        const error: HttpError = new Error(
+          'Файл принадлежит другому звонку',
+        );
+        error.status = 403;
+        throw error;
+      }
+
+      if (meta.claimed) {
+        const error: HttpError = new Error(
+          'Файл уже прикреплён к сообщению',
+        );
+        error.status = 409;
+        throw error;
+      }
+
+      return meta;
     });
 
-    return { fileId };
+    metas.forEach((meta) => {
+      meta.claimed = true;
+    });
+
+    return fileIds.map((fileId, index) => ({
+      id: fileId,
+      fileName: metas[index].originalName,
+      fileSize: metas[index].size,
+    }));
   }
 
   /**
@@ -183,7 +349,7 @@ export default class FileManagerService {
   }
 
   /**
-   * Скачивает файл, проверяя права доступа, и удаляет после отправки.
+   * Возвращает поток для скачивания файла без удаления.
    */
   async downloadFile(fileId: string): Promise<DownloadResult> {
     const meta = this.#fileMetadata.get(fileId);
@@ -193,19 +359,11 @@ export default class FileManagerService {
       throw error;
     }
 
-    // Создаём поток для чтения файла
     const stream = fs.createReadStream(meta.path);
-    const cleanup = () => {
-      this.#fileMetadata.delete(fileId);
-      fs.promises.unlink(meta.path).catch(console.error);
-    };
 
-    // Возвращаем информацию, а удаление будет выполнено в контроллере после завершения ответа
     return {
       stream,
       filename: meta.originalName,
-      path: meta.path,
-      cleanup,
     };
   }
 

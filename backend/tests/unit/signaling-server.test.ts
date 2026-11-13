@@ -19,11 +19,8 @@ const h = vi.hoisted(() => {
     },
   };
 
-  const eventBusListeners: Record<string, Function[]> = {};
-
   return {
     wssMock,
-    eventBusListeners,
     authOk: true,
     connOk: true,
     messageOk: true,
@@ -65,16 +62,6 @@ vi.mock('../../src/config', () => ({
       heartbeatInterval: 30000,
       maxClients: 100,
     },
-  },
-}));
-
-vi.mock('../../src/utils/event-bus', () => ({
-  default: {
-    on(event: string, handler: Function) {
-      if (!h.eventBusListeners[event]) h.eventBusListeners[event] = [];
-      h.eventBusListeners[event].push(handler);
-    },
-    emit: () => {},
   },
 }));
 
@@ -170,9 +157,6 @@ describe('SignalingServer', () => {
 
   beforeEach(async () => {
     h.wssMock._reset();
-    Object.keys(h.eventBusListeners).forEach(
-      (k) => delete h.eventBusListeners[k],
-    );
     h.authOk = true;
     h.connOk = true;
     h.messageOk = true;
@@ -187,7 +171,10 @@ describe('SignalingServer', () => {
 
     lobby = new LobbyManager();
     callMgr = new CallManager();
-    fileMgr = { cleanDownloads: vi.fn().mockResolvedValue(undefined) };
+    fileMgr = {
+      cleanDownloads: vi.fn().mockResolvedValue(undefined),
+      claimAttachments: vi.fn().mockReturnValue([]),
+    };
 
     signalingServer = new SignalingServer(
       {} as unknown as HttpServer,
@@ -666,6 +653,91 @@ describe('SignalingServer', () => {
       const err = getSent(ws1).find((m: any) => m.type === 'error');
       expect(err).toBeDefined();
     });
+
+    it('should attach pre-uploaded files to the message', async () => {
+      const { ws1, ws2, call, alice } = await setupCall();
+      fileMgr.claimAttachments.mockReturnValue([
+        { id: 'file-1', fileName: 'doc.pdf', fileSize: 1024 },
+        { id: 'file-2', fileName: 'photo.png', fileSize: 2048 },
+      ]);
+
+      await sendMessage(ws1, 'call::send-message', {
+        callId: call.id,
+        text: 'Смотрите',
+        attachmentIds: ['file-1', 'file-2'],
+      });
+
+      expect(fileMgr.claimAttachments).toHaveBeenCalledWith(
+        ['file-1', 'file-2'],
+        alice.id,
+        call.id,
+      );
+      const newMsg = getSent(ws2).find(
+        (m: any) => m.type === 'all::call::new-message',
+      );
+      expect(newMsg.data.text).toBe('Смотрите');
+      expect(newMsg.data.attachments).toHaveLength(2);
+      expect(newMsg.data.attachments[0].fileName).toBe('doc.pdf');
+    });
+
+    it('should allow a message with only attachments', async () => {
+      const { ws1, ws2, call } = await setupCall();
+      fileMgr.claimAttachments.mockReturnValue([
+        { id: 'file-1', fileName: 'doc.pdf', fileSize: 1024 },
+      ]);
+
+      await sendMessage(ws1, 'call::send-message', {
+        callId: call.id,
+        text: '',
+        attachmentIds: ['file-1'],
+      });
+
+      const newMsg = getSent(ws2).find(
+        (m: any) => m.type === 'all::call::new-message',
+      );
+      expect(newMsg).toBeDefined();
+      expect(newMsg.data.attachments).toHaveLength(1);
+    });
+
+    it('should treat a slash command with attachments as plain text', async () => {
+      const { ws1, ws2, call } = await setupCall();
+      fileMgr.claimAttachments.mockReturnValue([
+        { id: 'file-1', fileName: 'doc.pdf', fileSize: 1024 },
+      ]);
+
+      await sendMessage(ws1, 'call::send-message', {
+        callId: call.id,
+        text: '/play https://example.com/watch?v=1',
+        attachmentIds: ['file-1'],
+      });
+
+      const newMsg = getSent(ws2).find(
+        (m: any) => m.type === 'all::call::new-message',
+      );
+      expect(newMsg.data.text).toBe('/play https://example.com/watch?v=1');
+      expect(
+        getSent(ws1).find((m: any) => m.type === 'me::command-status'),
+      ).toBeUndefined();
+    });
+
+    it('should send error if attachment cannot be claimed', async () => {
+      const { ws1, call } = await setupCall();
+      const claimError: any = new Error('Файл уже прикреплён к сообщению');
+      claimError.status = 409;
+      fileMgr.claimAttachments.mockImplementation(() => {
+        throw claimError;
+      });
+
+      await sendMessage(ws1, 'call::send-message', {
+        callId: call.id,
+        text: 'Текст',
+        attachmentIds: ['file-1'],
+      });
+
+      const err = getSent(ws1).find((m: any) => m.type === 'error');
+      expect(err).toBeDefined();
+      expect(err.data.message).toBe('Файл уже прикреплён к сообщению');
+    });
   });
 
   // ─── screen sharing ───────────────────────────────────────────
@@ -867,53 +939,6 @@ describe('SignalingServer', () => {
 
       expect(callMgr.getAllCalls()).toHaveLength(1);
       expect(callMgr.getAllCalls()[0].id).toBe(call.id);
-    });
-  });
-
-  // ─── handleFileUploaded (via eventBus) ────────────────────────
-  describe('handleFileUploaded', () => {
-    it('should broadcast file-received to call members', async () => {
-      const { ws2, call, alice } = await setupCall();
-
-      const handler = h.eventBusListeners['file:uploaded']?.[0];
-      expect(handler).toBeDefined();
-
-      handler({
-        fileId: 'file-1',
-        originalName: 'doc.pdf',
-        size: 1024,
-        callId: call.id,
-        senderIp: alice.ip,
-      });
-
-      const fileMsg = getSent(ws2).find(
-        (m: any) => m.type === 'all::call::file-received',
-      );
-      expect(fileMsg).toBeDefined();
-      expect(fileMsg.data.originalName).toBe('doc.pdf');
-    });
-  });
-
-  // ─── handleFileDeleted (via eventBus) ─────────────────────────
-  describe('handleFileDeleted', () => {
-    it('should broadcast file-deleted to call members', async () => {
-      const { ws2, call } = await setupCall();
-
-      const handler = h.eventBusListeners['file:deleted']?.[0];
-      expect(handler).toBeDefined();
-
-      handler({
-        fileId: 'file-2',
-        callId: call.id,
-        originalName: 'old.txt',
-        size: 512,
-      });
-
-      const delMsg = getSent(ws2).find(
-        (m: any) => m.type === 'all::call::file-deleted',
-      );
-      expect(delMsg).toBeDefined();
-      expect(delMsg.data.fileId).toBe('file-2');
     });
   });
 

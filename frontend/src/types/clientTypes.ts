@@ -42,5 +42,5 @@ export type TextMessage = {
   senderAvatar?: string;
   senderName?: string;
   isSystem?: boolean;
-  attachment?: Attachment;
+  attachments?: Attachment[];
 };

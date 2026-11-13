@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  appendAttachments,
   extractClipboardFiles,
   extractDroppedFiles,
   isFileDrag,
@@ -104,6 +105,68 @@ describe("extractClipboardFiles", () => {
     const dataTransfer = createDataTransfer([], [file], []);
 
     expect(extractClipboardFiles(dataTransfer)).toEqual([file]);
+  });
+});
+
+describe("appendAttachments", () => {
+  it("добавляет файлы к уже выбранным", () => {
+    const first = createFile("a.pdf");
+    const second = createFile("b.pdf");
+    const third = createFile("c.pdf");
+
+    const result = appendAttachments([first], [second, third]);
+
+    expect(result.files).toEqual([first, second, third]);
+    expect(result.rejected).toBe(0);
+  });
+
+  it("игнорирует дубли по имени, размеру и времени изменения", () => {
+    const file = createFile("a.pdf");
+    const duplicate = new File([file], file.name, {
+      type: file.type,
+      lastModified: file.lastModified,
+    });
+
+    const result = appendAttachments([file], [duplicate]);
+
+    expect(result.files).toEqual([file]);
+    expect(result.rejected).toBe(0);
+  });
+
+  it("не добавляет больше лимита и считает отброшенные", () => {
+    const current = Array.from({ length: 9 }, (_, i) =>
+      createFile(`file-${i}.pdf`),
+    );
+    const incoming = [
+      createFile("new-1.pdf"),
+      createFile("new-2.pdf"),
+      createFile("new-3.pdf"),
+    ];
+
+    const result = appendAttachments(current, incoming);
+
+    expect(result.files).toHaveLength(10);
+    expect(result.files[9].name).toBe("new-1.pdf");
+    expect(result.rejected).toBe(2);
+  });
+
+  it("уважает переданный лимит", () => {
+    const result = appendAttachments(
+      [],
+      [createFile("a.pdf"), createFile("b.pdf")],
+      1,
+    );
+
+    expect(result.files).toHaveLength(1);
+    expect(result.rejected).toBe(1);
+  });
+
+  it("с пустым списком ничего не меняет", () => {
+    const file = createFile("a.pdf");
+    const result = appendAttachments([file], []);
+
+    expect(result.files).toEqual([file]);
+    expect(result.rejected).toBe(0);
   });
 });
 

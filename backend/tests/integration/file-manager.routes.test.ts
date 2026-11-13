@@ -4,17 +4,9 @@ import request from 'supertest';
 import FileManagerController from '../../src/app/modules/file-manager/file-manager.controller';
 import FileManagerRoutes from '../../src/app/modules/file-manager/file-manager.routes';
 import type FileManagerService from '../../src/app/modules/file-manager/file-manager.service';
-import eventBus from '../../src/utils/event-bus';
-
-vi.mock('../../src/utils/event-bus', () => ({
-  default: {
-    emit: vi.fn(),
-    on: vi.fn(),
-  },
-}));
 
 function createApp(serviceMock: {
-  uploadFile: ReturnType<typeof vi.fn>;
+  uploadAttachments: ReturnType<typeof vi.fn>;
   downloadFile: ReturnType<typeof vi.fn>;
   getFileStream: ReturnType<typeof vi.fn>;
 }) {
@@ -25,7 +17,6 @@ function createApp(serviceMock: {
   const app = express();
   app.use(express.json());
   app.use(FileManagerRoutes.BASE_URL, routes.getRouter());
-  // Error handler для проверки next(err)
   app.use(
     (
       err: any,
@@ -41,7 +32,7 @@ function createApp(serviceMock: {
 
 describe('FileManagerRoutes (integration)', () => {
   let mockService: {
-    uploadFile: ReturnType<typeof vi.fn>;
+    uploadAttachments: ReturnType<typeof vi.fn>;
     downloadFile: ReturnType<typeof vi.fn>;
     getFileStream: ReturnType<typeof vi.fn>;
   };
@@ -50,63 +41,86 @@ describe('FileManagerRoutes (integration)', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mockService = {
-      uploadFile: vi.fn(),
+      uploadAttachments: vi.fn(),
       downloadFile: vi.fn(),
       getFileStream: vi.fn(),
     };
     app = createApp(mockService);
   });
 
-  // ─── POST /files/upload ───────────────────────────────────────
-  describe('POST /files/upload', () => {
-    it('should upload a file and return 201', async () => {
-      mockService.uploadFile.mockResolvedValue({ fileId: 'uuid-abc' });
+  // ─── POST /files/attachments ──────────────────────────────────
+  describe('POST /files/attachments', () => {
+    it('should upload multiple files and return 201', async () => {
+      mockService.uploadAttachments.mockResolvedValue([
+        { id: 'file-1', fileName: 'a.txt', fileSize: 11 },
+        { id: 'file-2', fileName: 'b.txt', fileSize: 12 },
+      ]);
 
       const res = await request(app)
-        .post('/files/upload')
+        .post('/files/attachments')
         .field('callId', 'call-42')
-        .attach('file', Buffer.from('hello world'), 'test.txt');
+        .field('clientId', 'client-7')
+        .attach('files', Buffer.from('hello world'), 'a.txt')
+        .attach('files', Buffer.from('hello again!'), 'b.txt');
 
       expect(res.status).toBe(201);
-      expect(res.body).toEqual({ fileId: 'uuid-abc' });
-      expect(mockService.uploadFile).toHaveBeenCalled();
-      expect(eventBus.emit).toHaveBeenCalledWith(
-        'file:uploaded',
-        expect.objectContaining({
-          fileId: 'uuid-abc',
-          originalName: 'test.txt',
-          callId: 'call-42',
-        }),
+      expect(res.body).toEqual({
+        files: [
+          { id: 'file-1', fileName: 'a.txt', fileSize: 11 },
+          { id: 'file-2', fileName: 'b.txt', fileSize: 12 },
+        ],
+      });
+      expect(mockService.uploadAttachments).toHaveBeenCalledWith(
+        expect.arrayContaining([
+          expect.objectContaining({ originalname: 'a.txt' }),
+          expect.objectContaining({ originalname: 'b.txt' }),
+        ]),
+        expect.any(String),
+        'call-42',
+        'client-7',
       );
     });
 
     it('should return 400 if callId is missing', async () => {
       const res = await request(app)
-        .post('/files/upload')
-        .attach('file', Buffer.from('data'), 'x.txt');
+        .post('/files/attachments')
+        .field('clientId', 'client-7')
+        .attach('files', Buffer.from('data'), 'x.txt');
 
       expect(res.status).toBe(400);
       expect(res.body.error).toBe('Не указан callId');
     });
 
-    it('should return 400 if no file attached', async () => {
+    it('should return 400 if clientId is missing', async () => {
       const res = await request(app)
-        .post('/files/upload')
-        .field('callId', 'call-1');
+        .post('/files/attachments')
+        .field('callId', 'call-1')
+        .attach('files', Buffer.from('data'), 'x.txt');
 
       expect(res.status).toBe(400);
-      expect(res.body.error).toBe('Файл не загружен');
+      expect(res.body.error).toBe('Не указан clientId');
+    });
+
+    it('should return 400 if no files attached', async () => {
+      const res = await request(app)
+        .post('/files/attachments')
+        .field('callId', 'call-1')
+        .field('clientId', 'client-1');
+
+      expect(res.status).toBe(400);
+      expect(res.body.error).toBe('Файлы не загружены');
     });
 
     it('should propagate service error (404)', async () => {
       const err: any = new Error('Отправитель не найден');
       err.status = 404;
-      mockService.uploadFile.mockRejectedValue(err);
+      mockService.uploadAttachments.mockRejectedValue(err);
 
       const res = await request(app)
-        .post('/files/upload')
-        .field('callId', 'call-x')
-        .attach('file', Buffer.from('content'), 'y.txt');
+        .post('/files/attachments')
+        .field('callId', 'call-1')
+        .field('clientId', 'client-1')
+        .attach('files', Buffer.from('data'), 'x.txt');
 
       expect(res.status).toBe(404);
       expect(res.body.error).toBe('Отправитель не найден');
@@ -115,8 +129,7 @@ describe('FileManagerRoutes (integration)', () => {
 
   // ─── GET /files/download/:fileId ──────────────────────────────
   describe('GET /files/download/:fileId', () => {
-    it('should stream file with Content-Disposition header', async () => {
-      // Создаём Readable-поток вместо ReadStream
+    it('should send file with Content-Disposition', async () => {
       const { Readable } = require('stream');
       const fakeStream = new Readable({
         read() {
@@ -171,6 +184,7 @@ describe('FileManagerRoutes (integration)', () => {
           senderId: 'u1',
           callId: 'c1',
           createdAt: Date.now(),
+          size: 13,
         },
       });
 
@@ -205,6 +219,7 @@ describe('FileManagerRoutes (integration)', () => {
           senderId: 'u1',
           callId: 'c1',
           createdAt: Date.now(),
+          size: 6,
         },
       });
 

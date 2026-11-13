@@ -1,4 +1,5 @@
 import { v4 } from 'uuid';
+import type { FileAttachment } from '../types';
 
 export default class Message {
   public id: string;
@@ -8,6 +9,7 @@ export default class Message {
   public timestamp: string;
   public avatar: string | null;
   public isSystem: boolean;
+  public attachments: FileAttachment[];
 
   /**
    * @param senderId - ID отправителя
@@ -15,6 +17,7 @@ export default class Message {
    * @param senderName - опционально имя отправителя
    * @param avatar - опционально аватар отправителя
    * @param isSystem - системное сообщение (ответ бота)
+   * @param attachments - прикреплённые файлы
    */
   constructor(
     senderId: string,
@@ -22,6 +25,7 @@ export default class Message {
     senderName?: string | null,
     avatar?: string | null,
     isSystem?: boolean,
+    attachments: FileAttachment[] = [],
   ) {
     this.id = v4();
     this.senderId = senderId;
@@ -30,5 +34,6 @@ export default class Message {
     this.timestamp = new Date().toISOString();
     this.avatar = avatar ?? null;
     this.isSystem = isSystem ?? false;
+    this.attachments = attachments;
   }
 }

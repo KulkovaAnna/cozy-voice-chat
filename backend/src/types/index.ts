@@ -13,7 +13,16 @@ export interface IncomingWsMessage {
     callId?: string;
     status?: boolean;
     text?: string;
+    /** ID предварительно загруженных файлов, прикреплённых к сообщению */
+    attachmentIds?: string[];
   };
+}
+
+/** Файл, прикреплённый к сообщению чата */
+export interface FileAttachment {
+  id: string;
+  fileName: string;
+  fileSize: number;
 }
 
 /** Стиль рамки аватара */

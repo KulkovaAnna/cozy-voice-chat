@@ -2,15 +2,6 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import type { NextFunction, Request, Response } from 'express';
 import FileManagerController from '../../src/app/modules/file-manager/file-manager.controller';
 import type FileManagerService from '../../src/app/modules/file-manager/file-manager.service';
-import eventBus from '../../src/utils/event-bus';
-
-// Мок eventBus
-vi.mock('../../src/utils/event-bus', () => ({
-  default: {
-    emit: vi.fn(),
-    on: vi.fn(),
-  },
-}));
 
 function createMockRequest(overrides: Partial<Request> = {}): Request {
   return {
@@ -18,6 +9,7 @@ function createMockRequest(overrides: Partial<Request> = {}): Request {
     body: {},
     params: {},
     file: undefined,
+    files: undefined,
     ...overrides,
   } as unknown as Request;
 }
@@ -44,6 +36,10 @@ function createMockResponse(): Response & {
       res._body = body;
       return res;
     },
+    send(body?: unknown) {
+      res._body = body;
+      return res;
+    },
     setHeader(name: string, value: string) {
       res.headers[name] = value;
       return res;
@@ -66,10 +62,15 @@ function createMockResponse(): Response & {
   };
 }
 
+const uploadedFiles = [
+  { originalname: 'photo.png', size: 2048 },
+  { originalname: 'doc.pdf', size: 512 },
+] as Express.Multer.File[];
+
 describe('FileManagerController', () => {
   let controller: FileManagerController;
   let mockService: {
-    uploadFile: ReturnType<typeof vi.fn>;
+    uploadAttachments: ReturnType<typeof vi.fn>;
     downloadFile: ReturnType<typeof vi.fn>;
     getFileStream: ReturnType<typeof vi.fn>;
   };
@@ -77,7 +78,7 @@ describe('FileManagerController', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mockService = {
-      uploadFile: vi.fn(),
+      uploadAttachments: vi.fn(),
       downloadFile: vi.fn(),
       getFileStream: vi.fn(),
     };
@@ -86,82 +87,96 @@ describe('FileManagerController', () => {
     );
   });
 
-  // ─── uploadFile ───────────────────────────────────────────────
-  describe('uploadFile', () => {
+  // ─── uploadAttachments ────────────────────────────────────────
+  describe('uploadAttachments', () => {
     it('should return 400 if callId is not provided', async () => {
       const req = createMockRequest({
-        body: {},
-        file: { originalname: 'a.txt', size: 100 } as Request['file'],
+        body: { clientId: 'client-1' },
+        files: uploadedFiles,
       });
       const res = createMockResponse();
       const next = vi.fn() as unknown as NextFunction;
 
-      await controller.uploadFile(req, res, next);
+      await controller.uploadAttachments(req, res, next);
 
-      expect(next).toHaveBeenCalled();
       const err = (next as ReturnType<typeof vi.fn>).mock.calls[0][0];
       expect(err.status).toBe(400);
       expect(err.message).toBe('Не указан callId');
     });
 
-    it('should return 400 if file is not provided', async () => {
+    it('should return 400 if clientId is not provided', async () => {
       const req = createMockRequest({
         body: { callId: 'call-1' },
-        file: undefined,
+        files: uploadedFiles,
       });
       const res = createMockResponse();
       const next = vi.fn() as unknown as NextFunction;
 
-      await controller.uploadFile(req, res, next);
+      await controller.uploadAttachments(req, res, next);
 
-      expect(next).toHaveBeenCalled();
       const err = (next as ReturnType<typeof vi.fn>).mock.calls[0][0];
       expect(err.status).toBe(400);
-      expect(err.message).toBe('Файл не загружен');
+      expect(err.message).toBe('Не указан clientId');
     });
 
-    it('should return 201 and emit event on success', async () => {
+    it('should return 400 if files are not provided', async () => {
       const req = createMockRequest({
-        body: { callId: 'call-1' },
-        file: { originalname: 'photo.png', size: 2048 } as Request['file'],
+        body: { callId: 'call-1', clientId: 'client-1' },
+        files: undefined,
       });
       const res = createMockResponse();
       const next = vi.fn() as unknown as NextFunction;
 
-      mockService.uploadFile.mockResolvedValue({ fileId: 'file-abc' });
+      await controller.uploadAttachments(req, res, next);
 
-      await controller.uploadFile(req, res, next);
+      const err = (next as ReturnType<typeof vi.fn>).mock.calls[0][0];
+      expect(err.status).toBe(400);
+      expect(err.message).toBe('Файлы не загружены');
+    });
+    it('should return 201 with uploaded attachments on success', async () => {
+      const req = createMockRequest({
+        body: { callId: 'call-1', clientId: 'client-1' },
+        files: uploadedFiles,
+      });
+      const res = createMockResponse();
+      const next = vi.fn() as unknown as NextFunction;
+
+      mockService.uploadAttachments.mockResolvedValue([
+        { id: 'file-1', fileName: 'photo.png', fileSize: 2048 },
+        { id: 'file-2', fileName: 'doc.pdf', fileSize: 512 },
+      ]);
+
+      await controller.uploadAttachments(req, res, next);
 
       expect(next).not.toHaveBeenCalled();
       expect(res._statusCode).toBe(201);
-      expect(res._body).toEqual({ fileId: 'file-abc' });
-      expect(mockService.uploadFile).toHaveBeenCalledWith(
-        req.file,
+      expect(res._body).toEqual({
+        files: [
+          { id: 'file-1', fileName: 'photo.png', fileSize: 2048 },
+          { id: 'file-2', fileName: 'doc.pdf', fileSize: 512 },
+        ],
+      });
+      expect(mockService.uploadAttachments).toHaveBeenCalledWith(
+        uploadedFiles,
         '192.168.1.100',
         'call-1',
+        'client-1',
       );
-      expect(eventBus.emit).toHaveBeenCalledWith('file:uploaded', {
-        fileId: 'file-abc',
-        originalName: 'photo.png',
-        size: 2048,
-        callId: 'call-1',
-        senderIp: '192.168.1.100',
-      });
     });
 
     it('should call next with error if service throws', async () => {
       const req = createMockRequest({
-        body: { callId: 'call-1' },
-        file: { originalname: 'doc.pdf', size: 500 } as Request['file'],
+        body: { callId: 'call-1', clientId: 'client-1' },
+        files: uploadedFiles,
       });
       const res = createMockResponse();
       const next = vi.fn() as unknown as NextFunction;
 
-      const serviceError = new Error('sender not found');
+      const serviceError = new Error('Отправитель не найден');
       (serviceError as any).status = 404;
-      mockService.uploadFile.mockRejectedValue(serviceError);
+      mockService.uploadAttachments.mockRejectedValue(serviceError);
 
-      await controller.uploadFile(req, res, next);
+      await controller.uploadAttachments(req, res, next);
 
       expect(next).toHaveBeenCalledWith(serviceError);
     });
@@ -169,20 +184,21 @@ describe('FileManagerController', () => {
     it('should use empty string when remoteAddress is undefined', async () => {
       const req = createMockRequest({
         socket: { remoteAddress: undefined } as unknown as Request['socket'],
-        body: { callId: 'call-2' },
-        file: { originalname: 'test.txt', size: 50 } as Request['file'],
+        body: { callId: 'call-2', clientId: 'client-2' },
+        files: uploadedFiles,
       });
       const res = createMockResponse();
       const next = vi.fn() as unknown as NextFunction;
 
-      mockService.uploadFile.mockResolvedValue({ fileId: 'file-xyz' });
+      mockService.uploadAttachments.mockResolvedValue([]);
 
-      await controller.uploadFile(req, res, next);
+      await controller.uploadAttachments(req, res, next);
 
-      expect(mockService.uploadFile).toHaveBeenCalledWith(
-        req.file,
+      expect(mockService.uploadAttachments).toHaveBeenCalledWith(
+        uploadedFiles,
         '',
         'call-2',
+        'client-2',
       );
     });
   });
@@ -238,6 +254,7 @@ describe('FileManagerController', () => {
           senderId: 'u1',
           callId: 'c1',
           createdAt: Date.now(),
+          size: 100,
         },
       });
 
@@ -263,6 +280,7 @@ describe('FileManagerController', () => {
           senderId: 'u1',
           callId: 'c1',
           createdAt: Date.now(),
+          size: 100,
         },
       });
 
@@ -285,6 +303,7 @@ describe('FileManagerController', () => {
           senderId: 'u1',
           callId: 'c1',
           createdAt: Date.now(),
+          size: 100,
         },
       });
 
@@ -294,10 +313,8 @@ describe('FileManagerController', () => {
 
       await controller.viewFile(req, res, next);
 
-      // Проверяем, что on('error', ...) был зарегистрирован
       expect(mockStream.on).toHaveBeenCalledWith('error', expect.any(Function));
 
-      // Вызываем error-handler и проверяем next
       const errorHandler = mockStream.on.mock.calls.find(
         (call: unknown[]) => call[0] === 'error',
       )?.[1] as (...args: unknown[]) => void;

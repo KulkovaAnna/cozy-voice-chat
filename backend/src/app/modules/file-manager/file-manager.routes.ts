@@ -1,8 +1,13 @@
 import express, { type Router } from 'express';
 import multer from 'multer';
 import type FileManagerController from './file-manager.controller';
+import { MAX_ATTACHMENTS } from './file-manager.types';
 
-const upload = multer({ dest: 'uploads/temp/' });
+// Загрузка вложений чата: несколько файлов на сообщение, без ограничения размера
+const attachmentsUpload = multer({
+  dest: 'uploads/temp/',
+  limits: { files: MAX_ATTACHMENTS },
+});
 
 // Загрузка файлов профиля: только изображения, максимум 1 МБ
 const MAX_PROFILE_FILE_SIZE = 1024 * 1024;
@@ -30,9 +35,11 @@ export default class FileManagerRoutes {
   getRouter(): Router {
     const router = express.Router();
     router.post(
-      '/upload',
-      upload.single('file'),
-      this.fileManagerController.uploadFile.bind(this.fileManagerController),
+      '/attachments',
+      attachmentsUpload.array('files', MAX_ATTACHMENTS),
+      this.fileManagerController.uploadAttachments.bind(
+        this.fileManagerController,
+      ),
     );
     router.get(
       '/download/:fileId',

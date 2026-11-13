@@ -290,7 +290,6 @@ export function ChatNetworkProvider(props: PropsWithChildren) {
     handleCallStateChanged: callHook.handleCallStateChanged,
     handleCallProfileUpdated: callHook.handleCallProfileUpdated,
     handleNewMessage,
-    handleFileReceived: messages.handleFileReceived,
     handleMusicStateChanged,
     handleCommandStatus,
     handleError,

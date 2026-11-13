@@ -17,7 +17,6 @@ type RouterParams = {
   handleCallProfileUpdated: (data: ServerMessage) => void;
   // Сообщения
   handleNewMessage: (data: ServerMessage) => void;
-  handleFileReceived: (data: ServerMessage) => void;
   // Музыка
   handleMusicStateChanged: (data: ServerMessage) => void;
   // Стадия выполнения моей слэш-команды
@@ -72,10 +71,6 @@ export function useChatMessageRouter(params: RouterParams) {
         }
         case "all::call::new-message": {
           params.handleNewMessage(data);
-          break;
-        }
-        case "all::call::file-received": {
-          params.handleFileReceived(data);
           break;
         }
         case "all::call::screen-share-started": {

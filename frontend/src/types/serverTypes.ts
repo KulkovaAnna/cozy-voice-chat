@@ -34,18 +34,14 @@ export type MessageDto = {
   senderName?: string;
   avatar?: string;
   isSystem?: boolean;
+  attachments?: FileAttachmentDTO[];
 };
 
-export type FileInfoDTO = {
-  fileId: string;
-  originalName: string;
-  size: number;
-  timestamp: string;
-  senderInfo: {
-    id: string;
-    name: string;
-    avatar: string;
-  };
+/** Файл, прикреплённый к сообщению */
+export type FileAttachmentDTO = {
+  id: string;
+  fileName: string;
+  fileSize: number;
 };
 
 export type ServerMessage = {

@@ -8,16 +8,12 @@ import PersonalInfo from '../models/PersonalInfo';
 import MESSAGE_TYPES from '../constants/message-types';
 import ERROR_CODES from '../constants/error-codes';
 import Helpers from '../utils/helpers';
-import eventBus from '../utils/event-bus';
 import musicPlayerService from '../app/modules/music-player/music-player.service';
 import type LobbyManager from './LobbyManager';
 import type CallManager from './CallManager';
 import type FileManagerService from '../app/modules/file-manager/file-manager.service';
 import type {
-  FileDeletedEvent,
-  FileUploadedEvent,
-} from '../app/modules/file-manager/file-manager.types';
-import type {
+  FileAttachment,
   IncomingWsMessage,
   OutgoingMessage,
   PersonalInfoData,
@@ -50,8 +46,6 @@ export default class SignalingServer {
     this.fileManager = fileManager;
     this.messageHandlers = this.createMessageHandlers();
     this.setupWebSocket();
-    eventBus.on('file:uploaded', this.handleFileUploaded.bind(this));
-    eventBus.on('file:deleted', this.handleFileDeleted.bind(this));
   }
 
   private setupWebSocket(): void {
@@ -127,54 +121,6 @@ export default class SignalingServer {
         this.lobbyManager.clearStaleClients();
       });
     });
-  }
-
-  private handleFileUploaded({
-    fileId,
-    callId,
-    originalName,
-    size,
-    senderIp,
-  }: FileUploadedEvent): void {
-    const call = this.callManager.getCallById(callId);
-    if (!call) return;
-    const sender = call.members.find((m) => m.client.ip === senderIp);
-    if (!sender) return;
-
-    this.broadcastToCall(callId, {
-      type: MESSAGE_TYPES.SEND.ALL.CALL.FILE_RECEIVED,
-      data: {
-        fileId,
-        originalName,
-        size,
-        timestamp: new Date().toISOString(),
-        senderInfo: {
-          id: sender.client.id,
-          name: sender.client.personalInfo.name,
-          avatar: sender.client.personalInfo.avatar,
-        },
-      },
-    });
-  }
-
-  private handleFileDeleted({
-    fileId,
-    callId,
-    originalName,
-    size,
-  }: FileDeletedEvent): void {
-    const call = this.callManager.getCallById(callId);
-    if (call) {
-      this.broadcastToCall(callId, {
-        type: MESSAGE_TYPES.SEND.ALL.CALL.FILE_DELETED,
-        data: {
-          fileId,
-          originalName,
-          size,
-          timestamp: new Date().toISOString(),
-        },
-      });
-    }
   }
 
   private async handleMessage(
@@ -278,7 +224,17 @@ export default class SignalingServer {
       },
 
       [MESSAGE_TYPES.RECEIVE.CALL.SEND_MESSAGE]: (ws, _ip, data) => {
-        this.handleSendCallMessage(ws, String(data.callId), String(data.text));
+        const attachmentIds = Array.isArray(data.attachmentIds)
+          ? data.attachmentIds.filter(
+              (id): id is string => typeof id === 'string' && id.length > 0,
+            )
+          : [];
+        return this.handleSendCallMessage(
+          ws,
+          String(data.callId),
+          String(data.text ?? ''),
+          attachmentIds,
+        );
       },
 
       [MESSAGE_TYPES.RECEIVE.CALL.START_SCREEN_SHARING]: (ws, _ip, data) => {
@@ -587,14 +543,19 @@ export default class SignalingServer {
   }
 
   /**
-   * Обработка отправки текстового сообщения в звонок
+   * Обработка отправки сообщения в звонок.
+   * Текст и вложения приходят одним сообщением: файлы уже загружены
+   * по HTTP, здесь остаются только их ID.
    */
-  private handleSendCallMessage(
+  private async handleSendCallMessage(
     ws: WebSocket,
     callId: string,
     text: string,
-  ): void {
-    if (!callId || !text) {
+    attachmentIds: string[] = [],
+  ): Promise<void> {
+    const trimmedText = text.trim();
+
+    if (!callId || (!trimmedText && attachmentIds.length === 0)) {
       throw new Error('Не указан callId или текст сообщения');
     }
 
@@ -603,15 +564,33 @@ export default class SignalingServer {
       throw new Error('Вы не в лобби');
     }
 
-    // Проверяем, является ли текст слэш-командой
-    const slashMatch = text.trim().match(/^\/([\w-]+)(?:\s+(.*))?$/);
-    if (slashMatch && this.slashCommands) {
-      const [, command, args] = slashMatch;
-      this.executeSlashCommand(ws, callId, client.id, command, args);
-      return;
+    let attachments: FileAttachment[] = [];
+
+    if (attachmentIds.length > 0) {
+      // Сообщение с вложениями слэш-командой не считается: у команды
+      // нет доступа к файлам, поэтому отправляем текст как обычное сообщение
+      attachments = this.fileManager.claimAttachments(
+        attachmentIds,
+        client.id,
+        callId,
+      );
+    } else {
+      // Проверяем, является ли текст слэш-командой
+      const slashMatch = trimmedText.match(/^\/([\w-]+)(?:\s+(.*))?$/);
+      if (slashMatch && this.slashCommands) {
+        const [, command, args] = slashMatch;
+        await this.executeSlashCommand(ws, callId, client.id, command, args);
+        return;
+      }
     }
 
-    const message = this.callManager.sendMessage(callId, client.id, text);
+    const message = this.callManager.sendMessage(
+      callId,
+      client.id,
+      trimmedText,
+      false,
+      attachments,
+    );
 
     this.broadcastToCall(callId, {
       type: MESSAGE_TYPES.SEND.ALL.CALL.NEW_MESSAGE,
@@ -851,12 +830,6 @@ export default class SignalingServer {
     return this.lobbyManager.getStats();
   }
 
-  /** Очистка подписок на eventBus */
-  private unsubscribeFromEventBus(): void {
-    eventBus.off('file:uploaded', this.handleFileUploaded.bind(this));
-    eventBus.off('file:deleted', this.handleFileDeleted.bind(this));
-  }
-
   setSlashCommands(registry: SlashCommandRegistry): void {
     this.slashCommands = registry;
   }
@@ -884,7 +857,6 @@ export default class SignalingServer {
     });
 
     this.wss.close();
-    this.unsubscribeFromEventBus();
     console.info('Signaling server shutdown complete');
   }
 }

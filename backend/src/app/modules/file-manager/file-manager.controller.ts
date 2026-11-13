@@ -1,6 +1,5 @@
 import * as mime from 'mime-types';
 import type { NextFunction, Request, Response } from 'express';
-import eventBus from '../../../utils/event-bus';
 import type FileManagerService from './file-manager.service';
 import type { HttpError } from '../../../types';
 
@@ -11,40 +10,47 @@ export default class FileManagerController {
     this.fileManagerService = fileManagerService;
   }
 
-  async uploadFile(
+  /**
+   * Загрузка файлов для последующего прикрепления к сообщению.
+   * POST /files/attachments
+   */
+  async uploadAttachments(
     req: Request,
     res: Response,
     next: NextFunction,
   ): Promise<void> {
     try {
       const senderIp = req.socket.remoteAddress ?? '';
-      const callId = req.body?.callId as string | undefined;
+      const callId =
+        typeof req.body?.callId === 'string' ? req.body.callId : '';
+      const clientId =
+        typeof req.body?.clientId === 'string' ? req.body.clientId : '';
+      const files = Array.isArray(req.files) ? req.files : [];
+
       if (!callId) {
         const err: HttpError = new Error('Не указан callId');
         err.status = 400;
         throw err;
       }
-      if (!req.file) {
-        const err: HttpError = new Error('Файл не загружен');
+      if (!clientId) {
+        const err: HttpError = new Error('Не указан clientId');
+        err.status = 400;
+        throw err;
+      }
+      if (files.length === 0) {
+        const err: HttpError = new Error('Файлы не загружены');
         err.status = 400;
         throw err;
       }
 
-      const result = await this.fileManagerService.uploadFile(
-        req.file,
+      const attachments = await this.fileManagerService.uploadAttachments(
+        files,
         senderIp,
         callId,
+        clientId,
       );
 
-      eventBus.emit('file:uploaded', {
-        fileId: result.fileId,
-        originalName: req.file.originalname,
-        size: req.file.size,
-        callId,
-        senderIp,
-      });
-
-      res.status(201).json(result);
+      res.status(201).json({ files: attachments });
     } catch (err) {
       next(err);
     }

@@ -1,6 +1,7 @@
 import Call, { Member } from '../models/Call';
 import type CallOffer from '../models/CallOffer';
 import type Message from '../models/Message';
+import type { FileAttachment } from '../types';
 
 export default class CallManager {
   #calls: Map<string, Call> = new Map();
@@ -108,6 +109,7 @@ export default class CallManager {
    * @param senderId - ID отправителя (должен быть участником)
    * @param text - текст сообщения
    * @param isSystem - системное сообщение (ответ бота)
+   * @param attachments - прикреплённые файлы
    * @returns объект созданного сообщения
    */
   sendMessage(
@@ -115,6 +117,7 @@ export default class CallManager {
     senderId: string,
     text: string,
     isSystem: boolean = false,
+    attachments: FileAttachment[] = [],
   ): Message {
     const call = this.#calls.get(callId);
     if (!call) {
@@ -134,6 +137,7 @@ export default class CallManager {
       member.client.personalInfo?.name ?? null,
       member.client.personalInfo?.avatar ?? null,
       isSystem,
+      attachments,
     );
 
     // Возвращаем сообщение, чтобы SignalingServer мог его разослать

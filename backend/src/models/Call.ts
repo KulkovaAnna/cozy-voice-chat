@@ -2,6 +2,7 @@ import { v4 } from 'uuid';
 import type Client from './Client';
 import type CallOffer from './CallOffer';
 import Message from './Message';
+import type { FileAttachment } from '../types';
 
 export class Member {
   public client: Client;
@@ -44,6 +45,7 @@ export default class Call {
    * @param senderName - опционально имя отправителя
    * @param avatar - опционально аватар отправителя
    * @param isSystem - системное сообщение (ответ бота)
+   * @param attachments - прикреплённые файлы
    * @returns объект сообщения
    */
   addMessage(
@@ -52,8 +54,16 @@ export default class Call {
     senderName: string | null = null,
     avatar: string | null = null,
     isSystem: boolean = false,
+    attachments: FileAttachment[] = [],
   ): Message {
-    const message = new Message(senderId, text, senderName, avatar, isSystem);
+    const message = new Message(
+      senderId,
+      text,
+      senderName,
+      avatar,
+      isSystem,
+      attachments,
+    );
     this.messages.push(message);
     return message;
   }

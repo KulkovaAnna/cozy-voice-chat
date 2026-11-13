@@ -47,6 +47,24 @@ export const StyledFileInfo = styled(FileInfo)`
   }
 `;
 
+/** Блок вложений под текстом сообщения */
+export const Attachments = styled.div`
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-top: 4px;
+`;
+
+/** Сетка картинок в одном сообщении */
+export const ImageGrid = styled.div`
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+`;
+
 export const Image = styled.img`
-  width: calc(100% - ${({ theme }) => theme.spacing.layout.small});
+  max-width: 100%;
+  max-height: 200px;
+  border-radius: 4px;
+  object-fit: cover;
 `;

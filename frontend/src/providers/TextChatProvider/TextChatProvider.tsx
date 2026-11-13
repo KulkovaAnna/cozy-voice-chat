@@ -2,7 +2,9 @@ import { useEffect, useRef, useState, type PropsWithChildren } from "react";
 
 import { fetcher } from "@cvc/api";
 import { usePageVisibility, useChatEmojiReaction } from "@cvc/hooks";
+import type { Attachment } from "@cvc/types";
 import { toast } from "react-toastify";
+import { useAuth } from "../AuthProvider";
 import { useChatNetwork } from "../ChatNetworkProvider";
 import { TextChatContext } from "./TextChatContext";
 
@@ -11,6 +13,7 @@ export function TextChatProvider(props: PropsWithChildren) {
   const [hasNewMessages, setHasNewMessages] = useState(false);
 
   const isTabVisible = usePageVisibility();
+  const { user } = useAuth();
   const { textMessages, callInfo, sendTextMessage } = useChatNetwork();
   const emojiReaction = useChatEmojiReaction(textMessages);
 
@@ -41,21 +44,28 @@ export function TextChatProvider(props: PropsWithChildren) {
     }
   }, [isOpen, isTabVisible]);
 
-  const sendFile = async (
-    file: File,
-  ): Promise<{ fileId: string } | null> => {
-    if (!callInfo) return null;
+  const uploadAttachments = async (
+    files: File[],
+  ): Promise<Attachment[] | null> => {
+    if (!callInfo || files.length === 0) return null;
 
     const formData = new FormData();
-    formData.append("file", file);
+    files.forEach((file) => formData.append("files", file));
     formData.append("callId", callInfo.id);
-    const res = await fetcher("/files/upload", {
-      method: "POST",
-      body: formData,
-    });
+    formData.append("clientId", user.id ?? "");
 
-    if (res.ok) {
-      return (await res.json()) as { fileId: string };
+    try {
+      const res = await fetcher("/files/attachments", {
+        method: "POST",
+        body: formData,
+      });
+
+      if (res.ok) {
+        const data = (await res.json()) as { files?: Attachment[] };
+        return data.files ?? [];
+      }
+    } catch {
+      // Сетевая ошибка — обрабатываем так же, как неуспешный ответ
     }
 
     toast("Что-то пошло не так", { type: "error" });
@@ -71,7 +81,7 @@ export function TextChatProvider(props: PropsWithChildren) {
         readMessages,
         switchTextChatIsOpen: switchOpen,
         sendTextMessage,
-        sendFile,
+        uploadAttachments,
         emojiReaction,
       }}
     >

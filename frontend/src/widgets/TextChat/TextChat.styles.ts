@@ -40,6 +40,16 @@ export const DropOverlayText = styled.span`
   font-weight: ${({ theme }) => theme.typography.fontWeight.medium};
 `;
 
+/** Список выбранных файлов над полем ввода */
+export const AttachmentList = styled.div`
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  max-height: 180px;
+  overflow-y: auto;
+  margin-bottom: 4px;
+`;
+
 /** Строка выбранного файла с кнопкой снятия вложения */
 export const AttachmentRow = styled.div`
   position: relative;

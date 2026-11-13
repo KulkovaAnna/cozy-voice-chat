@@ -13,7 +13,7 @@ export type MessageProps = {
 };
 
 export function Message(props: MessageProps) {
-  const { attachment, isSystem } = props.message;
+  const { attachments = [], isSystem } = props.message;
   const attachmentUrl = `${API_URLS.BASE_URL}/files`;
 
   const msg = isSystem
@@ -24,6 +24,13 @@ export function Message(props: MessageProps) {
       }
     : props.message;
 
+  const images = attachments.filter((attachment) =>
+    isImageFile(attachment.fileName),
+  );
+  const files = attachments.filter(
+    (attachment) => !isImageFile(attachment.fileName),
+  );
+
   return (
     <Styles.Container $anglePosition={props.anglePosition}>
       <Avatar src={msg.senderAvatar} size={24} />
@@ -33,32 +40,42 @@ export function Message(props: MessageProps) {
           $anglePosition={props.anglePosition}
           $isSystem={isSystem}
         >
-          {formatNewLines(formatTextWithLinks(msg.message))}
-          {attachment &&
-            (isImageFile(attachment.fileName) ? (
-              <Styles.Image
-                src={`${attachmentUrl}/view/${attachment?.id}`}
-                alt={attachment.fileName}
-              />
-            ) : (
-              <Styles.StyledFileInfo
-                icon={
-                  <a
-                    target="_blank"
-                    download
-                    href={`${attachmentUrl}/download/${attachment?.id}`}
-                  >
-                    <DownLoadFileIcon />
-                  </a>
-                }
-                file={
-                  {
-                    size: attachment.fileSize,
-                    name: attachment.fileName,
-                  } as File
-                }
-              />
-            ))}
+          {msg.message && formatNewLines(formatTextWithLinks(msg.message))}
+          {attachments.length > 0 && (
+            <Styles.Attachments>
+              {images.length > 0 && (
+                <Styles.ImageGrid>
+                  {images.map((attachment) => (
+                    <Styles.Image
+                      key={attachment.id}
+                      src={`${attachmentUrl}/view/${attachment.id}`}
+                      alt={attachment.fileName}
+                    />
+                  ))}
+                </Styles.ImageGrid>
+              )}
+              {files.map((attachment) => (
+                <Styles.StyledFileInfo
+                  key={attachment.id}
+                  icon={
+                    <a
+                      target="_blank"
+                      download
+                      href={`${attachmentUrl}/download/${attachment.id}`}
+                    >
+                      <DownLoadFileIcon />
+                    </a>
+                  }
+                  file={
+                    {
+                      size: attachment.fileSize,
+                      name: attachment.fileName,
+                    } as File
+                  }
+                />
+              ))}
+            </Styles.Attachments>
+          )}
         </Styles.MessageBubble>
       </Styles.MessageBody>
     </Styles.Container>

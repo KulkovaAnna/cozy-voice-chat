@@ -46,5 +46,6 @@ export const textMessageAdapter = (serverMsg: MessageDto): TextMessage => {
     timestamp: serverMsg.timestamp,
     senderAvatar: serverMsg.avatar,
     isSystem: serverMsg.isSystem,
+    attachments: serverMsg.attachments ?? [],
   };
 };

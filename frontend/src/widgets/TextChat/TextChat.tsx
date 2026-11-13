@@ -22,9 +22,11 @@ import {
 import { CommandSuggest, EmojiPicker, MusicPlayer } from "@cvc/features";
 import { useAuth, useChatNetwork, useTextChat } from "@cvc/providers";
 import {
+  appendAttachments,
   extractClipboardFiles,
   extractDroppedFiles,
   isFileDrag,
+  MAX_ATTACHMENT_FILES,
   namePastedFile,
 } from "@cvc/utils";
 
@@ -35,7 +37,7 @@ const COMMAND_TIMEOUT_MS = 90_000;
 
 export function TextChat() {
   const [text, setText] = useState("");
-  const [file, setFile] = useState<File | null>(null);
+  const [files, setFiles] = useState<File[]>([]);
   const [loading, setLoading] = useState(false);
   const [commandTimedOut, setCommandTimedOut] = useState(false);
 
@@ -45,7 +47,7 @@ export function TextChat() {
     messages,
     switchTextChatIsOpen,
     sendTextMessage,
-    sendFile,
+    uploadAttachments,
   } = useTextChat();
 
   const { commandStatus } = useChatNetwork();
@@ -57,11 +59,27 @@ export function TextChat() {
   const dragDepthRef = useRef(0);
   const [isDragActive, setIsDragActive] = useState(false);
 
-  const attachFile = useCallback((incoming: File | null) => {
-    if (!incoming) return;
-    setFile(incoming);
-    requestAnimationFrame(() => inputRef.current?.focus());
-  }, []);
+  const attachFiles = useCallback(
+    (incoming: File[]) => {
+      if (incoming.length === 0) return;
+
+      const { files: next, rejected } = appendAttachments(files, incoming);
+      setFiles(next);
+
+      if (rejected > 0) {
+        toast(`Можно прикрепить не больше ${MAX_ATTACHMENT_FILES} файлов`, {
+          type: "info",
+        });
+      }
+
+      requestAnimationFrame(() => inputRef.current?.focus());
+    },
+    [files],
+  );
+
+  const removeFile = (index: number) => {
+    setFiles((prev) => prev.filter((_, fileIndex) => fileIndex !== index));
+  };
 
   // Счётчик глубины: dragleave срабатывает и на дочерних элементах,
   // поэтому подсветку снимаем только когда курсор покинул всю панель
@@ -99,10 +117,8 @@ export function TextChat() {
       toast("Папки пока не поддерживаются", { type: "info" });
       return;
     }
-    if (dropped.length > 1) {
-      toast("Можно прикрепить только один файл", { type: "info" });
-    }
-    attachFile(dropped[0]);
+
+    attachFiles(dropped);
   };
 
   // Подсветку сбрасываем при закрытии чата, чтобы она не «залипла»
@@ -134,15 +150,12 @@ export function TextChat() {
       if (pasted.length === 0) return;
 
       event.preventDefault();
-      if (pasted.length > 1) {
-        toast("Можно прикрепить только один файл", { type: "info" });
-      }
-      attachFile(namePastedFile(pasted[0]));
+      attachFiles(pasted.map((file) => namePastedFile(file)));
     };
 
     document.addEventListener("paste", handlePaste);
     return () => document.removeEventListener("paste", handlePaste);
-  }, [attachFile, textChatIsOpen]);
+  }, [attachFiles, textChatIsOpen]);
 
   const handleInputChange: ChangeEventHandler<
     HTMLInputElement | HTMLTextAreaElement
@@ -158,15 +171,23 @@ export function TextChat() {
   };
 
   const submit = async () => {
-    if (file) {
+    if ((!text && files.length === 0) || loading) return;
+
+    let attachmentIds: string[] = [];
+
+    if (files.length > 0) {
       setLoading(true);
-      const result = await sendFile(file).finally(() => setLoading(false));
-      // При ошибке вложение остаётся, чтобы можно было повторить отправку
-      if (!result) return;
-      setFile(null);
+      const uploaded = await uploadAttachments(files).finally(() =>
+        setLoading(false),
+      );
+      // При ошибке вложения остаются, чтобы можно было повторить отправку
+      if (!uploaded) return;
+      attachmentIds = uploaded.map((attachment) => attachment.id);
+      setFiles([]);
     }
-    if (text) {
-      sendTextMessage(text);
+
+    if (text || attachmentIds.length > 0) {
+      sendTextMessage(text, attachmentIds);
       setText("");
       requestAnimationFrame(handleInputResize);
     }
@@ -210,10 +231,10 @@ export function TextChat() {
   };
 
   const handleFileSelect: ChangeEventHandler<HTMLInputElement> = (e) => {
-    const selected = e.target.files?.[0] || null;
-    // Сбрасываем значение, иначе тот же файл нельзя выбрать повторно
+    const selected = Array.from(e.target.files ?? []);
+    // Сбрасываем значение, иначе те же файлы нельзя выбрать повторно
     e.target.value = "";
-    attachFile(selected);
+    attachFiles(selected);
   };
 
   // Вставляет выбранную эмодзи в позицию курсора (или в конец, если курсора нет).
@@ -290,7 +311,7 @@ export function TextChat() {
           <Styles.DropOverlay>
             <AttachmentIcon />
             <Styles.DropOverlayText>
-              Перетащите сюда файл, чтобы прикрепить его к сообщению
+              Перетащите файлы сюда, чтобы прикрепить их к сообщению
             </Styles.DropOverlayText>
           </Styles.DropOverlay>
         )}
@@ -305,18 +326,24 @@ export function TextChat() {
           })}
         </Styles.MessagesContainer>
         <div>
-          {!!file && (
-            <Styles.AttachmentRow>
-              <Styles.StyledFileInfo file={file} />
-              <Styles.RemoveAttachmentButton
-                type="button"
-                title="Убрать файл"
-                aria-label="Убрать файл"
-                onClick={() => setFile(null)}
-              >
-                <CloseIcon />
-              </Styles.RemoveAttachmentButton>
-            </Styles.AttachmentRow>
+          {files.length > 0 && (
+            <Styles.AttachmentList>
+              {files.map((file, index) => (
+                <Styles.AttachmentRow
+                  key={`${file.name}-${file.size}-${file.lastModified}`}
+                >
+                  <Styles.StyledFileInfo file={file} />
+                  <Styles.RemoveAttachmentButton
+                    type="button"
+                    title="Убрать файл"
+                    aria-label={`Убрать файл ${file.name}`}
+                    onClick={() => removeFile(index)}
+                  >
+                    <CloseIcon />
+                  </Styles.RemoveAttachmentButton>
+                </Styles.AttachmentRow>
+              ))}
+            </Styles.AttachmentList>
           )}
           <MusicPlayer />
           <Styles.FormPanel onSubmit={handleSubmit}>
@@ -326,16 +353,18 @@ export function TextChat() {
               </label>
               <input
                 onChange={handleFileSelect}
-                name="file"
+                name="files"
                 type="file"
                 id="file"
-                multiple={false}
+                multiple
               />
             </Styles.AttachmentWrapper>
 
             <EmojiPicker onSelect={handleEmojiSelect} />
 
-            <CommandSuggest text={text} onSelect={handleCommandSelect} />
+            {files.length === 0 && (
+              <CommandSuggest text={text} onSelect={handleCommandSelect} />
+            )}
 
             <Styles.InputWrapper>
               {isCommandRunning && (
@@ -358,7 +387,7 @@ export function TextChat() {
             </Styles.InputWrapper>
 
             <IconButton
-              disabled={(!text && !file) || loading}
+              disabled={(!text && files.length === 0) || loading}
               icon={
                 loading ? (
                   <LoadingIcon styles={{ width: 40, height: 40 }} />

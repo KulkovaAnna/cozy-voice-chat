@@ -17,6 +17,43 @@ const MIME_EXTENSIONS: Record<string, string> = {
 /** Имя по умолчанию у картинок из буфера: image.png / blob */
 const GENERIC_FILE_NAME = /^(image|blob)(\.[\w-]+)?$/i;
 
+/** Максимум файлов в одном сообщении (совпадает с ограничением сервера) */
+export const MAX_ATTACHMENT_FILES = 10;
+
+/** Уникальный ключ файла: одинаковые имя, размер и время изменения — дубль */
+function fileKey(file: File): string {
+  return `${file.name}:${file.size}:${file.lastModified}`;
+}
+
+/**
+ * Добавляет файлы к уже выбранным: дубли игнорируются, а всё, что выходит
+ * за лимит, отбрасывается. `rejected` — сколько файлов не поместилось.
+ */
+export function appendAttachments(
+  current: File[],
+  incoming: File[],
+  limit: number = MAX_ATTACHMENT_FILES,
+): { files: File[]; rejected: number } {
+  const seen = new Set(current.map(fileKey));
+  const files = [...current];
+  let rejected = 0;
+
+  for (const file of incoming) {
+    const key = fileKey(file);
+    if (seen.has(key)) continue;
+
+    if (files.length >= limit) {
+      rejected += 1;
+      continue;
+    }
+
+    seen.add(key);
+    files.push(file);
+  }
+
+  return { files, rejected };
+}
+
 /** Папка приходит как File с нулевым размером и пустым MIME-типом */
 function isDirectoryLike(file: File): boolean {
   return file.size === 0 && file.type === "";
