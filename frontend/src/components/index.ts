@@ -2,6 +2,7 @@ export * from "./Audio";
 export { Avatar } from "./Avatar";
 export { Button } from "./Button";
 export { Card } from "./Card";
+export * from "./Carousel";
 export { ColorInput } from "./ColorInput";
 export { Column } from "./Column";
 export * from "./ConfirmDialog";

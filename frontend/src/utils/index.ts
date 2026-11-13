@@ -1,6 +1,7 @@
 export * from "./adapters";
 export * from "./attachments";
 export * from "./cardAppearance";
+export * from "./carousel";
 export * from "./emoji";
 export * from "./fileToBase64";
 export * from "./formatters";

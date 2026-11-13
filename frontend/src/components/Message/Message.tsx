@@ -1,8 +1,11 @@
+import { useState } from "react";
+
 import { API_URLS } from "@cvc/api/config";
 import type { TextMessage } from "@cvc/types";
 import { isImageFile } from "@cvc/utils";
 
 import { Avatar } from "../Avatar";
+import { Carousel, type CarouselItem } from "../Carousel";
 import { DownLoadFileIcon } from "../Icons";
 import * as Styles from "./Message.styles";
 import { formatNewLines, formatTextWithLinks } from "./utils";
@@ -13,6 +16,7 @@ export type MessageProps = {
 };
 
 export function Message(props: MessageProps) {
+  const [galleryIndex, setGalleryIndex] = useState<number | null>(null);
   const { attachments = [], isSystem } = props.message;
   const attachmentUrl = `${API_URLS.BASE_URL}/files`;
 
@@ -31,6 +35,12 @@ export function Message(props: MessageProps) {
     (attachment) => !isImageFile(attachment.fileName),
   );
 
+  const galleryItems: CarouselItem[] = images.map((image) => ({
+    id: image.id,
+    src: `${attachmentUrl}/view/${image.id}`,
+    alt: image.fileName,
+  }));
+
   return (
     <Styles.Container $anglePosition={props.anglePosition}>
       <Avatar src={msg.senderAvatar} size={24} />
@@ -43,14 +53,38 @@ export function Message(props: MessageProps) {
           {msg.message && formatNewLines(formatTextWithLinks(msg.message))}
           {attachments.length > 0 && (
             <Styles.Attachments>
-              {images.length > 0 && (
-                <Styles.ImageGrid>
-                  {images.map((attachment) => (
-                    <Styles.Image
-                      key={attachment.id}
-                      src={`${attachmentUrl}/view/${attachment.id}`}
-                      alt={attachment.fileName}
-                    />
+              {images.length === 1 && (
+                <Styles.PreviewButton
+                  type="button"
+                  aria-label={`Открыть изображение ${images[0].fileName}`}
+                  onClick={() => setGalleryIndex(0)}
+                >
+                  <Styles.PreviewImage
+                    src={`${attachmentUrl}/view/${images[0].id}`}
+                    alt={images[0].fileName}
+                    loading="lazy"
+                    decoding="async"
+                    draggable={false}
+                  />
+                </Styles.PreviewButton>
+              )}
+              {images.length > 1 && (
+                <Styles.ImageGrid $columns={Math.min(images.length, 3)}>
+                  {images.map((image, index) => (
+                    <Styles.ThumbButton
+                      key={image.id}
+                      type="button"
+                      aria-label={`Открыть изображение ${image.fileName}`}
+                      onClick={() => setGalleryIndex(index)}
+                    >
+                      <Styles.ThumbImage
+                        src={`${attachmentUrl}/view/${image.id}`}
+                        alt={image.fileName}
+                        loading="lazy"
+                        decoding="async"
+                        draggable={false}
+                      />
+                    </Styles.ThumbButton>
                   ))}
                 </Styles.ImageGrid>
               )}
@@ -78,6 +112,13 @@ export function Message(props: MessageProps) {
           )}
         </Styles.MessageBubble>
       </Styles.MessageBody>
+      {galleryIndex !== null && (
+        <Carousel
+          items={galleryItems}
+          initialIndex={galleryIndex}
+          onClose={() => setGalleryIndex(null)}
+        />
+      )}
     </Styles.Container>
   );
 }
