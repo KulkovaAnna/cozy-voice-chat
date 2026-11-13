@@ -129,6 +129,30 @@ describe('CallManager', () => {
       expect(callManager.getMemberById(call.id, clientId).isMuted).toBe(false);
     });
 
+    it('should reset isSpeaking when muting', () => {
+      const call = callManager.startCall(createOffer());
+      const clientId = call.members[0].client.id;
+
+      callManager.changeSpeakingStatus(call.id, clientId, true);
+      callManager.changeMuteStatus(call.id, clientId, true);
+
+      expect(callManager.getMemberById(call.id, clientId).isSpeaking).toBe(
+        false,
+      );
+    });
+
+    it('should not touch isSpeaking when unmuting', () => {
+      const call = callManager.startCall(createOffer());
+      const clientId = call.members[0].client.id;
+
+      callManager.changeSpeakingStatus(call.id, clientId, true);
+      callManager.changeMuteStatus(call.id, clientId, false);
+
+      expect(callManager.getMemberById(call.id, clientId).isSpeaking).toBe(
+        true,
+      );
+    });
+
     it('should throw for unknown callId', () => {
       expect(() => callManager.changeMuteStatus('no-id', 'x', true)).toThrow(
         'Нет такого звонка',

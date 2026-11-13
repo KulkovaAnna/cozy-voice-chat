@@ -32,7 +32,8 @@ export const PiPWidget = () => {
         .map(({ member, isSpeaking, isMuted }) => (
           <Styles.Participant key={member.id}>
             <Styles.AvatarBlock>
-              <Styles.AvatarRing isSpeaking={isSpeaking}>
+              {/* Замьюченный не может говорить: гасим обводку даже при рассинхроне. */}
+              <Styles.AvatarRing isSpeaking={isSpeaking && !isMuted}>
                 <Avatar size={48} src={member.avatar} />
               </Styles.AvatarRing>
               {isMuted && (

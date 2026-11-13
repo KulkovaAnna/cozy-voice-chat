@@ -47,7 +47,16 @@ export default class CallManager {
   }
 
   changeMuteStatus(callId: string, clientId: string, isMuted: boolean): void {
-    this.getMemberById(callId, clientId).isMuted = isMuted;
+    const member = this.getMemberById(callId, clientId);
+
+    member.isMuted = isMuted;
+
+    // Замьюченный не может говорить: сбрасываем индикатор речи, иначе зелёная
+    // обводка у собеседника остаётся «горящей», если детектор речи не успел
+    // прислать false (например, после переподключения микрофона).
+    if (isMuted) {
+      member.isSpeaking = false;
+    }
   }
 
   changeOnlineStatus(

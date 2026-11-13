@@ -171,3 +171,23 @@ export function isDeviceAvailable(
 
   return devices.some((device) => device.deviceId === deviceId);
 }
+
+// Минимальная пауза перед повторной попыткой открыть микрофон.
+const MICROPHONE_RETRY_BASE_DELAY_MS = 500;
+// Потолок паузы между попытками: дальше ждём по 10 секунд.
+const MICROPHONE_RETRY_MAX_DELAY_MS = 10_000;
+
+export function isMicrophoneTrackUsable(
+  track: Pick<MediaStreamTrack, "readyState" | "muted"> | null,
+): boolean {
+  return track !== null && track.readyState === "live" && !track.muted;
+}
+
+export function microphoneRetryDelay(attempt: number): number {
+  const index = Math.max(0, Math.floor(attempt));
+
+  return Math.min(
+    MICROPHONE_RETRY_BASE_DELAY_MS * 2 ** index,
+    MICROPHONE_RETRY_MAX_DELAY_MS,
+  );
+}

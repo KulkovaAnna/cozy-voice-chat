@@ -48,13 +48,16 @@ export const UserCard = (props: UserCardProps) => {
   const background = user.cardAppearance?.background;
   const border = user.cardAppearance?.avatarBorder;
   const textStyle = cardTextToCss(user.cardAppearance);
+  // Замьюченный не может говорить: страхуемся от рассинхрона состояния, из-за
+  // которого зелёная обводка остаётся «горящей» при включённом муте.
+  const showSpeaking = isSpeaking === true && !isMuted;
 
   return (
     <Styles.Container>
       <ContextMenu menu={menuContent} isShow={volume != null}>
         <Styles.UserCard
           variant={variant}
-          isSpeaking={isSpeaking}
+          isSpeaking={showSpeaking}
           style={backgroundToCss(background)}
         >
           <Styles.RelativeBlock>

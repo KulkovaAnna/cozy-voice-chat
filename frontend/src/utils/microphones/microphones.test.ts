@@ -8,7 +8,9 @@ import {
   hasPermissionFromDevices,
   isDeviceAvailable,
   isDeviceIdValid,
+  isMicrophoneTrackUsable,
   listAudioDevices,
+  microphoneRetryDelay,
 } from "./microphones";
 
 import type { AudioDevice } from "./types";
@@ -202,6 +204,50 @@ describe("isDeviceIdValid", () => {
     expect(isDeviceIdValid("default")).toBe(true);
     expect(isDeviceIdValid("mic-1")).toBe(true);
     expect(isDeviceIdValid("")).toBe(false);
+  });
+});
+
+describe("isMicrophoneTrackUsable", () => {
+  it("treats a missing track as unusable", () => {
+    expect(isMicrophoneTrackUsable(null)).toBe(false);
+  });
+
+  it("treats an ended track as unusable", () => {
+    expect(isMicrophoneTrackUsable({ readyState: "ended", muted: false })).toBe(
+      false,
+    );
+  });
+
+  it("treats a muted track as unusable", () => {
+    expect(isMicrophoneTrackUsable({ readyState: "live", muted: true })).toBe(
+      false,
+    );
+  });
+
+  it("treats a live and unmuted track as usable", () => {
+    expect(isMicrophoneTrackUsable({ readyState: "live", muted: false })).toBe(
+      true,
+    );
+  });
+});
+
+describe("microphoneRetryDelay", () => {
+  it("grows exponentially from the first attempt", () => {
+    expect(microphoneRetryDelay(0)).toBe(500);
+    expect(microphoneRetryDelay(1)).toBe(1000);
+    expect(microphoneRetryDelay(2)).toBe(2000);
+    expect(microphoneRetryDelay(3)).toBe(4000);
+    expect(microphoneRetryDelay(4)).toBe(8000);
+  });
+
+  it("caps the delay at 10 seconds", () => {
+    expect(microphoneRetryDelay(5)).toBe(10000);
+    expect(microphoneRetryDelay(50)).toBe(10000);
+  });
+
+  it("never returns a negative or fractional delay", () => {
+    expect(microphoneRetryDelay(-3)).toBe(500);
+    expect(microphoneRetryDelay(1.9)).toBe(1000);
   });
 });
 

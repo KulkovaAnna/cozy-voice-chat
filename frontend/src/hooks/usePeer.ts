@@ -2,7 +2,12 @@ import Peer, { type MediaConnection } from "peerjs";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { toast } from "react-toastify";
 
-import { buildAudioConstraints, DEFAULT_DEVICE_ID } from "@cvc/utils";
+import {
+  buildAudioConstraints,
+  DEFAULT_DEVICE_ID,
+  isMicrophoneTrackUsable,
+  microphoneRetryDelay,
+} from "@cvc/utils";
 import { useSettingsStore } from "@cvc/utils/settingsStore";
 
 export type CallKind = "audio" | "screen";
@@ -13,20 +18,31 @@ export interface PeerCall {
   remoteStream: MediaStream | null;
 }
 
-function getLocalAudioStream(): Promise<MediaStream> {
+async function acquireAudioStream(): Promise<MediaStream> {
   const audio = useSettingsStore.getState().audio;
-  return navigator.mediaDevices.getUserMedia({
-    audio: buildAudioConstraints(
-      audio.inputDeviceId ?? DEFAULT_DEVICE_ID,
-      audio,
-    ),
-  });
+
+  try {
+    return await navigator.mediaDevices.getUserMedia({
+      audio: buildAudioConstraints(
+        audio.inputDeviceId ?? DEFAULT_DEVICE_ID,
+        audio,
+      ),
+    });
+  } catch {
+    return navigator.mediaDevices.getUserMedia({ audio: true });
+  }
 }
 
 export function usePeer() {
   const peer = useRef<Peer | undefined>(undefined);
   const callRef = useRef<MediaConnection | null>(null);
   const screenCallRef = useRef<MediaConnection | null>(null);
+
+  const localTrackRef = useRef<MediaStreamTrack | null>(null);
+  const mutedRef = useRef(false);
+  const switchingRef = useRef(false);
+  const retryTimerRef = useRef<number | null>(null);
+  const retryAttemptRef = useRef(0);
 
   const [currentCall, setCurrentCall] = useState<MediaConnection | null>(null);
   const [localAudioStream, setLocalAudioStream] = useState<MediaStream | null>(
@@ -36,6 +52,30 @@ export function usePeer() {
     useState<MediaStream | null>(null);
   const [remoteScreenStream, setRemoteScreenStream] =
     useState<MediaStream | null>(null);
+
+  const getAudioSender = useCallback((): RTCRtpSender | null => {
+    const senders = callRef.current?.peerConnection?.getSenders() ?? [];
+
+    return senders.find((sender) => sender.track?.kind === "audio") ?? null;
+  }, []);
+
+  const clearRetryTimer = useCallback(() => {
+    if (retryTimerRef.current === null) return;
+
+    window.clearTimeout(retryTimerRef.current);
+    retryTimerRef.current = null;
+  }, []);
+
+  const resetMicRetry = useCallback(() => {
+    clearRetryTimer();
+    retryAttemptRef.current = 0;
+  }, [clearRetryTimer]);
+
+  const applyLocalStream = useCallback((stream: MediaStream) => {
+    localTrackRef.current = stream.getAudioTracks()[0] ?? null;
+    mutedRef.current = false;
+    setLocalAudioStream(stream);
+  }, []);
 
   const onRemoteScreenStream = useRef<((s: MediaStream | null) => void) | null>(
     null,
@@ -77,10 +117,10 @@ export function usePeer() {
       }
 
       // Обычный аудио-звонок
-      getLocalAudioStream()
+      acquireAudioStream()
         .then((stream) => {
           call.answer(stream);
-          setLocalAudioStream(stream);
+          applyLocalStream(stream);
           handleCall(call);
         })
         .catch((err) => console.error("Failed to get local stream", err));
@@ -88,9 +128,9 @@ export function usePeer() {
   }
 
   function callToUser(userId: string) {
-    getLocalAudioStream()
+    acquireAudioStream()
       .then((stream) => {
-        setLocalAudioStream(stream);
+        applyLocalStream(stream);
         const call = peer.current?.call(userId, stream, {
           metadata: { kind: "audio" },
         });
@@ -197,68 +237,161 @@ export function usePeer() {
     screenCallRef.current = call;
   }
 
-  function switchMicState(state: boolean) {
-    callRef.current?.localStream?.getAudioTracks().forEach((track) => {
-      track.enabled = state;
-    });
-  }
+  const switchMicState = useCallback(
+    (state: boolean) => {
+      mutedRef.current = !state;
 
-  const switchInputDevice = useCallback(async () => {
+      const senderTrack = getAudioSender()?.track ?? null;
+      if (senderTrack) senderTrack.enabled = state;
+
+      const localTrack = localTrackRef.current;
+      if (localTrack && localTrack !== senderTrack) localTrack.enabled = state;
+    },
+    [getAudioSender],
+  );
+
+  const replaceInputDevice = useCallback(async (): Promise<boolean> => {
     const call = callRef.current;
-    const sender = call?.peerConnection
-      ?.getSenders()
-      .find((s) => s.track?.kind === "audio");
+    const sender = getAudioSender();
 
-    if (!call || !sender?.track) return;
+    if (!call || !sender || switchingRef.current) return false;
 
-    const oldTrack = sender.track;
-    const previousEnabled = oldTrack.enabled;
+    switchingRef.current = true;
+    let nextTrack: MediaStreamTrack | null = null;
 
     try {
-      oldTrack.stop();
+      const stream = await acquireAudioStream();
+      nextTrack = stream.getAudioTracks()[0] ?? null;
 
-      const audio = useSettingsStore.getState().audio;
-      const stream = await navigator.mediaDevices.getUserMedia({
-        audio: buildAudioConstraints(
-          audio.inputDeviceId ?? DEFAULT_DEVICE_ID,
-          audio,
-        ),
+      stream.getTracks().forEach((track) => {
+        if (track !== nextTrack) track.stop();
       });
 
-      const newTrack = stream.getAudioTracks()[0];
-      if (!newTrack) return;
+      if (!nextTrack) return false;
 
-      newTrack.enabled = previousEnabled;
-      await sender.replaceTrack(newTrack);
-      setLocalAudioStream(new MediaStream([newTrack]));
-    } catch (err) {
-      console.error("Failed to re-apply audio settings", err);
-      // Фолбэк: не дали выбранное устройство/констрейнты — хотя бы вернём звук
-      try {
-        const fallback = await navigator.mediaDevices.getUserMedia({
-          audio: true,
-        });
-        const track = fallback.getAudioTracks()[0];
-        if (track) {
-          track.enabled = previousEnabled;
-          await sender.replaceTrack(track);
-          setLocalAudioStream(new MediaStream([track]));
-        }
-      } catch (fallbackErr) {
-        console.error("Fallback getUserMedia failed", fallbackErr);
+      if (callRef.current !== call) {
+        nextTrack.stop();
+        return false;
       }
+
+      nextTrack.enabled = !mutedRef.current;
+
+      const previousTrack = sender.track;
+      await sender.replaceTrack(nextTrack);
+      previousTrack?.stop();
+
+      localTrackRef.current = nextTrack;
+      setLocalAudioStream(new MediaStream([nextTrack]));
+      resetMicRetry();
+
+      return true;
+    } catch (err) {
+      nextTrack?.stop();
+      console.warn("Failed to switch microphone", err);
+      return false;
+    } finally {
+      switchingRef.current = false;
     }
-  }, []);
+  }, [getAudioSender, resetMicRetry]);
+
+  const recoverRef = useRef<() => void>(() => {});
+
+  const scheduleMicRetry = useCallback(() => {
+    if (!callRef.current) return;
+
+    clearRetryTimer();
+
+    const delay = microphoneRetryDelay(retryAttemptRef.current);
+    retryAttemptRef.current += 1;
+
+    retryTimerRef.current = window.setTimeout(() => {
+      retryTimerRef.current = null;
+      recoverRef.current();
+    }, delay);
+  }, [clearRetryTimer]);
+
+  const recoverInput = useCallback(async () => {
+    if (!callRef.current) {
+      resetMicRetry();
+      return;
+    }
+
+    const currentTrack = getAudioSender()?.track ?? localTrackRef.current;
+    if (isMicrophoneTrackUsable(currentTrack)) {
+      resetMicRetry();
+      return;
+    }
+
+    if (!(await replaceInputDevice())) scheduleMicRetry();
+  }, [getAudioSender, replaceInputDevice, resetMicRetry, scheduleMicRetry]);
+
+  useEffect(() => {
+    recoverRef.current = () => {
+      void recoverInput();
+    };
+  }, [recoverInput]);
+
+  const switchInputDevice = useCallback(async () => {
+    if (!callRef.current) return;
+
+    if (!(await replaceInputDevice())) scheduleMicRetry();
+  }, [replaceInputDevice, scheduleMicRetry]);
+
   const audio = useSettingsStore((s) => s.audio);
   useEffect(() => {
-    void Promise.resolve().then(() => switchInputDevice());
+    void switchInputDevice();
   }, [audio, switchInputDevice]);
 
+  useEffect(() => {
+    if (!currentCall) return;
+
+    const mediaDevices = navigator.mediaDevices;
+
+    if (!mediaDevices?.addEventListener) return;
+
+    const onDeviceChange = () => {
+      void recoverInput();
+    };
+
+    mediaDevices.addEventListener("devicechange", onDeviceChange);
+
+    return () => {
+      mediaDevices.removeEventListener("devicechange", onDeviceChange);
+      resetMicRetry();
+    };
+  }, [currentCall, recoverInput, resetMicRetry]);
+
+  useEffect(() => {
+    const [track] = localAudioStream?.getAudioTracks() ?? [];
+    if (!track) return;
+
+    const onLost = () => {
+      void recoverInput();
+    };
+    const onRestored = () => resetMicRetry();
+
+    track.addEventListener("ended", onLost);
+    track.addEventListener("mute", onLost);
+    track.addEventListener("unmute", onRestored);
+
+    return () => {
+      track.removeEventListener("ended", onLost);
+      track.removeEventListener("mute", onLost);
+      track.removeEventListener("unmute", onRestored);
+    };
+  }, [localAudioStream, recoverInput, resetMicRetry]);
+
   function endCall() {
+    resetMicRetry();
+
     callRef.current?.localStream
       ?.getAudioTracks()
       .forEach((track) => track.stop());
+    localTrackRef.current?.stop();
     localAudioStream?.getTracks().forEach((track) => track.stop());
+
+    localTrackRef.current = null;
+    mutedRef.current = false;
     callRef.current?.close();
     callRef.current = null;
     setLocalAudioStream(null);

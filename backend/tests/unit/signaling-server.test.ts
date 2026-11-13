@@ -608,6 +608,25 @@ describe('SignalingServer', () => {
       expect(mute).toBeDefined();
       expect(mute.data.isMuted).toBe(true);
     });
+
+    it('should reset speaking state when muting', async () => {
+      const { ws1, ws2, call, alice } = await setupCall();
+      await sendMessage(ws1, 'call::speaking', {
+        callId: call.id,
+        status: true,
+      });
+      await sendMessage(ws1, 'call::mute', { callId: call.id, status: true });
+
+      const mute = getSent(ws2)
+        .filter((m: any) => m.type === 'all::call::mute-changed')
+        .pop();
+      const member = mute.data.callInfo.members.find(
+        (mem: any) => mem.client.id === alice.id,
+      );
+
+      expect(member.isMuted).toBe(true);
+      expect(member.isSpeaking).toBe(false);
+    });
   });
 
   // ─── call::speaking ───────────────────────────────────────────

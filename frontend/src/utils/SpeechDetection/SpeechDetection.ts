@@ -27,6 +27,12 @@ export class SpeechDetection {
 
   start(stream: MediaStream) {
     this.handleStream.call(this, stream);
+
+    // Новый анализатор начинает с тишины. Сообщаем это наружу: после повторного
+    // запуска детекции (переподключение микрофона, смена устройства) собеседники
+    // иначе остаются с «горящей» обводкой говорящего — false от прежнего
+    // анализатора уже не придёт, а новый в тишине ничего не отправляет.
+    this.onUpdate(false);
   }
 
   // The handleStream method sets up the audio processing
