@@ -1,37 +1,49 @@
 import styled from "@emotion/styled";
-import { Card } from "@cvc/components";
+import { Avatar, Card } from "@cvc/components";
 import { cardImageLayerStyles } from "@cvc/utils";
 
 export const Container = styled(Card)(({ theme }) => ({
   ...cardImageLayerStyles,
   boxShadow: `0px 0px 4px 2px ${theme.colors.primary.dark}`,
-  padding: "2rem 1rem",
-  width: "300px",
+  padding: "0.5rem 1rem",
+  width: "100%",
+  maxWidth: "300px",
   justifyContent: "space-between",
-  maxHeight: "3rem",
   gap: "1rem",
 }));
+
+// Аватар — flex-item внутри строки с длинным именем: без явного запрета
+// сжатия img «плющится» по ширине и вместо круга получается овал.
+export const RowAvatar = styled(Avatar)({
+  flexShrink: 0,
+});
 
 export const InnerContainer = styled.div({
   display: "flex",
   flexFlow: "row",
   alignItems: "center",
   justifyContent: "flex-start",
-  width: "100%",
+  // Занимает всё свободное место, но может ужиматься — иначе кнопка звонка
+  // выталкивается за пределы карточки.
+  flex: "1 1 auto",
+  minWidth: 0,
   gap: "1rem",
   overflow: "hidden",
   whiteSpace: "nowrap",
-  textOverflow: "ellipsis",
 });
 
 export const Label = styled.p({
-  display: "inline-list-item",
-  width: "auto",
+  display: "block",
+  flexShrink: 0,
+  whiteSpace: "nowrap",
 });
 
 export const LabelEllipsis = styled(Label)({
-  width: "auto",
+  flex: "1 1 auto",
+  // Без min-width: 0 flex-item не даёт ужать себя меньше содержимого,
+  // поэтому text-overflow не срабатывает.
+  minWidth: 0,
+  maxWidth: "100%",
   overflow: "hidden",
-  whiteSpace: "nowrap",
   textOverflow: "ellipsis",
 });

@@ -35,13 +35,19 @@ function getVariantStyles(variant: UserCardVariant, theme: Theme) {
   switch (variant) {
     case "standard":
       return {
-        minWidth: 300,
+        width: 300,
+        // Ограничиваем ширину карточки: длинное имя раньше растягивало её
+        // по max-content. maxWidth нужен, чтобы карточка влезала на мобилке.
+        minWidth: 0,
+        maxWidth: "100%",
         minHeight: 150,
         gap: theme.spacing.layout.small,
       };
     case "compact":
       return {
-        minWidth: 150,
+        width: 150,
+        minWidth: 0,
+        maxWidth: "100%",
         minHeight: 75,
         gap: parseInt(theme.spacing.layout.small) / 2,
         padding: parseInt(theme.spacing.layout.small) / 2,
@@ -53,6 +59,7 @@ function getVariantStyles(variant: UserCardVariant, theme: Theme) {
       return {
         minWidth: 0,
         minHeight: 0,
+        maxWidth: "100%",
       };
   }
 }
@@ -64,6 +71,7 @@ interface UserCardProps {
 
 export const Container = styled.div({
   position: "relative",
+  maxWidth: "100%",
   ":hover": {
     "#slider": {
       opacity: 1,
@@ -93,6 +101,16 @@ export const UserCard = styled(Card)<UserCardProps>(
 
 export const RelativeBlock = styled.div({
   position: "relative",
+});
+
+// Имя участника не должно влиять на ширину карточки: длинное имя обрезается
+// эллипсисом внутри отведённой ширины.
+export const Name = styled.p({
+  width: "100%",
+  minWidth: 0,
+  overflow: "hidden",
+  whiteSpace: "nowrap",
+  textOverflow: "ellipsis",
 });
 
 // Размер аватара в зависимости от варианта карточки: синхронизирован с Avatar в UserCard.tsx.

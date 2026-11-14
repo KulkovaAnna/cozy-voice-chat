@@ -77,7 +77,9 @@ export const UserCard = (props: UserCardProps) => {
               </Styles.EmojiOverlay>
             )}
           </Styles.RelativeBlock>
-          <p style={textStyle}>{user.name}</p>
+          <Styles.Name style={textStyle} title={user.name}>
+            {user.name}
+          </Styles.Name>
         </Styles.UserCard>
       </ContextMenu>
     </Styles.Container>

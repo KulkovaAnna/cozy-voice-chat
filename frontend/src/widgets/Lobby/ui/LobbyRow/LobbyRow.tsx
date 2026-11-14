@@ -1,4 +1,3 @@
-import { Avatar } from "@cvc/components";
 import { CallButton } from "@cvc/features";
 import { useAuth } from "@cvc/providers";
 import type { UserProfile } from "@cvc/types";
@@ -19,8 +18,12 @@ export function LobbyRow(props: LobbyRowProps) {
   return (
     <Styles.Container style={backgroundToCss(background)}>
       <Styles.InnerContainer>
-        <Avatar src={props.currentUser.avatar} size={40} border={border} />
-        <Styles.LabelEllipsis style={textStyle}>
+        <Styles.RowAvatar
+          src={props.currentUser.avatar}
+          size={40}
+          border={border}
+        />
+        <Styles.LabelEllipsis style={textStyle} title={props.currentUser.name}>
           {props.currentUser.name}
         </Styles.LabelEllipsis>
       </Styles.InnerContainer>
