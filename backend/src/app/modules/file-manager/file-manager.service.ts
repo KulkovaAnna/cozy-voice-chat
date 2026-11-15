@@ -383,6 +383,23 @@ export default class FileManagerService {
   }
 
   /**
+   * Удаляет файлы конкретного звонка/комнаты.
+   * Нужен, чтобы завершение одной комнаты не стирало файлы параллельной.
+   */
+  async cleanCallFiles(callId: string): Promise<void> {
+    const entries = Array.from(this.#fileMetadata.entries()).filter(
+      ([, meta]) => meta.callId === callId,
+    );
+
+    await Promise.all(
+      entries.map(async ([fileId, meta]) => {
+        this.#fileMetadata.delete(fileId);
+        await fs.promises.unlink(meta.path).catch(console.error);
+      }),
+    );
+  }
+
+  /**
    * Удаляет только файлы звонков (папка chat/).
    * Файлы профиля (папка profile/) не затрагиваются.
    */

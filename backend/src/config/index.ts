@@ -25,6 +25,12 @@ export interface AppConfig {
     heartbeatInterval: number;
     maxClients: number;
   };
+  calls: {
+    /** Максимум участников групповой комнаты (mesh WebRTC) */
+    maxMembers: number;
+    /** Максимум одновременных групповых комнат */
+    maxRooms: number;
+  };
 }
 
 const config: AppConfig = {
@@ -51,6 +57,11 @@ const config: AppConfig = {
     maxMessageSize: toInt(process.env.MAX_MESSAGE_SIZE) ?? 16384,
     heartbeatInterval: toInt(process.env.HEARTBEAT_INTERVAL) ?? 30000,
     maxClients: toInt(process.env.MAX_CLIENTS) ?? 100,
+  },
+
+  calls: {
+    maxMembers: toInt(process.env.MAX_CALL_MEMBERS) ?? 6,
+    maxRooms: toInt(process.env.MAX_ROOMS) ?? 20,
   },
 };
 

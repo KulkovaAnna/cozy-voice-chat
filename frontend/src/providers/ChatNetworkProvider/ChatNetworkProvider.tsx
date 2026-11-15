@@ -9,6 +9,14 @@ import {
 import { toast } from "react-toastify";
 
 import { usePeer, useProfileSettings } from "@cvc/hooks";
+import {
+  callInfoAdapter,
+  clearActiveRoom,
+  isValidRoomCode,
+  normalizeRoomCode,
+  saveActiveRoom,
+  textMessageAdapter,
+} from "@cvc/utils";
 
 import {
   clearAppBadge,
@@ -20,6 +28,7 @@ import {
 import type {
   CardAppearance,
   CommandStatus,
+  MessageDto,
   ServerMessage,
   TextMessage,
 } from "@cvc/types";
@@ -37,20 +46,30 @@ import {
 
 export function ChatNetworkProvider(props: PropsWithChildren) {
   const socketRef = useRef<WebSocket | null>(null);
+  /** Готовность WS-лобби: до неё create-room/join-room нужно придержать */
+  const lobbyReadyRef = useRef(false);
+  const pendingJoinCodeRef = useRef<string | null>(null);
+  const pendingCreateRoomRef = useRef(false);
   const [textMessages, setTextMessages] = useState<Array<TextMessage>>([]);
   const [commandStatus, setCommandStatus] = useState<CommandStatus | null>(
     null,
   );
+  const [roomJoinError, setRoomJoinError] = useState<string | null>(null);
+  const clearRoomJoinError = useCallback(() => setRoomJoinError(null), []);
 
   const { user, updateUser } = useAuth();
 
   const {
-    call,
+    isCallActive,
     localAudioStream,
+    remoteStreams,
     localScreenStream,
     remoteScreenStream,
     initialize,
     callToUser: peerCallToUser,
+    connectToMembers,
+    disconnectMembers,
+    addScreenShareTarget,
     endCall: peerEndCall,
     switchMicState,
     startScreenShare,
@@ -60,11 +79,54 @@ export function ChatNetworkProvider(props: PropsWithChildren) {
   } = usePeer();
 
   const send = useCallback((type: string, data: Record<string, unknown>) => {
-    socketRef.current?.send(JSON.stringify({ type, data }));
+    const socket = socketRef.current;
+    if (!socket || socket.readyState !== WebSocket.OPEN) return;
+
+    socket.send(JSON.stringify({ type, data }));
   }, []);
+
+  /** Создаёт комнату; если WS ещё не готов, запрос ждёт lobby::joined */
+  const createRoom = useCallback(() => {
+    pendingJoinCodeRef.current = null;
+    setRoomJoinError(null);
+
+    if (lobbyReadyRef.current) {
+      send("lobby::create-room", {});
+      return;
+    }
+    pendingCreateRoomRef.current = true;
+  }, [send]);
+
+  /** Вход в комнату по коду/ссылке с ожиданием готовности WS */
+  const joinRoomByCode = useCallback(
+    (code: string) => {
+      const normalized = normalizeRoomCode(code);
+
+      if (!isValidRoomCode(normalized)) {
+        toast("Код комнаты должен состоять из 6 символов: A-Z и 0-9", {
+          type: "error",
+        });
+        return;
+      }
+
+      pendingCreateRoomRef.current = false;
+      setRoomJoinError(null);
+
+      if (lobbyReadyRef.current) {
+        send("lobby::join-room", { code: normalized });
+        return;
+      }
+
+      pendingJoinCodeRef.current = normalized;
+    },
+    [send],
+  );
 
   const peerRef = useRef({
     callToUser: peerCallToUser,
+    connectToMembers,
+    disconnectMembers,
+    addScreenShareTarget,
     endCall: peerEndCall,
     switchMicState,
   });
@@ -72,10 +134,20 @@ export function ChatNetworkProvider(props: PropsWithChildren) {
   useEffect(() => {
     peerRef.current = {
       callToUser: peerCallToUser,
+      connectToMembers,
+      disconnectMembers,
+      addScreenShareTarget,
       endCall: peerEndCall,
       switchMicState,
     };
-  }, [peerCallToUser, peerEndCall, switchMicState]);
+  }, [
+    peerCallToUser,
+    connectToMembers,
+    disconnectMembers,
+    addScreenShareTarget,
+    peerEndCall,
+    switchMicState,
+  ]);
 
   const lobby = useChatLobby({ user, send });
   const callHook = useChatCall({ user, send, peerRef });
@@ -137,7 +209,7 @@ export function ChatNetworkProvider(props: PropsWithChildren) {
   });
 
   useSpeechDetection({
-    call,
+    isCallActive,
     localAudioStream,
     onSpeakingChange: callHook.changeIsSpeakingState,
   });
@@ -146,8 +218,18 @@ export function ChatNetworkProvider(props: PropsWithChildren) {
     (meId: string) => {
       updateUser({ id: meId });
       initialize(meId);
+      lobbyReadyRef.current = true;
+
+      // Запросы, сделанные до открытия WS (например, по ссылке /join/CODE)
+      if (pendingJoinCodeRef.current) {
+        send("lobby::join-room", { code: pendingJoinCodeRef.current });
+        pendingJoinCodeRef.current = null;
+      } else if (pendingCreateRoomRef.current) {
+        send("lobby::create-room", {});
+        pendingCreateRoomRef.current = false;
+      }
     },
-    [initialize, updateUser],
+    [initialize, send, updateUser],
   );
 
   // Счётчик сообщений, пришедших, пока вкладка была скрыта.
@@ -155,6 +237,8 @@ export function ChatNetworkProvider(props: PropsWithChildren) {
 
   const handleCallEnded = useCallback(() => {
     callHook.handleCallEnded();
+    clearActiveRoom();
+    setRoomJoinError(null);
     setTextMessages([]);
     setCommandStatus(null);
     unreadCount.current = 0;
@@ -179,6 +263,49 @@ export function ChatNetworkProvider(props: PropsWithChildren) {
       new CustomEvent("music::state-changed", { detail: data }),
     );
   }, []);
+
+  /** Любой запуск звонка: запоминаем комнату для восстановления после F5 */
+  const handleCallStarted = useCallback(
+    (data: ServerMessage) => {
+      callHook.handleCallStarted(data);
+
+      const info = callInfoAdapter(data.data.callInfo);
+
+      if (info.type === "group" && info.roomCode) {
+        saveActiveRoom(info.id, info.roomCode);
+        setRoomJoinError(null);
+        return;
+      }
+
+      if (info.type === "direct") {
+        clearActiveRoom();
+      }
+    },
+    [callHook],
+  );
+
+  /** Вход в комнату: поднимаем callInfo и восстанавливаем историю чата */
+  const handleRoomJoined = useCallback(
+    (data: ServerMessage) => {
+      handleCallStarted(data);
+
+      const rawMessages = Array.isArray(data.data.messages)
+        ? (data.data.messages as MessageDto[])
+        : [];
+
+      setTextMessages(rawMessages.map((message) => textMessageAdapter(message)));
+    },
+    [handleCallStarted],
+  );
+
+  /** Выход из комнаты по кнопке: сразу чистим локальное состояние */
+  const leaveCall = useCallback(() => {
+    callHook.leaveCall();
+    clearActiveRoom();
+    setRoomJoinError(null);
+    setTextMessages([]);
+    setCommandStatus(null);
+  }, [callHook]);
 
   const profileSettings = useProfileSettings();
 
@@ -264,6 +391,25 @@ export function ChatNetworkProvider(props: PropsWithChildren) {
         ? data.data.message
         : "Что-то пошло не так";
     toast(message, { type: "error" });
+
+    const isRoomError = [
+      "Комната не найдена",
+      "Некорректный код комнаты",
+      "Комната заполнена",
+      "Вы уже в звонке",
+    ].some((fragment) => message.includes(fragment));
+
+    if (isRoomError) {
+      setRoomJoinError(message);
+    }
+
+    if (
+      message.includes("Комната не найдена") ||
+      message.includes("Некорректный код комнаты") ||
+      message.includes("Комната заполнена")
+    ) {
+      clearActiveRoom();
+    }
   }, []);
 
   // Вернулись во вкладку — значок больше не нужен.
@@ -284,7 +430,10 @@ export function ChatNetworkProvider(props: PropsWithChildren) {
     handleCallOffer,
     handleCallOfferDeclined: lobby.handleCallOfferDeclined,
     setCallOfferNull: lobby.clearCallOffer,
-    handleCallStarted: callHook.handleCallStarted,
+    handleCallStarted,
+    handleRoomJoined,
+    handleMemberJoined: callHook.handleMemberJoined,
+    handleMemberLeft: callHook.handleMemberLeft,
     handleCallEnded,
     handleOnlineChanged: callHook.handleOnlineChanged,
     handleCallStateChanged: callHook.handleCallStateChanged,
@@ -313,7 +462,10 @@ export function ChatNetworkProvider(props: PropsWithChildren) {
         isMyUserScreenSharing: callHook.isMyUserScreenSharing,
         localScreenStream,
         remoteScreenStream,
+        remoteStreams,
         commandStatus,
+        roomJoinError,
+        clearRoomJoinError,
         beginScreenShare,
         endScreenShare,
         playMusic,
@@ -326,7 +478,10 @@ export function ChatNetworkProvider(props: PropsWithChildren) {
         acceptCallOffer: lobby.acceptCallOffer,
         declineCallOffer: lobby.declineCallOffer,
         updateProfile: lobby.updateProfile,
+        createRoom,
+        joinRoomByCode,
         endCall: callHook.endCall,
+        leaveCall,
         changeMuteStatus: callHook.changeMuteStatus,
         sendTextMessage: messages.sendTextMessage,
       }}

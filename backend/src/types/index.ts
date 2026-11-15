@@ -11,6 +11,8 @@ export interface IncomingWsMessage {
     receiverId?: string;
     offerId?: string;
     callId?: string;
+    /** Код групповой комнаты (вход по коду/ссылке) */
+    code?: string;
     status?: boolean;
     text?: string;
     /** ID предварительно загруженных файлов, прикреплённых к сообщению */

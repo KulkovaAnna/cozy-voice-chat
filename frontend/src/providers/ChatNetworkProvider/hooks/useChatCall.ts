@@ -11,6 +11,9 @@ type UseChatCallParams = {
   peerRef: {
     current: {
       callToUser: (uid: string) => void;
+      connectToMembers: (memberIds: string[]) => void;
+      disconnectMembers: (memberIds: string[]) => void;
+      addScreenShareTarget: (peerId: string) => void;
       endCall: VoidFunction;
       switchMicState: (state: boolean) => void;
     };
@@ -77,18 +80,39 @@ export function useChatCall({ user, send, peerRef }: UseChatCallParams) {
       const currentCallInfo = callInfoAdapter(data.data.callInfo);
       setCallInfo(currentCallInfo);
 
-      const meString = localStorage.getItem("user");
-
-      if (!meString) return;
-
-      const me = JSON.parse(meString);
-
-      if (me.id === currentCallInfo.initiator.id) {
+      // В комнате соединения устанавливает mesh-эффект ниже.
+      // Для 1-на-1 инициатор по-прежнему звонит получателю напрямую.
+      if (
+        currentCallInfo.type === "direct" &&
+        currentCallInfo.receiver &&
+        user.id === currentCallInfo.initiator.id
+      ) {
         peerRef.current.callToUser(currentCallInfo.receiver.id!);
       }
     },
-    [peerRef],
+    [peerRef, user.id],
   );
+
+  /**
+   * Mesh-соединения комнаты: при каждом изменении состава участников
+   * подключаем новых и отключаем вышедших.
+   */
+  const memberIdsKey = useMemo(
+    () =>
+      (callInfo?.members ?? [])
+        .map((member) => member.member.id ?? "")
+        .filter(Boolean)
+        .sort()
+        .join(","),
+    [callInfo],
+  );
+
+  useEffect(() => {
+    if (!callInfo || callInfo.type !== "group") return;
+
+    const memberIds = memberIdsKey ? memberIdsKey.split(",") : [];
+    peerRef.current.connectToMembers(memberIds);
+  }, [callInfo, memberIdsKey, peerRef]);
 
   const handleCallEnded = useCallback(() => {
     peerRef.current.endCall();
@@ -97,12 +121,14 @@ export function useChatCall({ user, send, peerRef }: UseChatCallParams) {
 
   const handleOnlineChanged = useCallback(
     (data: ServerMessage) => {
-      if (
-        data.data.callInfo.members.filter(
-          (mem: { online: boolean }) => mem.online,
-        ).length < 2
-      ) {
-        endCall(callInfoAdapter(data.data.callInfo));
+      const updated = callInfoAdapter(data.data.callInfo);
+      setCallInfo(updated);
+
+      // В комнате уход участника не завершает звонок для остальных.
+      if (updated.type !== "direct") return;
+
+      if (updated.members.filter((member) => member.online).length < 2) {
+        endCall(updated);
       }
     },
     [endCall],
@@ -119,6 +145,47 @@ export function useChatCall({ user, send, peerRef }: UseChatCallParams) {
     setCallInfo(callInfoAdapter(data.data.callInfo));
   }, []);
 
+  /** Новый участник комнаты */
+  const handleMemberJoined = useCallback(
+    (data: ServerMessage) => {
+      setCallInfo(callInfoAdapter(data.data.callInfo));
+
+      // Если я уже делюсь экраном — досылаем поток новому участнику
+      const clientId = data.data.client?.id;
+      if (typeof clientId === "string") {
+        peerRef.current.addScreenShareTarget(clientId);
+      }
+    },
+    [peerRef],
+  );
+
+  /** Участник вышел из комнаты */
+  const handleMemberLeft = useCallback((data: ServerMessage) => {
+    const leftId = data.data.clientId;
+    setCallInfo(callInfoAdapter(data.data.callInfo));
+
+    if (typeof leftId === "string") {
+      peerRef.current.disconnectMembers([leftId]);
+    }
+  }, [peerRef]);
+
+  /**
+   * Выход из звонка: 1-на-1 завершается для обоих, комната — только для меня.
+   */
+  const leaveCall = useCallback(() => {
+    const call = callInfoRef.current;
+    if (!call) return;
+
+    if (call.type === "group") {
+      send("call::leave", { callId: call.id });
+      peerRef.current.endCall();
+      setCallInfo(null);
+      return;
+    }
+
+    send("call::end", { callId: call.id });
+  }, [peerRef, send]);
+
   return {
     callInfo,
     callInfoRef,
@@ -126,6 +193,7 @@ export function useChatCall({ user, send, peerRef }: UseChatCallParams) {
     isMyUserMuted,
     isMyUserScreenSharing,
     endCall,
+    leaveCall,
     changeMuteStatus,
     changeIsSpeakingState,
     handleCallStarted,
@@ -133,5 +201,7 @@ export function useChatCall({ user, send, peerRef }: UseChatCallParams) {
     handleOnlineChanged,
     handleCallStateChanged,
     handleCallProfileUpdated,
+    handleMemberJoined,
+    handleMemberLeft,
   };
 }

@@ -31,8 +31,12 @@ export const memberAdapter = (serverMember: CallMemberDTO): CallMember => {
 export const callInfoAdapter = (serverCallInfo: CallInfoDTO): CallInfo => {
   return {
     id: serverCallInfo.id,
+    type: serverCallInfo.type ?? "direct",
+    roomCode: serverCallInfo.roomCode ?? null,
     initiator: userAdapter(serverCallInfo.initiator),
-    receiver: userAdapter(serverCallInfo.receiver),
+    receiver: serverCallInfo.receiver
+      ? userAdapter(serverCallInfo.receiver)
+      : null,
     members: serverCallInfo.members.map(memberAdapter),
   };
 };

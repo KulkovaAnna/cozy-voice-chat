@@ -1,33 +1,39 @@
 import express, { type Router } from 'express';
 import { Readable } from 'stream';
-import musicPlayerService from './music-player.service';
+import musicPlayerService, {
+  type MusicPlayerService,
+} from './music-player.service';
 import { fetchTrackInfo, YTDLP_USER_AGENT } from './yt-dlp';
 
 /** Кэш pending-запросов к yt-dlp: предотвращает гонку, когда оба участника
  *  одновременно запрашивают один трек. Второй получает тот же Promise,
  *  иначе два параллельных запроса к YouTube могут вернуть разные подписи,
- *  и одна из них окажется протухшей. */
+ *  и одна из них окажется протухшей. Ключ включает callId: у каждой
+ *  комнаты свой кэш прямых ссылок. */
 const pendingRequests = new Map<string, Promise<string | null>>();
 
 /**
  * Возвращает прямую ссылку на аудио-поток, получая её через yt-dlp.
- * Результат кэшируется в сервисе по индексу очереди.
+ * Результат кэшируется в плеере звонка по индексу очереди.
+ * @param player — плеер конкретного звонка
  * @param trackUrl — страница видео
  * @param index — индекс трека в очереди (для кэша)
  */
 async function resolveDirectUrl(
+  player: MusicPlayerService,
   trackUrl: string,
   index: number,
 ): Promise<string | null> {
-  const pending = pendingRequests.get(trackUrl);
+  const cacheKey = `${player.callId}:${trackUrl}`;
+  const pending = pendingRequests.get(cacheKey);
   if (pending) return pending;
 
   const request = fetchTrackInfo(trackUrl)
     .then((info) => {
       const url = info.directUrl;
       // Индекс мог устареть, пока yt-dlp работал — пишем только если совпал
-      if (url && musicPlayerService.queueIndex === index) {
-        musicPlayerService.setDirectUrlFor(index, url);
+      if (url && player.queueIndex === index) {
+        player.setDirectUrlFor(index, url);
       }
       return url;
     })
@@ -37,10 +43,10 @@ async function resolveDirectUrl(
       return null;
     })
     .finally(() => {
-      pendingRequests.delete(trackUrl);
+      pendingRequests.delete(cacheKey);
     });
 
-  pendingRequests.set(trackUrl, request);
+  pendingRequests.set(cacheKey, request);
   return request;
 }
 
@@ -55,18 +61,32 @@ export default class MusicPlayerRoutes {
   }
 
   private setupRoutes(): void {
-    // GET /music/stream — отдаёт аудио-поток текущего трека
+    // GET /music/stream?callId=... — отдаёт аудио-поток текущего трека звонка
     this.router.get('/stream', async (req, res) => {
-      const track = musicPlayerService.track;
+      const callId =
+        typeof req.query.callId === 'string' ? req.query.callId.trim() : '';
+
+      if (!callId) {
+        res.status(400).json({ error: 'Не указан callId' });
+        return;
+      }
+
+      const player = musicPlayerService.get(callId);
+      if (!player) {
+        res.status(400).json({ error: 'Трек не загружен' });
+        return;
+      }
+
+      const track = player.track;
       // Индекс фиксируем до await: за время получения ссылки трек мог смениться
-      const index = musicPlayerService.queueIndex;
+      const index = player.queueIndex;
 
       if (!track) {
         res.status(400).json({ error: 'Трек не загружен' });
         return;
       }
 
-      if (!musicPlayerService.isPlaying()) {
+      if (!player.isPlaying()) {
         res.status(409).json({ error: 'Плеер остановлен' });
         return;
       }
@@ -77,17 +97,17 @@ export default class MusicPlayerRoutes {
 
       try {
         // Прямую ссылку получаем лениво и кэшируем по индексу трека
-        let directUrl = musicPlayerService.directUrlFor(index);
+        let directUrl = player.directUrlFor(index);
         let cached = false;
 
         if (directUrl) {
           cached = true;
         } else {
-          directUrl = await resolveDirectUrl(track.url, index);
+          directUrl = await resolveDirectUrl(player, track.url, index);
         }
 
         // Трек сменили, пока мы ждали yt-dlp — клиент перезапросит сам
-        if (musicPlayerService.queueIndex !== index) {
+        if (player.queueIndex !== index) {
           res.status(409).json({ error: 'Трек уже сменился' });
           return;
         }
@@ -117,8 +137,8 @@ export default class MusicPlayerRoutes {
         // Отбрасываем тело неудачного ответа, иначе соединение утечёт.
         if (!upstream.ok && cached) {
           await upstream.body?.cancel().catch(() => undefined);
-          musicPlayerService.setDirectUrlFor(index, null);
-          directUrl = await resolveDirectUrl(track.url, index);
+          player.setDirectUrlFor(index, null);
+          directUrl = await resolveDirectUrl(player, track.url, index);
           if (!directUrl) {
             res.status(502).json({ error: 'Не удалось получить аудио-поток' });
             return;
@@ -131,13 +151,13 @@ export default class MusicPlayerRoutes {
 
         if (!upstream.ok) {
           console.error(`yt-dlp поток вернул статус ${upstream.status}`);
-          musicPlayerService.setDirectUrlFor(index, null);
+          player.setDirectUrlFor(index, null);
           res.status(502).json({ error: `Источник вернул ${upstream.status}` });
           return;
         }
 
         if (!upstream.body) {
-          musicPlayerService.setDirectUrlFor(index, null);
+          player.setDirectUrlFor(index, null);
           res.status(502).json({ error: 'Пустой ответ источника' });
           return;
         }
@@ -186,9 +206,17 @@ export default class MusicPlayerRoutes {
       }
     });
 
-    // GET /music/state — текущее состояние плеера (отладка)
-    this.router.get('/state', (_req, res) => {
-      res.json(musicPlayerService.state);
+    // GET /music/state?callId=... — текущее состояние плеера (отладка)
+    this.router.get('/state', (req, res) => {
+      const callId =
+        typeof req.query.callId === 'string' ? req.query.callId.trim() : '';
+
+      if (!callId) {
+        res.status(400).json({ error: 'Не указан callId' });
+        return;
+      }
+
+      res.json(musicPlayerService.forCall(callId).state);
     });
   }
 

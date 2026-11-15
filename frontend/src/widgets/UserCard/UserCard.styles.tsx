@@ -3,6 +3,7 @@ import type { Theme } from "@cvc/theme";
 import { cardImageLayerStyles } from "@cvc/utils";
 import { keyframes } from "@emotion/react";
 import styled from "@emotion/styled";
+import { USER_CARD_WIDTH } from "./constants";
 import type { UserCardVariant } from "./UserCard";
 
 // Анимация одиночной эмодзи на карточке: появление с разгоном, удержание, исчезновение.
@@ -35,7 +36,7 @@ function getVariantStyles(variant: UserCardVariant, theme: Theme) {
   switch (variant) {
     case "standard":
       return {
-        width: 300,
+        width: USER_CARD_WIDTH,
         // Ограничиваем ширину карточки: длинное имя раньше растягивало её
         // по max-content. maxWidth нужен, чтобы карточка влезала на мобилке.
         minWidth: 0,
@@ -67,6 +68,8 @@ function getVariantStyles(variant: UserCardVariant, theme: Theme) {
 interface UserCardProps {
   isSpeaking?: boolean;
   variant: UserCardVariant;
+  /** Растянуть карточку на всю ширину ячейки (в сетке участников) */
+  stretch?: boolean;
 }
 
 export const Container = styled.div({
@@ -89,13 +92,15 @@ export const Slider = styled(HorizontalSlider)({
 });
 
 export const UserCard = styled(Card)<UserCardProps>(
-  ({ isSpeaking, theme, variant }) => ({
+  ({ isSpeaking, stretch, theme, variant }) => ({
     ...cardImageLayerStyles,
     flexFlow: "column",
     backgroundColor: theme?.colors.background.darker,
     borderColor: isSpeaking ? theme.colors.voice.speaking : "none",
     transition: theme.transitions.slow,
     ...getVariantStyles(variant, theme),
+    // В сетке карточка занимает всю ширину отведённых ей ячеек
+    ...(stretch && { width: "100%" }),
   }),
 );
 

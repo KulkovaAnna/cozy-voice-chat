@@ -37,7 +37,10 @@ export class VoiceChatServer {
 
     this.server = this.setupServer();
     this.lobbyManager = new LobbyManager();
-    this.callManager = new CallManager();
+    this.callManager = new CallManager(
+      config.calls.maxMembers,
+      config.calls.maxRooms,
+    );
     this.fileManagerService = new FileManagerService(
       this.callManager,
       this.lobbyManager,

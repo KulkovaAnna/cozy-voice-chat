@@ -21,3 +21,4 @@ export * from "./ShareScreenVideo";
 export * from "./SidePanel";
 export * from "./Slider";
 export * from "./Toggle";
+export * from "./TopRightCorner";

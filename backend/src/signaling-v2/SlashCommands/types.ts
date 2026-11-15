@@ -11,6 +11,7 @@ export type CommandProgressReporter = (text: string) => void;
 export type CommandHandler = (
   args: string,
   senderId: string,
+  callId: string,
   report: CommandProgressReporter,
 ) => SlashCommandResult | Promise<SlashCommandResult>;
 

@@ -21,9 +21,13 @@ export type CallMemberDTO = {
 
 export type CallInfoDTO = {
   id: string;
+  /** Тип звонка; сервер всегда присылает, optional — для совместимости */
+  type?: "direct" | "group";
+  /** Код групповой комнаты */
+  roomCode?: string | null;
   initiator: UserDTO;
   members: CallMemberDTO[];
-  receiver: UserDTO;
+  receiver?: UserDTO | null;
 };
 
 export type MessageDto = {

@@ -1,10 +1,41 @@
 import Call, { Member } from '../models/Call';
 import type CallOffer from '../models/CallOffer';
+import type Client from '../models/Client';
 import type Message from '../models/Message';
 import type { FileAttachment } from '../types';
+import Helpers from '../utils/helpers';
+
+/** Лимит участников групповой комнаты по умолчанию (mesh WebRTC) */
+export const DEFAULT_MAX_CALL_MEMBERS = 6;
+/** Лимит одновременных комнат по умолчанию */
+export const DEFAULT_MAX_ROOMS = 20;
+/** Сколько раз пробуем сгенерировать свободный код комнаты */
+const MAX_CODE_ATTEMPTS = 50;
 
 export default class CallManager {
   #calls: Map<string, Call> = new Map();
+  /** Код комнаты → id звонка */
+  #roomCodes: Map<string, string> = new Map();
+  #maxMembers: number;
+  #maxRooms: number;
+
+  constructor(
+    maxMembers: number = DEFAULT_MAX_CALL_MEMBERS,
+    maxRooms: number = DEFAULT_MAX_ROOMS,
+  ) {
+    this.#maxMembers = maxMembers;
+    this.#maxRooms = maxRooms;
+  }
+
+  /** Нормализует код комнаты: убирает пробелы и приводит к верхнему регистру */
+  static normalizeRoomCode(code: string): string {
+    return code.trim().toUpperCase();
+  }
+
+  /** Проверяет формат кода комнаты */
+  static isValidRoomCode(code: string): boolean {
+    return /^[A-Z0-9]{6}$/.test(code);
+  }
 
   /**
    * Запускает новый звонок на основании предложения
@@ -24,17 +55,112 @@ export default class CallManager {
       );
     }
 
-    const newCall = new Call(callOffer);
+    const newCall = new Call(
+      callOffer.initiator,
+      [callOffer.initiator, callOffer.receiver],
+      { type: 'direct' },
+    );
     this.#calls.set(newCall.id, newCall);
 
     return newCall;
   }
 
-  endCall(callId: string): void {
-    if (!this.#calls.has(callId)) {
+  /**
+   * Создаёт групповую комнату с уникальным кодом.
+   * Создатель сразу становится её первым участником.
+   */
+  createRoom(initiator: Client): Call {
+    if (this.getClientCall(initiator.id)) {
+      throw new Error('Вы уже в звонке. Сначала завершите текущий');
+    }
+
+    if (this.#roomCodes.size >= this.#maxRooms) {
+      throw new Error('Достигнут лимит активных комнат');
+    }
+
+    const roomCode = this.#generateRoomCode();
+    const call = new Call(initiator, [initiator], {
+      type: 'group',
+      roomCode,
+    });
+
+    this.#calls.set(call.id, call);
+    this.#roomCodes.set(roomCode, call.id);
+
+    return call;
+  }
+
+  /** Ищет комнату по коду (регистр и пробелы не важны) */
+  getRoomByCode(code: string): Call | undefined {
+    const normalized = CallManager.normalizeRoomCode(code);
+    const callId = this.#roomCodes.get(normalized);
+    return callId ? this.#calls.get(callId) : undefined;
+  }
+
+  /** Добавляет клиента в комнату */
+  joinRoom(callId: string, client: Client): Member {
+    const call = this.#calls.get(callId);
+    if (!call) {
+      throw new Error('Комната не найдена');
+    }
+    if (call.type !== 'group') {
+      throw new Error('Это не групповая комната');
+    }
+    if (call.hasMember(client.id)) {
+      return this.getMemberById(callId, client.id);
+    }
+    if (this.getClientCall(client.id)) {
+      throw new Error('Вы уже в звонке. Сначала завершите текущий');
+    }
+    if (call.members.length >= this.#maxMembers) {
+      throw new Error('Комната заполнена');
+    }
+
+    return call.addMember(client);
+  }
+
+  /**
+   * Удаляет участника из комнаты.
+   * @returns true, если комната опустела и была удалена
+   */
+  leaveRoom(callId: string, clientId: string): boolean {
+    const call = this.#calls.get(callId);
+    if (!call) {
       throw new Error('Нет такого звонка');
     }
+
+    call.removeMember(clientId);
+
+    if (call.members.length === 0) {
+      this.endCall(callId);
+      return true;
+    }
+
+    return false;
+  }
+
+  endCall(callId: string): void {
+    const call = this.#calls.get(callId);
+    if (!call) {
+      throw new Error('Нет такого звонка');
+    }
+
+    if (call.roomCode) {
+      this.#roomCodes.delete(call.roomCode);
+    }
     this.#calls.delete(callId);
+  }
+
+  /** Генерирует свободный код комнаты */
+  #generateRoomCode(): string {
+    for (let attempt = 0; attempt < MAX_CODE_ATTEMPTS; attempt += 1) {
+      const code = Helpers.generateRoomCode();
+      if (!this.#roomCodes.has(code)) {
+        return code;
+      }
+    }
+
+    throw new Error('Не удалось создать комнату. Попробуйте ещё раз');
   }
 
   getCallMembers(callId: string): Member[] {

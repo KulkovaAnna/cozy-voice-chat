@@ -21,10 +21,17 @@ export type CallOffer = {
   initiator: UserProfile;
 };
 
+export type CallType = "direct" | "group";
+
 export type CallInfo = {
   id: string;
+  /** Личный звонок 1-на-1 или групповая комната */
+  type: CallType;
+  /** Код комнаты (только для group) */
+  roomCode: string | null;
   initiator: UserProfile;
-  receiver: UserProfile;
+  /** Второй участник личного звонка; в комнате отсутствует */
+  receiver: UserProfile | null;
   members: CallMember[];
 };
 

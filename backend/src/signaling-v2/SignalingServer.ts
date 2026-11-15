@@ -10,7 +10,7 @@ import ERROR_CODES from '../constants/error-codes';
 import Helpers from '../utils/helpers';
 import musicPlayerService from '../app/modules/music-player/music-player.service';
 import type LobbyManager from './LobbyManager';
-import type CallManager from './CallManager';
+import CallManager from './CallManager';
 import type FileManagerService from '../app/modules/file-manager/file-manager.service';
 import type {
   FileAttachment,
@@ -23,6 +23,9 @@ import { SlashCommandRegistry } from './SlashCommands';
 import type { SlashCommandResult } from './SlashCommands/types';
 
 export default class SignalingServer {
+  /** Сколько последних сообщений отдавать при входе в комнату */
+  private static readonly MAX_ROOM_HISTORY = 50;
+
   private wss: WebSocket.Server;
   private lobbyManager: LobbyManager;
   private callManager: CallManager;
@@ -97,7 +100,12 @@ export default class SignalingServer {
           this.handleDeclineCallOffer(ws, offer.id);
         }
         this.lobbyManager.removeMember(ws);
-        if (memberCall) {
+
+        if (memberCall?.type === 'group') {
+          // В комнате отключившийся участник просто выходит: остальные
+          // продолжают звонок, а опустевшая комната удаляется.
+          this.removeMemberFromRoom(memberCall.id, clientData.id);
+        } else if (memberCall) {
           this.handleChangeOnlineStatus(clientData.id, memberCall.id, false);
         }
         this.broadcastToLobby(
@@ -200,8 +208,20 @@ export default class SignalingServer {
         this.handleUpdateProfile(ws, data.personalInfo);
       },
 
+      [MESSAGE_TYPES.RECEIVE.LOBBY.CREATE_ROOM]: (ws) => {
+        this.handleCreateRoom(ws);
+      },
+
+      [MESSAGE_TYPES.RECEIVE.LOBBY.JOIN_ROOM]: (ws, _ip, data) => {
+        this.handleJoinRoom(ws, String(data.code ?? ''));
+      },
+
       [MESSAGE_TYPES.RECEIVE.CALL.END_CALL]: (ws, _ip, data) => {
         this.handleEndCall(ws, String(data.callId));
+      },
+
+      [MESSAGE_TYPES.RECEIVE.CALL.LEAVE_CALL]: (ws, _ip, data) => {
+        this.handleLeaveCall(ws, String(data.callId));
       },
 
       [MESSAGE_TYPES.RECEIVE.CALL.CHANGE_MUTE_STATUS]: (ws, _ip, data) => {
@@ -380,6 +400,24 @@ export default class SignalingServer {
     this.lobbyManager.callOffers.delete(offer.id);
   }
 
+  /**
+   * Сбрасывает висящий 1-на-1 оффер у клиента, который создаёт/входит
+   * в комнату: обе стороны должны закрыть модалку ожидания/входящего.
+   */
+  private declinePendingOfferFor(clientId: string, ws: WebSocket): void {
+    const offer = this.lobbyManager.getOfferByMemberId(clientId);
+    if (!offer) return;
+
+    this.declineMemberOffer(clientId);
+    this.sendToClient(ws, {
+      type: MESSAGE_TYPES.SEND.ME.CALL_OFFER_DECLINED,
+      data: {
+        callOffer: offer,
+        timestamp: new Date().toISOString(),
+      },
+    });
+  }
+
   private handleInitiateCall(ws: WebSocket, receiverId: string): void {
     const initiator = this.lobbyManager.getMemberByWs(ws);
     const receiver = this.lobbyManager.getMemberById(receiverId);
@@ -492,8 +530,163 @@ export default class SignalingServer {
     this.lobbyManager.callOffers.delete(offerId);
   }
 
+  /** Создаёт групповую комнату и отправляет её создателю */
+  private handleCreateRoom(ws: WebSocket): void {
+    const client = this.lobbyManager.getMemberByWs(ws);
+    if (!client) {
+      throw new Error('Вы не в лобби');
+    }
+
+    const call = this.callManager.createRoom(client);
+
+    // Если клиента кто-то звал в 1-на-1, оффер больше не актуален
+    this.declinePendingOfferFor(client.id, ws);
+
+    this.sendToClient(ws, {
+      type: MESSAGE_TYPES.SEND.ME.ROOM_CREATED,
+      data: {
+        callInfo: call,
+        timestamp: new Date().toISOString(),
+      },
+    });
+  }
+
+  /** Вход в комнату по коду */
+  private handleJoinRoom(ws: WebSocket, rawCode: string): void {
+    const client = this.lobbyManager.getMemberByWs(ws);
+    if (!client) {
+      throw new Error('Вы не в лобби');
+    }
+
+    const code = CallManager.normalizeRoomCode(rawCode);
+    if (!CallManager.isValidRoomCode(code)) {
+      throw new Error('Некорректный код комнаты');
+    }
+
+    const room = this.callManager.getRoomByCode(code);
+    if (!room) {
+      throw new Error('Комната не найдена');
+    }
+
+    const currentCall = this.callManager.getClientCall(client.id);
+    if (currentCall && currentCall.id !== room.id) {
+      throw new Error('Вы уже в звонке. Сначала завершите текущий');
+    }
+
+    const wasMember = room.hasMember(client.id);
+    if (!wasMember) {
+      this.callManager.joinRoom(room.id, client);
+      // Висящий 1-на-1 оффер после входа в комнату неактуален
+      this.declinePendingOfferFor(client.id, ws);
+    }
+
+    const call = this.callManager.getCallById(room.id);
+    if (!call) {
+      throw new Error('Комната не найдена');
+    }
+
+    // Вошедшему отдаём историю чата: в комнату можно зайти позже
+    // и переписка, отправленная до входа, не должна теряться.
+    this.sendToClient(ws, {
+      type: MESSAGE_TYPES.SEND.ME.ROOM_JOINED,
+      data: {
+        callInfo: call,
+        // Системные ответы слэш-команд видны только инициатору, поэтому
+        // в историю для новых участников они не попадают. Заодно
+        // ограничиваем историю последними сообщениями, чтобы не раздувать пакет.
+        messages: call.messages
+          .filter((message) => !message.isSystem)
+          .slice(-SignalingServer.MAX_ROOM_HISTORY),
+        timestamp: new Date().toISOString(),
+      },
+    });
+
+    if (!wasMember) {
+      this.broadcastToCall(
+        call.id,
+        {
+          type: MESSAGE_TYPES.SEND.ALL.CALL.MEMBER_JOINED,
+          data: {
+            callInfo: call,
+            client,
+            timestamp: new Date().toISOString(),
+          },
+        },
+        client.id,
+      );
+    }
+
+    // Вошедший должен сразу увидеть, что уже играет в комнате
+    const player = musicPlayerService.get(call.id);
+    if (player?.isPlaying()) {
+      this.broadcastMusicState(call.id);
+    }
+  }
+
+  /** Выход участника из комнаты без завершения звонка для остальных */
+  private handleLeaveCall(ws: WebSocket, callId: string): void {
+    const client = this.lobbyManager.getMemberByWs(ws);
+    if (!client) {
+      throw new Error('Вы не в лобби');
+    }
+
+    const call = this.callManager.getCallById(callId);
+    if (!call || !call.hasMember(client.id)) {
+      throw new Error('Вы не участник этого звонка');
+    }
+
+    if (call.type !== 'group') {
+      // Для личного звонка выход = завершение (поведение 1-на-1)
+      this.handleEndCall(ws, callId);
+      return;
+    }
+
+    this.removeMemberFromRoom(callId, client.id);
+  }
+
+  /**
+   * Удаляет участника из комнаты и уведомляет оставшихся.
+   * Если комната опустела — освобождает её ресурсы.
+   */
+  private removeMemberFromRoom(callId: string, clientId: string): void {
+    const call = this.callManager.getCallById(callId);
+    if (!call) return;
+
+    const isEmpty = this.callManager.leaveRoom(callId, clientId);
+
+    if (isEmpty) {
+      this.cleanupCallResources(callId);
+      return;
+    }
+
+    this.broadcastToCall(callId, {
+      type: MESSAGE_TYPES.SEND.ALL.CALL.MEMBER_LEFT,
+      data: {
+        clientId,
+        callInfo: this.callManager.getCallById(callId),
+        timestamp: new Date().toISOString(),
+      },
+    });
+  }
+
+  /** Освобождает ресурсы завершённого звонка */
+  private cleanupCallResources(callId: string): void {
+    // У каждого звонка своя очередь и свои файлы: удаляем только его
+    musicPlayerService.destroy(callId);
+    this.fileManager.cleanCallFiles(callId).catch(console.error);
+  }
+
   private handleEndCall(ws: WebSocket, callId: string): void {
     const client = this.lobbyManager.getMemberByWs(ws);
+    const call = this.callManager.getCallById(callId);
+
+    if (!call) {
+      throw new Error('Нет такого звонка');
+    }
+    if (!client || !call.hasMember(client.id)) {
+      throw new Error('Вы не участник этого звонка');
+    }
+
     this.broadcastToCall(callId, {
       type: MESSAGE_TYPES.SEND.ALL.CALL.CALL_ENDED,
       data: {
@@ -501,9 +694,7 @@ export default class SignalingServer {
       },
     });
     this.callManager.endCall(callId);
-    // Плеер живёт на один звонок: сбрасываем трек и зависшую загрузку
-    musicPlayerService.stop();
-    this.fileManager.cleanDownloads().catch(console.error);
+    this.cleanupCallResources(callId);
   }
 
   private handleChangeOnlineStatus(
@@ -626,6 +817,7 @@ export default class SignalingServer {
         command,
         args,
         senderId,
+        callId,
         (text) => sendStatus('running', text),
       );
     } catch (error) {
@@ -674,7 +866,7 @@ export default class SignalingServer {
     });
 
     // Если плеер запустился — рассылаем состояние музыки всем в звонке
-    if (musicPlayerService.isPlaying()) {
+    if (musicPlayerService.forCall(callId).isPlaying()) {
       this.broadcastMusicState(callId);
     }
   }
@@ -700,6 +892,17 @@ export default class SignalingServer {
   private handleStartScreenSharing(ws: WebSocket, callId: string): void {
     const client = this.lobbyManager.getMemberByWs(ws);
     if (!client) return;
+
+    const call = this.callManager.getCallById(callId);
+    if (
+      call?.members.some(
+        (member) =>
+          member.client.id !== client.id && member.isScreenSharing,
+      )
+    ) {
+      throw new Error('Кто-то уже демонстрирует экран');
+    }
+
     this.callManager.changeScreenSharingStatus(callId, client.id, true);
     this.broadcastToCall(callId, {
       type: MESSAGE_TYPES.SEND.ALL.CALL.SCREEN_SHARING_STARTED,
@@ -725,27 +928,29 @@ export default class SignalingServer {
 
   /** Запуск воспроизведения текущего трека (кнопка Play) */
   private handleMusicPlay(_ws: WebSocket, callId: string): void {
-    if (!musicPlayerService.isPlaying()) return;
-    musicPlayerService.setStatus('playing');
+    const player = musicPlayerService.forCall(callId);
+    if (!player.isPlaying()) return;
+    player.setStatus('playing');
     this.broadcastMusicState(callId);
   }
 
   /** Приостановка воспроизведения (кнопка Pause) */
   private handleMusicPause(_ws: WebSocket, callId: string): void {
-    if (!musicPlayerService.isPlaying()) return;
-    musicPlayerService.setStatus('paused');
+    const player = musicPlayerService.forCall(callId);
+    if (!player.isPlaying()) return;
+    player.setStatus('paused');
     this.broadcastMusicState(callId);
   }
 
   /** Остановка и сброс (кнопка Stop) */
   private handleMusicStop(_ws: WebSocket, callId: string): void {
-    musicPlayerService.stop();
+    musicPlayerService.forCall(callId).stop();
     this.broadcastMusicState(callId);
   }
 
   /** Возобновление воспроизведения (после /play) */
   private handleMusicStart(_ws: WebSocket, callId: string): void {
-    if (!musicPlayerService.isPlaying()) return;
+    if (!musicPlayerService.forCall(callId).isPlaying()) return;
     this.broadcastMusicState(callId);
   }
 
@@ -761,17 +966,17 @@ export default class SignalingServer {
     direction: 1 | -1,
     expectedIndex: number,
   ): void {
-    if (!musicPlayerService.isPlaying()) return;
+    const player = musicPlayerService.forCall(callId);
+    if (!player.isPlaying()) return;
 
     const isStale =
-      Number.isFinite(expectedIndex) &&
-      expectedIndex !== musicPlayerService.queueIndex;
+      Number.isFinite(expectedIndex) && expectedIndex !== player.queueIndex;
 
     if (!isStale) {
       if (direction > 0) {
-        musicPlayerService.next();
+        player.next();
       } else {
-        musicPlayerService.prev();
+        player.prev();
       }
     }
 
@@ -783,7 +988,7 @@ export default class SignalingServer {
     this.broadcastToCall(callId, {
       type: MESSAGE_TYPES.SEND.ALL.CALL.MUSIC_STATE_CHANGED,
       data: {
-        ...musicPlayerService.state,
+        ...musicPlayerService.forCall(callId).state,
         timestamp: new Date().toISOString(),
       },
     });

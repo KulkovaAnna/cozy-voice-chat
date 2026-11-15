@@ -30,8 +30,14 @@ function idleState(): MusicState {
   };
 }
 
-class MusicPlayerService {
+export class MusicPlayerService {
   #state: MusicState = idleState();
+  /** ID звонка, к которому относится эта очередь */
+  readonly callId: string;
+
+  constructor(callId: string) {
+    this.callId = callId;
+  }
 
   /**
    * Прямые ссылки на аудио-поток по индексу очереди.
@@ -115,7 +121,7 @@ class MusicPlayerService {
     this.#state = {
       status: 'paused',
       track: queue[index],
-      streamUrl: STREAM_PATH,
+      streamUrl: `${STREAM_PATH}?callId=${encodeURIComponent(this.callId)}`,
       queue,
       queueIndex: index,
     };
@@ -217,6 +223,37 @@ class MusicPlayerService {
   }
 }
 
-/** Синглтон музыкального плеера */
-export const musicPlayerService = new MusicPlayerService();
+/**
+ * Реестр плееров: у каждого звонка своя очередь.
+ * Комнаты могут существовать параллельно, поэтому хранить состояние
+ * музыки глобально нельзя — иначе /play в одной комнате меняет трек
+ * у всех остальных.
+ */
+class MusicPlayerRegistry {
+  #players = new Map<string, MusicPlayerService>();
+
+  /** Возвращает плеер звонка, создавая его при первом обращении */
+  forCall(callId: string): MusicPlayerService {
+    let player = this.#players.get(callId);
+    if (!player) {
+      player = new MusicPlayerService(callId);
+      this.#players.set(callId, player);
+    }
+    return player;
+  }
+
+  /** Возвращает существующий плеер без создания */
+  get(callId: string): MusicPlayerService | undefined {
+    return this.#players.get(callId);
+  }
+
+  /** Останавливает и удаляет плеер завершённого звонка */
+  destroy(callId: string): void {
+    this.#players.get(callId)?.stop();
+    this.#players.delete(callId);
+  }
+}
+
+/** Реестр музыкальных плееров по звонкам */
+export const musicPlayerService = new MusicPlayerRegistry();
 export default musicPlayerService;

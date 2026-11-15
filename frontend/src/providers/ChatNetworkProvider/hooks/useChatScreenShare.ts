@@ -7,7 +7,9 @@ type UseChatScreenShareParams = {
   send: SendFn;
   callInfo: CallInfo | null;
   user: UserProfile;
-  startScreenShare: (targetUserId: string) => Promise<boolean | undefined>;
+  startScreenShare: (
+    targetUserIds: string[],
+  ) => Promise<boolean | undefined>;
   stopScreenShare: VoidFunction;
   setOnRemoteScreenStream: (cb: (s: MediaStream | null) => void) => void;
   setOnLocalScreenStop: (cb: () => void) => void;
@@ -35,11 +37,20 @@ export function useChatScreenShare({
   const beginScreenShare = useCallback(async () => {
     if (!callInfo) return;
 
-    const other = callInfo.members.find((m) => m.member.id !== user.id)?.member
-      .id;
-    if (!other) return;
+    const someoneElseSharing = callInfo.members.some(
+      (member) =>
+        member.member.id !== user.id && member.isScreenSharing,
+    );
+    if (someoneElseSharing) return;
 
-    const started = await startScreenShare(other);
+    const targetIds = callInfo.members
+      .filter((member) => member.member.id !== user.id)
+      .map((member) => member.member.id)
+      .filter((id): id is string => Boolean(id));
+
+    if (targetIds.length === 0) return;
+
+    const started = await startScreenShare(targetIds);
 
     if (started) {
       send("call::start-screen-sharing", { callId: callInfo.id });

@@ -55,11 +55,11 @@ describe('SlashCommandRegistry', () => {
         handler: () => ({ text: 'pong' }),
       });
 
-      const result = await registry.execute('ping', '', 'user-1');
+      const result = await registry.execute('ping', '', 'user-1', 'call-1');
       expect(result).toEqual({ text: 'pong' });
     });
 
-    it('should pass args, senderId and progress reporter to the handler', async () => {
+    it('should pass args, senderId, callId and progress reporter to the handler', async () => {
       const handler = vi.fn(() => ({ text: 'ok' }));
 
       registry.register({
@@ -68,17 +68,23 @@ describe('SlashCommandRegistry', () => {
         handler,
       });
 
-      await registry.execute('greet', 'World', 'user-42');
+      await registry.execute('greet', 'World', 'user-42', 'call-42');
       expect(handler).toHaveBeenCalledWith(
         'World',
         'user-42',
+        'call-42',
         expect.any(Function),
       );
     });
 
     it('should forward progress reports from the handler', async () => {
       const handler = vi.fn(
-        async (_args: string, _id: string, report: (t: string) => void) => {
+        async (
+          _args: string,
+          _id: string,
+          _callId: string,
+          report: (t: string) => void,
+        ) => {
           report('stage 1');
           report('stage 2');
           return { text: 'ok' };
@@ -92,7 +98,7 @@ describe('SlashCommandRegistry', () => {
       });
 
       const reports: string[] = [];
-      await registry.execute('staged', '', 'user-1', (text) =>
+      await registry.execute('staged', '', 'user-1', 'call-1', (text) =>
         reports.push(text),
       );
 
@@ -101,7 +107,12 @@ describe('SlashCommandRegistry', () => {
 
     it('should not fail when handler reports without a subscriber', async () => {
       const handler = vi.fn(
-        async (_args: string, _id: string, report: (t: string) => void) => {
+        async (
+          _args: string,
+          _id: string,
+          _callId: string,
+          report: (t: string) => void,
+        ) => {
           report('stage 1');
           return { text: 'ok' };
         },
@@ -109,7 +120,7 @@ describe('SlashCommandRegistry', () => {
 
       registry.register({ name: 'quiet', description: 'Тест', handler });
 
-      const result = await registry.execute('quiet', '', 'user-1');
+      const result = await registry.execute('quiet', '', 'user-1', 'call-1');
       expect(result).toEqual({ text: 'ok' });
     });
 
@@ -120,18 +131,18 @@ describe('SlashCommandRegistry', () => {
         handler: () => ({ text: 'pong' }),
       });
 
-      const result = await registry.execute('ping', '', 'u');
+      const result = await registry.execute('ping', '', 'u', 'call-1');
       expect(result).toEqual({ text: 'pong' });
 
-      const result2 = await registry.execute('PING', '', 'u');
+      const result2 = await registry.execute('PING', '', 'u', 'call-1');
       expect(result2).toEqual({ text: 'pong' });
 
-      const result3 = await registry.execute('Ping', '', 'u');
+      const result3 = await registry.execute('Ping', '', 'u', 'call-1');
       expect(result3).toEqual({ text: 'pong' });
     });
 
     it('should return null for unknown command', async () => {
-      const result = await registry.execute('unknown', '', 'user-1');
+      const result = await registry.execute('unknown', '', 'user-1', 'call-1');
       expect(result).toBeNull();
     });
 
@@ -145,7 +156,7 @@ describe('SlashCommandRegistry', () => {
         },
       });
 
-      const result = await registry.execute('slow', '', 'u');
+      const result = await registry.execute('slow', '', 'u', 'call-1');
       expect(result).toEqual({ text: 'done' });
     });
   });

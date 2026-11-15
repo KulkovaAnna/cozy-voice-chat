@@ -6,6 +6,7 @@ export * from "./CallIcon";
 export * from "./ChatIcon";
 export * from "./ChevronUpIcon";
 export * from "./CloseIcon";
+export * from "./CopyLinkIcon";
 export * from "./DownLoadFileIcon";
 export * from "./EditIcon";
 export * from "./EmojiIcon";
