@@ -51,11 +51,23 @@ export function ChatNetworkProvider(props: PropsWithChildren) {
   const pendingJoinCodeRef = useRef<string | null>(null);
   const pendingCreateRoomRef = useRef(false);
   const [textMessages, setTextMessages] = useState<Array<TextMessage>>([]);
+  /** Растёт при подмене списка сообщений (история комнаты или очистка) */
+  const [textMessagesEpoch, setTextMessagesEpoch] = useState(0);
   const [commandStatus, setCommandStatus] = useState<CommandStatus | null>(
     null,
   );
   const [roomJoinError, setRoomJoinError] = useState<string | null>(null);
   const clearRoomJoinError = useCallback(() => setRoomJoinError(null), []);
+
+  /**
+   * Заменяет список сообщений целиком (история комнаты или очистка). Эпоха
+   * помогает потребителям понять, что это не новые сообщения: реакции не
+   * проигрываются, счётчик непрочитанных не растёт.
+   */
+  const replaceTextMessages = useCallback((next: Array<TextMessage>) => {
+    setTextMessages(next);
+    setTextMessagesEpoch((prev) => prev + 1);
+  }, []);
 
   const { user, updateUser } = useAuth();
 
@@ -239,11 +251,11 @@ export function ChatNetworkProvider(props: PropsWithChildren) {
     callHook.handleCallEnded();
     clearActiveRoom();
     setRoomJoinError(null);
-    setTextMessages([]);
+    replaceTextMessages([]);
     setCommandStatus(null);
     unreadCount.current = 0;
     clearAppBadge();
-  }, [callHook]);
+  }, [callHook, replaceTextMessages]);
 
   /**
    * Стадия выполнения моей слэш-команды. Приходит только инициатору,
@@ -293,9 +305,13 @@ export function ChatNetworkProvider(props: PropsWithChildren) {
         ? (data.data.messages as MessageDto[])
         : [];
 
-      setTextMessages(rawMessages.map((message) => textMessageAdapter(message)));
+      // История — не новые сообщения: эпоха списка растёт, реакции и счётчик
+      // непрочитанных на ней не срабатывают.
+      replaceTextMessages(
+        rawMessages.map((message) => textMessageAdapter(message)),
+      );
     },
-    [handleCallStarted],
+    [handleCallStarted, replaceTextMessages],
   );
 
   /** Выход из комнаты по кнопке: сразу чистим локальное состояние */
@@ -303,9 +319,9 @@ export function ChatNetworkProvider(props: PropsWithChildren) {
     callHook.leaveCall();
     clearActiveRoom();
     setRoomJoinError(null);
-    setTextMessages([]);
+    replaceTextMessages([]);
     setCommandStatus(null);
-  }, [callHook]);
+  }, [callHook, replaceTextMessages]);
 
   const profileSettings = useProfileSettings();
 
@@ -459,6 +475,7 @@ export function ChatNetworkProvider(props: PropsWithChildren) {
         callOffer: lobby.callOffer,
         isMyUserMuted: callHook.isMyUserMuted,
         textMessages,
+        textMessagesEpoch,
         isMyUserScreenSharing: callHook.isMyUserScreenSharing,
         localScreenStream,
         remoteScreenStream,

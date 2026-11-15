@@ -1,3 +1,5 @@
+import type { TextMessage } from "@cvc/types";
+
 // Утилита определения «одиночной эмодзи» в тексте сообщения.
 // Сообщение считается одиночной эмодзи, если после trim() оно состоит ровно
 // из одной графемы и эта графема является эмодзи (Unicode Emoji property).
@@ -29,4 +31,35 @@ export function extractSingleEmoji(text: string): string | null {
   if (parts.length !== 1) return null;
 
   return EMOJI_SOLO.test(parts[0]) ? parts[0] : null;
+}
+
+/** Поля сообщения, нужные для поиска эмодзи-реакции. */
+export type EmojiSourceMessage = Pick<TextMessage, "message" | "senderId">;
+
+export type SingleEmojiMatch = {
+  emoji: string;
+  senderId: string;
+};
+
+/**
+ * Ищет последнее сообщение, состоящее ровно из одной эмодзи, среди `messages`
+ * начиная с индекса `fromIndex`. Если таких сообщений нет — возвращает null.
+ *
+ * Нужна хуку реакций: он обрабатывает только хвост списка (новые сообщения),
+ * поэтому история чата не проигрывает эмодзи повторно.
+ */
+export function findLastSingleEmoji(
+  messages: readonly EmojiSourceMessage[],
+  fromIndex = 0,
+): SingleEmojiMatch | null {
+  let match: SingleEmojiMatch | null = null;
+
+  for (let i = Math.max(fromIndex, 0); i < messages.length; i += 1) {
+    const emoji = extractSingleEmoji(messages[i].message);
+    if (emoji) {
+      match = { emoji, senderId: messages[i].senderId };
+    }
+  }
+
+  return match;
 }

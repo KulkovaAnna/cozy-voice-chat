@@ -10,6 +10,11 @@ export type ChatNetworkContextType = {
   isMyUserMuted: boolean;
   isMyUserScreenSharing: boolean;
   textMessages: TextMessage[];
+  /**
+   * Счётчик подмены списка сообщений: растёт, когда история комнаты загружена
+   * или чат очищен. Позволяет отличить историю от новых сообщений.
+   */
+  textMessagesEpoch: number;
   localScreenStream: MediaStream | null;
   remoteScreenStream: MediaStream | null;
   /** Аудиопотоки удалённых участников по их clientId (mesh) */
@@ -49,6 +54,7 @@ export const ChatNetworkContext = createContext<ChatNetworkContextType>({
   callInfo: null,
   isMyUserMuted: false,
   textMessages: [],
+  textMessagesEpoch: 0,
   remoteScreenStream: null,
   remoteStreams: new Map(),
   localScreenStream: null,

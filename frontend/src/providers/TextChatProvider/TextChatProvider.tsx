@@ -14,10 +14,12 @@ export function TextChatProvider(props: PropsWithChildren) {
 
   const isTabVisible = usePageVisibility();
   const { user } = useAuth();
-  const { textMessages, callInfo, sendTextMessage } = useChatNetwork();
-  const emojiReaction = useChatEmojiReaction(textMessages);
+  const { textMessages, textMessagesEpoch, callInfo, sendTextMessage } =
+    useChatNetwork();
+  const emojiReaction = useChatEmojiReaction(textMessages, textMessagesEpoch);
 
-  const lastMessagesLength = useRef(0);
+  const lastMessagesLength = useRef(textMessages.length);
+  const lastMessagesEpoch = useRef(textMessagesEpoch);
 
   const switchOpen = () => {
     setIsOpen((prev) => !prev);
@@ -28,6 +30,15 @@ export function TextChatProvider(props: PropsWithChildren) {
   };
 
   useEffect(() => {
+    // Список подменили целиком (история комнаты или очистка): эти сообщения
+    // не новые, поэтому значок непрочитанных не показываем.
+    if (lastMessagesEpoch.current !== textMessagesEpoch) {
+      lastMessagesEpoch.current = textMessagesEpoch;
+      lastMessagesLength.current = textMessages.length;
+      setHasNewMessages(false);
+      return;
+    }
+
     if (
       textMessages.length > lastMessagesLength.current &&
       (!isOpen || !isTabVisible)
@@ -35,7 +46,7 @@ export function TextChatProvider(props: PropsWithChildren) {
       setHasNewMessages(true);
     }
     lastMessagesLength.current = textMessages.length;
-  }, [textMessages, isOpen, isTabVisible]);
+  }, [textMessages, textMessagesEpoch, isOpen, isTabVisible]);
 
   useEffect(() => {
     if (isOpen && isTabVisible) {
