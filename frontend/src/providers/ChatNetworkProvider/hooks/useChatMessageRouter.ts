@@ -6,6 +6,7 @@ type RouterParams = {
   // Лобби
   handleLobbyJoined: (data: ServerMessage) => void;
   onMeLobbyJoined: (meId: string) => void;
+  handleLobbyJoinRejected: (data: ServerMessage) => void;
   handleCallOffer: (data: ServerMessage) => void;
   handleCallOfferDeclined: VoidFunction;
   // Звонок
@@ -43,6 +44,10 @@ export function useChatMessageRouter(params: RouterParams) {
         case "me::lobby-joined": {
           const me = data.data.client;
           params.onMeLobbyJoined(me.id);
+          break;
+        }
+        case "me::join-rejected": {
+          params.handleLobbyJoinRejected(data);
           break;
         }
         case "me::call-offer":

@@ -59,6 +59,7 @@ export const MESSAGE_TYPES = Object.freeze({
       ROOM_CREATED: 'me::room-created',
       ROOM_JOINED: 'me::room-joined',
       LOBBY_JOINED: 'me::lobby-joined',
+      JOIN_REJECTED: 'me::join-rejected',
       COMMAND_STATUS: 'me::command-status',
     },
   },

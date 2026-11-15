@@ -12,8 +12,13 @@ export const JoinRoom = () => {
   const location = useLocation();
   const navigate = useNavigate();
   const { user } = useAuth();
-  const { callInfo, joinRoomByCode, roomJoinError, clearRoomJoinError } =
-    useChatNetwork();
+  const {
+    callInfo,
+    joinRoomByCode,
+    roomJoinError,
+    clearRoomJoinError,
+    lobbyJoinError,
+  } = useChatNetwork();
   const requestedRef = useRef(false);
 
   // Переживает переход на логин и перезагрузку страницы
@@ -50,7 +55,7 @@ export const JoinRoom = () => {
     <Card direction="column">
       <Column align="center">
         <h2>Комната {code.toUpperCase()}</h2>
-        <p>{roomJoinError ?? "Подключаемся…"}</p>
+        <p>{lobbyJoinError?.message ?? roomJoinError ?? "Подключаемся…"}</p>
         <Button
           onClick={() => {
             clearRoomJoinError();

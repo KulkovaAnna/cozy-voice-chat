@@ -307,6 +307,23 @@ export default class SignalingServer {
     personalInfo: PersonalInfo,
     preferredId?: string | null,
   ): void {
+    const existing = this.lobbyManager.getMemberByIp(ip);
+    if (existing) {
+      console.error(`Данный пользователь уже находится в лобби (IP: ${ip})`);
+      this.sendToClient(ws, {
+        type: MESSAGE_TYPES.SEND.ME.JOIN_REJECTED,
+        data: {
+          message:
+            'В лобби уже есть участник с этого устройства. ' +
+            'Закройте другую вкладку — вход произойдёт автоматически.',
+          code: 409,
+          errorCode: ERROR_CODES.ALREADY_IN_LOBBY,
+          existingClientName: existing.personalInfo.name ?? null,
+        },
+      });
+      return;
+    }
+
     const client = this.lobbyManager.addClient(
       ws,
       ip,
@@ -896,8 +913,7 @@ export default class SignalingServer {
     const call = this.callManager.getCallById(callId);
     if (
       call?.members.some(
-        (member) =>
-          member.client.id !== client.id && member.isScreenSharing,
+        (member) => member.client.id !== client.id && member.isScreenSharing,
       )
     ) {
       throw new Error('Кто-то уже демонстрирует экран');

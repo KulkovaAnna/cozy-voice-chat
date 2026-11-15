@@ -3,6 +3,11 @@ import type { CallInfo, CallOffer, TextMessage, UserProfile } from "@cvc/types";
 import type { CommandStatus } from "@cvc/types";
 import type { ProfilePayload } from "./hooks/useChatLobby";
 
+export type LobbyJoinError = {
+  message: string;
+  existingClientName: string | null;
+};
+
 export type ChatNetworkContextType = {
   lobbyMembers?: Array<UserProfile>;
   callOffer: CallOffer | null;
@@ -23,6 +28,9 @@ export type ChatNetworkContextType = {
   commandStatus: CommandStatus | null;
   roomJoinError: string | null;
   clearRoomJoinError: VoidFunction;
+  lobbyJoinError: LobbyJoinError | null;
+  retryJoinLobby: VoidFunction;
+  dismissLobbyJoinError: VoidFunction;
   joinToLobby: VoidFunction;
   callToUser: (uid: string) => void;
   acceptCallOffer: VoidFunction;
@@ -62,6 +70,9 @@ export const ChatNetworkContext = createContext<ChatNetworkContextType>({
   commandStatus: null,
   roomJoinError: null,
   clearRoomJoinError: () => {},
+  lobbyJoinError: null,
+  retryJoinLobby: () => {},
+  dismissLobbyJoinError: () => {},
   beginScreenShare: () => {},
   endScreenShare: () => {},
   playMusic: () => {},

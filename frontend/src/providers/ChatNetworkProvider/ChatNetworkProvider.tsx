@@ -13,6 +13,7 @@ import {
   callInfoAdapter,
   clearActiveRoom,
   isValidRoomCode,
+  lobbyRetryDelay,
   normalizeRoomCode,
   saveActiveRoom,
   textMessageAdapter,
@@ -33,7 +34,7 @@ import type {
   TextMessage,
 } from "@cvc/types";
 import { useAuth } from "../AuthProvider";
-import { ChatNetworkContext } from "./ChatNetworkContext";
+import { ChatNetworkContext, type LobbyJoinError } from "./ChatNetworkContext";
 import {
   useChatCall,
   useChatLobby,
@@ -58,6 +59,11 @@ export function ChatNetworkProvider(props: PropsWithChildren) {
   );
   const [roomJoinError, setRoomJoinError] = useState<string | null>(null);
   const clearRoomJoinError = useCallback(() => setRoomJoinError(null), []);
+  const [lobbyJoinError, setLobbyJoinError] = useState<LobbyJoinError | null>(
+    null,
+  );
+  const lobbyJoinErrorShownRef = useRef(false);
+  const lobbyRetryAttemptRef = useRef(0);
 
   /**
    * Заменяет список сообщений целиком (история комнаты или очистка). Эпоха
@@ -164,6 +170,64 @@ export function ChatNetworkProvider(props: PropsWithChildren) {
   const lobby = useChatLobby({ user, send });
   const callHook = useChatCall({ user, send, peerRef });
 
+  const handleLobbyJoinRejected = useCallback((data: ServerMessage) => {
+    const message =
+      typeof data.data?.message === "string"
+        ? data.data.message
+        : "С этого устройства уже есть участник в лобби";
+
+    // Авто-повторы приносят тот же отказ — не спамим тостами
+    if (!lobbyJoinErrorShownRef.current) {
+      lobbyJoinErrorShownRef.current = true;
+      toast(message, { type: "error" });
+    }
+
+    setLobbyJoinError((prev) =>
+      prev?.message === message
+        ? prev
+        : {
+            message,
+            existingClientName:
+              typeof data.data?.existingClientName === "string"
+                ? data.data.existingClientName
+                : null,
+          },
+    );
+  }, []);
+
+  const joinToLobby = lobby.joinToLobby;
+
+  const retryJoinLobby = useCallback(() => {
+    lobbyRetryAttemptRef.current = 0;
+    joinToLobby();
+  }, [joinToLobby]);
+
+  const dismissLobbyJoinError = useCallback(() => {
+    lobbyJoinErrorShownRef.current = false;
+    lobbyRetryAttemptRef.current = 0;
+    setLobbyJoinError(null);
+  }, []);
+
+  useEffect(() => {
+    if (!lobbyJoinError) return;
+
+    let timer: ReturnType<typeof setTimeout> | undefined;
+
+    const scheduleRetry = () => {
+      timer = setTimeout(() => {
+        if (socketRef.current?.readyState !== WebSocket.OPEN) return;
+        joinToLobby();
+        lobbyRetryAttemptRef.current += 1;
+        scheduleRetry();
+      }, lobbyRetryDelay(lobbyRetryAttemptRef.current));
+    };
+
+    scheduleRetry();
+    return () => {
+      if (timer) clearTimeout(timer);
+    };
+  }, [joinToLobby, lobbyJoinError]);
+
   const playMusic = useCallback(() => {
     const call = callHook.callInfoRef.current;
     if (!call) return;
@@ -231,6 +295,10 @@ export function ChatNetworkProvider(props: PropsWithChildren) {
       updateUser({ id: meId });
       initialize(meId);
       lobbyReadyRef.current = true;
+
+      lobbyJoinErrorShownRef.current = false;
+      lobbyRetryAttemptRef.current = 0;
+      setLobbyJoinError(null);
 
       // Запросы, сделанные до открытия WS (например, по ссылке /join/CODE)
       if (pendingJoinCodeRef.current) {
@@ -443,6 +511,7 @@ export function ChatNetworkProvider(props: PropsWithChildren) {
   const { route } = useChatMessageRouter({
     handleLobbyJoined: lobby.handleLobbyJoined,
     onMeLobbyJoined,
+    handleLobbyJoinRejected,
     handleCallOffer,
     handleCallOfferDeclined: lobby.handleCallOfferDeclined,
     setCallOfferNull: lobby.clearCallOffer,
@@ -483,6 +552,9 @@ export function ChatNetworkProvider(props: PropsWithChildren) {
         commandStatus,
         roomJoinError,
         clearRoomJoinError,
+        lobbyJoinError,
+        retryJoinLobby,
+        dismissLobbyJoinError,
         beginScreenShare,
         endScreenShare,
         playMusic,

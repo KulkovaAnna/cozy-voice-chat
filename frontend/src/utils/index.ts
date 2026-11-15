@@ -8,6 +8,7 @@ export * from "./fileToBase64";
 export * from "./formatters";
 export * from "./isImageFile";
 export * from "./isURL";
+export * from "./lobbyRetry";
 export * from "./mesh";
 export * from "./microphones";
 export * from "./roomCode";

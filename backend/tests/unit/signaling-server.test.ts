@@ -270,6 +270,58 @@ describe('SignalingServer', () => {
       expect(joinedForBob).toBeDefined();
       expect(joinedForBob.data.client.ip).toBe('10.0.0.2');
     });
+
+    it('should reject a second client from the same IP with me::join-rejected', async () => {
+      const ws1 = await simulateConnection('10.0.0.5');
+      await sendMessage(ws1, 'lobby::join', {
+        personalInfo: { name: 'Alice' },
+      });
+
+      const ws2 = await simulateConnection('10.0.0.5');
+      await sendMessage(ws2, 'lobby::join', {
+        personalInfo: { name: 'Alice' },
+      });
+
+      const sent = getSent(ws2);
+      const rejected = sent.find((m: any) => m.type === 'me::join-rejected');
+
+      expect(rejected).toBeDefined();
+      expect(rejected.data.errorCode).toBe('ALREADY_IN_LOBBY');
+      expect(rejected.data.code).toBe(409);
+      expect(rejected.data.existingClientName).toBe('Alice');
+      // Второй клиент в лобби не попадает и не получает me::lobby-joined
+      expect(sent.some((m: any) => m.type === 'me::lobby-joined')).toBe(false);
+      expect(lobby.getStats().totalClients).toBe(1);
+    });
+
+    it('should allow retry to join after the previous client disconnects', async () => {
+      const ws1 = await simulateConnection('10.0.0.6');
+      await sendMessage(ws1, 'lobby::join', {
+        personalInfo: { name: 'Alice' },
+      });
+
+      const ws2 = await simulateConnection('10.0.0.6');
+      await sendMessage(ws2, 'lobby::join', {
+        personalInfo: { name: 'Alice' },
+      });
+      expect(
+        getSent(ws2).some((m: any) => m.type === 'me::lobby-joined'),
+      ).toBe(false);
+
+      // Закрылась «другая вкладка» — IP освобождается
+      ws1._emit('close');
+
+      // Клиент повторяет join по тому же сокету
+      await sendMessage(ws2, 'lobby::join', {
+        personalInfo: { name: 'Alice' },
+      });
+
+      const joined = getSent(ws2).find(
+        (m: any) => m.type === 'me::lobby-joined',
+      );
+      expect(joined).toBeDefined();
+      expect(joined.data.client.ip).toBe('10.0.0.6');
+    });
   });
 
   // ─── lobby::initiate-call ─────────────────────────────────────
