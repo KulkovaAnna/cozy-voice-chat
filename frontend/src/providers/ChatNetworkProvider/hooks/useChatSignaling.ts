@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, type RefObject } from "react";
+import { getBackendHost } from "@cvc/api/config";
 import type { UserProfile } from "@cvc/types";
 
 type UseChatSignalingParams = {
@@ -30,7 +31,7 @@ export function useChatSignaling({
       return;
 
     socketRef.current = new WebSocket(
-      `${import.meta.env.VITE_SSL === "true" ? "wss" : "ws"}://${import.meta.env.VITE_HOST_IP}:${import.meta.env.VITE_PORT}`,
+      `${import.meta.env.VITE_SSL === "true" ? "wss" : "ws"}://${getBackendHost()}:${import.meta.env.VITE_PORT}`,
     );
 
     socketRef.current.onopen = () => {

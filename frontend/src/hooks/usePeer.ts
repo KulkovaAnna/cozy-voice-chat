@@ -2,6 +2,7 @@ import Peer, { type MediaConnection } from "peerjs";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "react-toastify";
 
+import { getBackendHost } from "@cvc/api/config";
 import {
   buildAudioConstraints,
   DEFAULT_DEVICE_ID,
@@ -392,7 +393,7 @@ export function usePeer() {
 
     myIdRef.current = clientId;
     peer.current = new Peer(clientId, {
-      host: import.meta.env.VITE_HOST_IP,
+      host: getBackendHost(),
       port: import.meta.env.VITE_PEER_PORT,
       path: "/peerjs",
       secure: true,

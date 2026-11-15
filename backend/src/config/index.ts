@@ -43,7 +43,17 @@ const config: AppConfig = {
   security: {
     allowedOrigins: process.env.ALLOWED_ORIGINS
       ? process.env.ALLOWED_ORIGINS.split(',')
-      : ['http://localhost:*', 'http://192.168.*', 'https://192.168.*'],
+      : [
+          'http://localhost:*',
+          'http://192.168.*',
+          'https://192.168.*',
+          // VPN поверх интернета: Radmin VPN выдаёт адреса 26.x.x.x,
+          // Hamachi — 25.x.x.x. Для клиентов это обычная локальная сеть.
+          'http://26.*',
+          'https://26.*',
+          'http://25.*',
+          'https://25.*',
+        ],
 
     requireAuth: process.env.REQUIRE_AUTH === 'true',
     authToken: process.env.AUTH_TOKEN || 'local_default_token',
