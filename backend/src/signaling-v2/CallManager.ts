@@ -120,10 +120,10 @@ export default class CallManager {
   }
 
   /**
-   * Удаляет участника из комнаты.
-   * @returns true, если комната опустела и была удалена
+   * Удаляет участника из звонка.
+   * @returns true, если звонок опустел и был удалён
    */
-  leaveRoom(callId: string, clientId: string): boolean {
+  leaveCall(callId: string, clientId: string): boolean {
     const call = this.#calls.get(callId);
     if (!call) {
       throw new Error('Нет такого звонка');
@@ -137,6 +137,83 @@ export default class CallManager {
     }
 
     return false;
+  }
+
+  /**
+   * Превращает существующий звонок в групповую комнату: выдаёт код и
+   * регистрирует его. Операция необратима — повторная конвертация
+   * запрещена, у комнаты уже есть код.
+   */
+  convertToRoom(callId: string): Call {
+    const call = this.#calls.get(callId);
+    if (!call) {
+      throw new Error('Нет такого звонка');
+    }
+    if (call.roomCode) {
+      throw new Error('Комната уже создана');
+    }
+    if (this.#roomCodes.size >= this.#maxRooms) {
+      throw new Error('Достигнут лимит активных комнат');
+    }
+
+    const roomCode = this.#generateRoomCode();
+
+    call.type = 'group';
+    call.roomCode = roomCode;
+    call.receiver = null;
+    this.#roomCodes.set(roomCode, call.id);
+
+    return call;
+  }
+
+  /**
+   * Возвращает клиента в звонок по callId (после F5 или обрыва связи).
+   * Вернуться может только тот, кто уже был участником этого звонка.
+   */
+  rejoinCall(callId: string, client: Client): Member {
+    const call = this.#calls.get(callId);
+    if (!call) {
+      throw new Error('Звонок не найден');
+    }
+    if (!call.isKnownParticipant(client.id)) {
+      throw new Error('Вы не участник этого звонка');
+    }
+
+    // Гонка: старый сокет ещё не обработан — обновляем клиента на месте.
+    const existing = call.members.find(
+      (member) => member.client.id === client.id,
+    );
+    if (existing) {
+      existing.client = client;
+      existing.online = true;
+      // После перезагрузки страницы локальные mute/share не сохраняются
+      existing.isMuted = false;
+      existing.isSpeaking = false;
+      existing.isScreenSharing = false;
+      this.#replaceClientReferences(call, client);
+      return existing;
+    }
+
+    if (this.getClientCall(client.id)) {
+      throw new Error('Вы уже в звонке. Сначала завершите текущий');
+    }
+    if (call.members.length >= this.#maxMembers) {
+      throw new Error('Комната заполнена');
+    }
+
+    const member = call.addMember(client);
+    this.#replaceClientReferences(call, client);
+    return member;
+  }
+
+  /** Обновляет ссылки initiator/receiver на новый объект Client */
+  #replaceClientReferences(call: Call, client: Client): void {
+    if (call.initiator.id === client.id) {
+      call.initiator = client;
+    }
+    if (call.receiver?.id === client.id) {
+      call.receiver = client;
+    }
   }
 
   endCall(callId: string): void {

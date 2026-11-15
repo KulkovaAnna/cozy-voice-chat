@@ -8,6 +8,9 @@ export type LobbyJoinError = {
   existingClientName: string | null;
 };
 
+/** Состояние возврата в звонок после F5 / обрыва */
+export type CallRestoreState = "idle" | "pending" | "failed";
+
 export type ChatNetworkContextType = {
   lobbyMembers?: Array<UserProfile>;
   callOffer: CallOffer | null;
@@ -40,6 +43,12 @@ export type ChatNetworkContextType = {
   createRoom: VoidFunction;
   /** Войти в комнату по коду */
   joinRoomByCode: (code: string) => void;
+  /** Превратить текущий 1-на-1 в групповую комнату */
+  convertToRoom: VoidFunction;
+  /** Вернуться в активный звонок по callId после F5 */
+  restoreCall: (callId: string) => void;
+  /** Стадия восстановления звонка */
+  callRestoreState: CallRestoreState;
   endCall: VoidFunction;
   /** Покинуть звонок: в комнате — только для себя */
   leaveCall: VoidFunction;
@@ -87,6 +96,9 @@ export const ChatNetworkContext = createContext<ChatNetworkContextType>({
   updateProfile: () => {},
   createRoom: () => {},
   joinRoomByCode: () => {},
+  convertToRoom: () => {},
+  restoreCall: () => {},
+  callRestoreState: "idle",
   endCall: () => {},
   leaveCall: () => {},
   changeMuteStatus: () => {},

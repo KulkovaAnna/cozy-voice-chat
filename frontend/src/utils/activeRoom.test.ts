@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-import { clearActiveRoom, readActiveRoom, saveActiveRoom } from "./activeRoom";
+import { clearActiveCall, readActiveCall, saveActiveCall } from "./activeRoom";
 
 const storage = new Map<string, string>();
 
@@ -18,30 +18,51 @@ describe("activeRoom", () => {
   });
 
   it("сохраняет и читает активную комнату", () => {
-    saveActiveRoom("call-1", "ab12cd");
+    saveActiveCall("call-1", "ab12cd");
 
-    expect(readActiveRoom()).toEqual({
+    expect(readActiveCall()).toEqual({
       callId: "call-1",
       roomCode: "AB12CD",
     });
   });
 
-  it("не сохраняет комнату с неверным кодом", () => {
-    saveActiveRoom("call-1", "bad");
+  it("сохраняет 1-на-1 без кода", () => {
+    saveActiveCall("call-1");
 
-    expect(readActiveRoom()).toBeNull();
+    expect(readActiveCall()).toEqual({
+      callId: "call-1",
+      roomCode: null,
+    });
+  });
+
+  it("не сохраняет неверный код комнаты, но помнит звонок", () => {
+    saveActiveCall("call-1", "bad");
+
+    expect(readActiveCall()).toEqual({
+      callId: "call-1",
+      roomCode: null,
+    });
+  });
+
+  it("читает старый формат без кода", () => {
+    storage.set("cvc:active-room", JSON.stringify({ callId: "call-1" }));
+
+    expect(readActiveCall()).toEqual({
+      callId: "call-1",
+      roomCode: null,
+    });
   });
 
   it("игнорирует повреждённые данные", () => {
     storage.set("cvc:active-room", "not json");
 
-    expect(readActiveRoom()).toBeNull();
+    expect(readActiveCall()).toBeNull();
   });
 
-  it("очищает сохранённую комнату", () => {
-    saveActiveRoom("call-1", "AB12CD");
-    clearActiveRoom();
+  it("очищает сохранённый звонок", () => {
+    saveActiveCall("call-1", "AB12CD");
+    clearActiveCall();
 
-    expect(readActiveRoom()).toBeNull();
+    expect(readActiveCall()).toBeNull();
   });
 });

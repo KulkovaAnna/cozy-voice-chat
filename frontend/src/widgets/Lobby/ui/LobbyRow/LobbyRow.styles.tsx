@@ -6,7 +6,7 @@ export const Container = styled(Card)(({ theme }) => ({
   ...cardImageLayerStyles,
   boxShadow: `0px 0px 4px 2px ${theme.colors.primary.dark}`,
   padding: "0.5rem 1rem",
-  width: "100%",
+  width: "100vw",
   maxWidth: "300px",
   justifyContent: "space-between",
   gap: "1rem",

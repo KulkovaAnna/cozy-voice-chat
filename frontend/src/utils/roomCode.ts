@@ -28,3 +28,8 @@ export function getRoomShareOrigin(): string {
 
   return `${protocol}//${configuredHost}${port ? `:${port}` : ""}`;
 }
+
+/** Полная ссылка-приглашение в комнату */
+export function buildRoomLink(code: string): string {
+  return `${getRoomShareOrigin()}/join/${normalizeRoomCode(code)}`;
+}

@@ -11,6 +11,7 @@ import Helpers from '../utils/helpers';
 import musicPlayerService from '../app/modules/music-player/music-player.service';
 import type LobbyManager from './LobbyManager';
 import CallManager from './CallManager';
+import type Call from '../models/Call';
 import type FileManagerService from '../app/modules/file-manager/file-manager.service';
 import type {
   FileAttachment,
@@ -23,8 +24,8 @@ import { SlashCommandRegistry } from './SlashCommands';
 import type { SlashCommandResult } from './SlashCommands/types';
 
 export default class SignalingServer {
-  /** Сколько последних сообщений отдавать при входе в комнату */
-  private static readonly MAX_ROOM_HISTORY = 50;
+  /** Сколько последних сообщений отдавать при входе/возврате в звонок */
+  private static readonly MAX_CALL_HISTORY = 50;
 
   private wss: WebSocket.Server;
   private lobbyManager: LobbyManager;
@@ -101,12 +102,11 @@ export default class SignalingServer {
         }
         this.lobbyManager.removeMember(ws);
 
-        if (memberCall?.type === 'group') {
-          // В комнате отключившийся участник просто выходит: остальные
-          // продолжают звонок, а опустевшая комната удаляется.
-          this.removeMemberFromRoom(memberCall.id, clientData.id);
-        } else if (memberCall) {
-          this.handleChangeOnlineStatus(clientData.id, memberCall.id, false);
+        if (memberCall) {
+          // Отключение (закрытие вкладки, F5, обрыв) — это выход участника:
+          // остальные продолжают звонок, а опустевший звонок удаляется.
+          // Вернуться после F5 можно через call::rejoin по callId.
+          this.removeMemberFromCall(memberCall.id, clientData.id);
         }
         this.broadcastToLobby(
           {
@@ -222,6 +222,14 @@ export default class SignalingServer {
 
       [MESSAGE_TYPES.RECEIVE.CALL.LEAVE_CALL]: (ws, _ip, data) => {
         this.handleLeaveCall(ws, String(data.callId));
+      },
+
+      [MESSAGE_TYPES.RECEIVE.CALL.CONVERT_TO_ROOM]: (ws, _ip, data) => {
+        this.handleConvertToRoom(ws, String(data.callId));
+      },
+
+      [MESSAGE_TYPES.RECEIVE.CALL.REJOIN_CALL]: (ws, _ip, data) => {
+        this.handleRejoinCall(ws, String(data.callId));
       },
 
       [MESSAGE_TYPES.RECEIVE.CALL.CHANGE_MUTE_STATUS]: (ws, _ip, data) => {
@@ -604,19 +612,7 @@ export default class SignalingServer {
 
     // Вошедшему отдаём историю чата: в комнату можно зайти позже
     // и переписка, отправленная до входа, не должна теряться.
-    this.sendToClient(ws, {
-      type: MESSAGE_TYPES.SEND.ME.ROOM_JOINED,
-      data: {
-        callInfo: call,
-        // Системные ответы слэш-команд видны только инициатору, поэтому
-        // в историю для новых участников они не попадают. Заодно
-        // ограничиваем историю последними сообщениями, чтобы не раздувать пакет.
-        messages: call.messages
-          .filter((message) => !message.isSystem)
-          .slice(-SignalingServer.MAX_ROOM_HISTORY),
-        timestamp: new Date().toISOString(),
-      },
-    });
+    this.sendCallSnapshot(ws, call);
 
     if (!wasMember) {
       this.broadcastToCall(
@@ -640,7 +636,7 @@ export default class SignalingServer {
     }
   }
 
-  /** Выход участника из комнаты без завершения звонка для остальных */
+  /** Выход участника из звонка без завершения его для остальных */
   private handleLeaveCall(ws: WebSocket, callId: string): void {
     const client = this.lobbyManager.getMemberByWs(ws);
     if (!client) {
@@ -652,24 +648,18 @@ export default class SignalingServer {
       throw new Error('Вы не участник этого звонка');
     }
 
-    if (call.type !== 'group') {
-      // Для личного звонка выход = завершение (поведение 1-на-1)
-      this.handleEndCall(ws, callId);
-      return;
-    }
-
-    this.removeMemberFromRoom(callId, client.id);
+    this.removeMemberFromCall(callId, client.id);
   }
 
   /**
-   * Удаляет участника из комнаты и уведомляет оставшихся.
-   * Если комната опустела — освобождает её ресурсы.
+   * Удаляет участника из звонка и уведомляет оставшихся.
+   * Если звонок опустел — освобождает его ресурсы.
    */
-  private removeMemberFromRoom(callId: string, clientId: string): void {
+  private removeMemberFromCall(callId: string, clientId: string): void {
     const call = this.callManager.getCallById(callId);
     if (!call) return;
 
-    const isEmpty = this.callManager.leaveRoom(callId, clientId);
+    const isEmpty = this.callManager.leaveCall(callId, clientId);
 
     if (isEmpty) {
       this.cleanupCallResources(callId);
@@ -681,6 +671,103 @@ export default class SignalingServer {
       data: {
         clientId,
         callInfo: this.callManager.getCallById(callId),
+        timestamp: new Date().toISOString(),
+      },
+    });
+  }
+
+  /**
+   * Превращает 1-на-1 в групповую комнату: выдаёт код и рассылает
+   * обновлённое состояние всем участникам. Действие необратимо.
+   */
+  private handleConvertToRoom(ws: WebSocket, callId: string): void {
+    const client = this.lobbyManager.getMemberByWs(ws);
+    if (!client) {
+      throw new Error('Вы не в лобби');
+    }
+
+    const call = this.callManager.getCallById(callId);
+    if (!call || !call.hasMember(client.id)) {
+      throw new Error('Вы не участник этого звонка');
+    }
+
+    const updated = this.callManager.convertToRoom(callId);
+
+    this.broadcastToCall(callId, {
+      type: MESSAGE_TYPES.SEND.ALL.CALL.ROOM_CREATED,
+      data: {
+        callInfo: updated,
+        createdBy: client.id,
+        timestamp: new Date().toISOString(),
+      },
+    });
+  }
+
+  /**
+   * Возврат в звонок по callId после F5 или обрыва связи.
+   * Возвращается только тот, кто уже был участником звонка; ему
+   * отдаётся актуальный состав и история сообщений.
+   */
+  private handleRejoinCall(ws: WebSocket, callId: string): void {
+    const client = this.lobbyManager.getMemberByWs(ws);
+    if (!client) {
+      throw new Error('Вы не в лобби');
+    }
+
+    const call = this.callManager.getCallById(callId);
+    if (!call) {
+      throw new Error('Звонок не найден');
+    }
+
+    this.callManager.rejoinCall(callId, client);
+
+    const updated = this.callManager.getCallById(callId);
+    if (!updated) {
+      throw new Error('Звонок не найден');
+    }
+
+    this.sendCallSnapshot(
+      ws,
+      updated,
+      MESSAGE_TYPES.SEND.ME.CALL_REJOINED,
+    );
+
+    this.broadcastToCall(
+      updated.id,
+      {
+        type: MESSAGE_TYPES.SEND.ALL.CALL.MEMBER_JOINED,
+        data: {
+          callInfo: updated,
+          client,
+          timestamp: new Date().toISOString(),
+        },
+      },
+      client.id,
+    );
+
+    const player = musicPlayerService.get(updated.id);
+    if (player?.isPlaying()) {
+      this.broadcastMusicState(updated.id);
+    }
+  }
+
+  /**
+   * Отправляет одному клиенту состояние звонка и историю сообщений.
+   * Системные ответы слэш-команд видны только инициатору, поэтому в
+   * историю они не попадают; заодно ограничиваем размер пакета.
+   */
+  private sendCallSnapshot(
+    ws: WebSocket,
+    call: Call,
+    type: string = MESSAGE_TYPES.SEND.ME.ROOM_JOINED,
+  ): void {
+    this.sendToClient(ws, {
+      type,
+      data: {
+        callInfo: call,
+        messages: call.messages
+          .filter((message) => !message.isSystem)
+          .slice(-SignalingServer.MAX_CALL_HISTORY),
         timestamp: new Date().toISOString(),
       },
     });

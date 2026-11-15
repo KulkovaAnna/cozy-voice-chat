@@ -10,7 +10,6 @@ type UseChatCallParams = {
   send: SendFn;
   peerRef: {
     current: {
-      callToUser: (uid: string) => void;
       connectToMembers: (memberIds: string[]) => void;
       disconnectMembers: (memberIds: string[]) => void;
       addScreenShareTarget: (peerId: string) => void;
@@ -75,27 +74,14 @@ export function useChatCall({ user, send, peerRef }: UseChatCallParams) {
     [send],
   );
 
-  const handleCallStarted = useCallback(
-    (data: ServerMessage) => {
-      const currentCallInfo = callInfoAdapter(data.data.callInfo);
-      setCallInfo(currentCallInfo);
-
-      // В комнате соединения устанавливает mesh-эффект ниже.
-      // Для 1-на-1 инициатор по-прежнему звонит получателю напрямую.
-      if (
-        currentCallInfo.type === "direct" &&
-        currentCallInfo.receiver &&
-        user.id === currentCallInfo.initiator.id
-      ) {
-        peerRef.current.callToUser(currentCallInfo.receiver.id!);
-      }
-    },
-    [peerRef, user.id],
-  );
+  const handleCallStarted = useCallback((data: ServerMessage) => {
+    setCallInfo(callInfoAdapter(data.data.callInfo));
+  }, []);
 
   /**
-   * Mesh-соединения комнаты: при каждом изменении состава участников
-   * подключаем новых и отключаем вышедших.
+   * Mesh-соединения звонка: при каждом изменении состава участников
+   * подключаем новых и отключаем вышедших. Правило одно и для 1-на-1,
+   * и для комнат — так восстанавливается звук после возврата в звонок.
    */
   const memberIdsKey = useMemo(
     () =>
@@ -108,7 +94,7 @@ export function useChatCall({ user, send, peerRef }: UseChatCallParams) {
   );
 
   useEffect(() => {
-    if (!callInfo || callInfo.type !== "group") return;
+    if (!callInfo) return;
 
     const memberIds = memberIdsKey ? memberIdsKey.split(",") : [];
     peerRef.current.connectToMembers(memberIds);
@@ -119,20 +105,11 @@ export function useChatCall({ user, send, peerRef }: UseChatCallParams) {
     setCallInfo(null);
   }, [peerRef]);
 
-  const handleOnlineChanged = useCallback(
-    (data: ServerMessage) => {
-      const updated = callInfoAdapter(data.data.callInfo);
-      setCallInfo(updated);
-
-      // В комнате уход участника не завершает звонок для остальных.
-      if (updated.type !== "direct") return;
-
-      if (updated.members.filter((member) => member.online).length < 2) {
-        endCall(updated);
-      }
-    },
-    [endCall],
-  );
+  const handleOnlineChanged = useCallback((data: ServerMessage) => {
+    // Смена online-статуса больше не завершает 1-на-1: отключившийся
+    // участник возвращается после F5, а звонок живёт без него.
+    setCallInfo(callInfoAdapter(data.data.callInfo));
+  }, []);
 
   const handleCallStateChanged = useCallback((data: ServerMessage) => {
     setCallInfo(callInfoAdapter(data.data.callInfo));
@@ -170,20 +147,16 @@ export function useChatCall({ user, send, peerRef }: UseChatCallParams) {
   }, [peerRef]);
 
   /**
-   * Выход из звонка: 1-на-1 завершается для обоих, комната — только для меня.
+   * Покинуть звонок. В комнате звонок остаётся для других участников;
+   * завершение 1-на-1 для обоих выполняет endCall().
    */
   const leaveCall = useCallback(() => {
     const call = callInfoRef.current;
     if (!call) return;
 
-    if (call.type === "group") {
-      send("call::leave", { callId: call.id });
-      peerRef.current.endCall();
-      setCallInfo(null);
-      return;
-    }
-
-    send("call::end", { callId: call.id });
+    send("call::leave", { callId: call.id });
+    peerRef.current.endCall();
+    setCallInfo(null);
   }, [peerRef, send]);
 
   return {

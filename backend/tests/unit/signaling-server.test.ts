@@ -1370,6 +1370,146 @@ describe('SignalingServer', () => {
       expect(error.data.text).toContain('сбой yt-dlp');
     });
   });
+  // ─── Единый жизненный цикл звонка ─────────────────────────────
+  describe('call lifecycle', () => {
+    it('should keep a direct call alive when a member disconnects', async () => {
+      const { ws1, ws2, call, alice } = await setupCall();
+
+      ws1._emit('close');
+
+      expect(callMgr.getCallById(call.id)).toBe(call);
+      expect(call.members).toHaveLength(1);
+      expect(call.members[0].client.id).not.toBe(alice.id);
+
+      const left = getSent(ws2).find(
+        (m: any) => m.type === 'all::call::member-left',
+      );
+      expect(left).toBeDefined();
+      expect(left.data.clientId).toBe(alice.id);
+    });
+
+    it('should let one member leave a direct call without ending it', async () => {
+      const { ws1, ws2, call, bob } = await setupCall();
+
+      await sendMessage(ws1, 'call::leave', { callId: call.id });
+
+      expect(callMgr.getCallById(call.id)).toBe(call);
+      expect(call.members).toHaveLength(1);
+      expect(call.members[0].client.id).toBe(bob.id);
+      expect(
+        getSent(ws2).find((m: any) => m.type === 'all::call::member-left'),
+      ).toBeDefined();
+    });
+
+    it('should let a member rejoin after reconnect and restore history', async () => {
+      const { ws1, ws2, call, alice } = await setupCall();
+
+      await sendMessage(ws1, 'call::send-message', {
+        callId: call.id,
+        text: 'hello after reload',
+      });
+
+      ws1._emit('close');
+
+      const reconnectedWs = await simulateConnection('10.0.0.1');
+      await sendMessage(reconnectedWs, 'lobby::join', {
+        clientId: alice.id,
+        personalInfo: { name: 'Alice' },
+      });
+      await sendMessage(reconnectedWs, 'call::rejoin', { callId: call.id });
+
+      const rejoined = getSent(reconnectedWs).find(
+        (m: any) => m.type === 'me::call-rejoined',
+      );
+      expect(rejoined).toBeDefined();
+      expect(rejoined.data.callInfo.members).toHaveLength(2);
+      expect(rejoined.data.messages.map((m: any) => m.text)).toContain(
+        'hello after reload',
+      );
+
+      const joined = getSent(ws2).find(
+        (m: any) => m.type === 'all::call::member-joined',
+      );
+      expect(joined).toBeDefined();
+      expect(joined.data.client.id).toBe(alice.id);
+    });
+
+    it('should reject rejoin for a client that was not in the call', async () => {
+      const { call } = await setupCall();
+
+      const outsiderWs = await simulateConnection('10.0.0.3');
+      await sendMessage(outsiderWs, 'lobby::join', {
+        personalInfo: { name: 'Charlie' },
+      });
+      await sendMessage(outsiderWs, 'call::rejoin', { callId: call.id });
+
+      const error = getSent(outsiderWs).find((m: any) => m.type === 'error');
+      expect(error).toBeDefined();
+      expect(error.data.message).toContain('Вы не участник этого звонка');
+    });
+
+    it('should convert a direct call into a room and let a third client join', async () => {
+      const { ws1, ws2, call, alice } = await setupCall();
+
+      await sendMessage(ws1, 'call::convert-to-room', { callId: call.id });
+
+      const converted = getSent(ws2).find(
+        (m: any) => m.type === 'all::call::room-created',
+      );
+      expect(converted).toBeDefined();
+      expect(converted.data.callInfo.roomCode).toMatch(/^[A-Z0-9]{6}$/);
+      expect(converted.data.createdBy).toBe(alice.id);
+      expect(call.type).toBe('group');
+      expect(callMgr.getRoomByCode(call.roomCode)).toBe(call);
+
+      const guestWs = await simulateConnection('10.0.0.3');
+      await sendMessage(guestWs, 'lobby::join', {
+        personalInfo: { name: 'Charlie' },
+      });
+      await sendMessage(guestWs, 'lobby::join-room', { code: call.roomCode });
+
+      const joined = getSent(guestWs).find(
+        (m: any) => m.type === 'me::room-joined',
+      );
+      expect(joined).toBeDefined();
+      expect(joined.data.callInfo.members).toHaveLength(3);
+    });
+
+    it('should give the history of a converted call to a late joiner', async () => {
+      const { ws1, call } = await setupCall();
+      await sendMessage(ws1, 'call::send-message', {
+        callId: call.id,
+        text: 'message before conversion',
+      });
+
+      await sendMessage(ws1, 'call::convert-to-room', { callId: call.id });
+
+      const guestWs = await simulateConnection('10.0.0.3');
+      await sendMessage(guestWs, 'lobby::join', {
+        personalInfo: { name: 'Charlie' },
+      });
+      await sendMessage(guestWs, 'lobby::join-room', { code: call.roomCode });
+
+      const joined = getSent(guestWs).find(
+        (m: any) => m.type === 'me::room-joined',
+      );
+      expect(joined).toBeDefined();
+      expect(joined.data.messages.map((m: any) => m.text)).toContain(
+        'message before conversion',
+      );
+    });
+
+    it('should not convert the same call twice', async () => {
+      const { ws1, call } = await setupCall();
+      await sendMessage(ws1, 'call::convert-to-room', { callId: call.id });
+      await sendMessage(ws1, 'call::convert-to-room', { callId: call.id });
+
+      const error = getSent(ws1).find((m: any) => m.type === 'error');
+      expect(error).toBeDefined();
+      expect(error.data.message).toContain('Комната уже создана');
+    });
+  });
+
   // ─── Групповые комнаты ────────────────────────────────────────
   describe('rooms', () => {
     async function createRoom(

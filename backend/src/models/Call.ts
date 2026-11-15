@@ -37,6 +37,8 @@ export default class Call {
   public receiver: Client | null;
   public messages: Message[];
 
+  #knownClientIds: Set<string> = new Set();
+
   constructor(initiator: Client, members: Client[], options: CallOptions = {}) {
     this.id = v4();
     this.type = options.type ?? (options.roomCode ? 'group' : 'direct');
@@ -50,6 +52,19 @@ export default class Call {
         ? (members.find((client) => client.id !== initiator.id) ?? null)
         : null;
     this.messages = [];
+
+    members.forEach((client) => this.#knownClientIds.add(client.id));
+  }
+
+  /** Запоминает участника, чтобы он мог вернуться в звонок по callId */
+  registerParticipant(clientId: string): void {
+    if (!clientId) return;
+    this.#knownClientIds.add(clientId);
+  }
+
+  /** Проверяет, был ли клиент участником этого звонка */
+  isKnownParticipant(clientId: string): boolean {
+    return this.#knownClientIds.has(clientId);
   }
 
   /** Проверяет, состоит ли клиент в звонке */
@@ -66,6 +81,7 @@ export default class Call {
 
     const member = new Member(client);
     this.members.push(member);
+    this.registerParticipant(client.id);
     return member;
   }
 

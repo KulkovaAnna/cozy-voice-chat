@@ -1,6 +1,5 @@
 import {
   ChatIcon,
-  CopyLinkIcon,
   EndCallIcon,
   IconButton,
   MicOffIcon,
@@ -11,8 +10,6 @@ import {
 } from "@cvc/components";
 import { useChatNetwork, useTextChat } from "@cvc/providers";
 import * as Styles from "./ControlPanel.styles";
-import { getRoomShareOrigin } from "@cvc/utils";
-import { toast } from "react-toastify";
 
 export interface ControlPanelProps {
   compact?: boolean;
@@ -33,13 +30,16 @@ export const ControlPanel = (props: ControlPanelProps) => {
   const { textChatIsOpen, hasNewMessages, switchTextChatIsOpen } =
     useTextChat();
 
-  const isGroupRoom = callInfo?.type === "group";
+  /** Комната (есть код) — можно выйти, сохранив звонок для остальных */
+  const isRoom = !!callInfo?.roomCode;
   const anotherMemberSharing =
     !isMyUserScreenSharing &&
     !!callInfo?.members.some((member) => member.isScreenSharing);
 
   const handleExit = () => {
-    if (isGroupRoom) {
+    // В 1-на-1 красная кнопка завершает звонок для обоих, в комнате —
+    // только выводит из неё.
+    if (isRoom) {
       leaveCall();
       return;
     }
@@ -48,22 +48,6 @@ export const ControlPanel = (props: ControlPanelProps) => {
 
   const handleMicState = () => {
     changeMuteStatus(!isMyUserMuted);
-  };
-
-  const handleCopyRoomLink = () => {
-    if (!callInfo?.roomCode) return;
-
-    const link = `${getRoomShareOrigin()}/join/${callInfo.roomCode}`;
-
-    if (!navigator.clipboard) {
-      toast(link);
-      return;
-    }
-
-    void navigator.clipboard
-      .writeText(link)
-      .then(() => toast("Ссылка на комнату скопирована", { type: "success" }))
-      .catch(() => toast(link));
   };
 
   return (
@@ -91,20 +75,11 @@ export const ControlPanel = (props: ControlPanelProps) => {
         }
       />
       <IconButton
-        variant="secondary"
-        title="Скопировать ссылку на комнату"
-        aria-label="Скопировать ссылку на комнату"
-        onClick={handleCopyRoomLink}
-        icon={<CopyLinkIcon />}
+        icon={<EndCallIcon />}
+        variant="error"
+        title={isRoom ? "Покинуть комнату" : "Завершить звонок"}
+        onClick={handleExit}
       />
-      {callInfo?.type === "group" && callInfo.roomCode && (
-        <IconButton
-          icon={<EndCallIcon />}
-          variant="error"
-          title={isGroupRoom ? "Покинуть комнату" : "Завершить звонок"}
-          onClick={handleExit}
-        />
-      )}
     </Styles.ControlPanel>
   );
 };

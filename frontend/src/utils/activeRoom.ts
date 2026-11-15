@@ -1,22 +1,34 @@
 import { isValidRoomCode, normalizeRoomCode } from "./roomCode";
 
-const ACTIVE_ROOM_KEY = "cvc:active-room";
+const ACTIVE_CALL_KEY = "cvc:active-room";
 
-export interface ActiveRoom {
+export interface ActiveCall {
   callId: string;
-  roomCode: string;
+  /** Код комнаты есть только у группового звонка */
+  roomCode: string | null;
 }
 
-/** Запоминает комнату, чтобы после F5 вернуться в неё, а не в лобби */
-export function saveActiveRoom(callId: string, roomCode: string): void {
-  if (!callId || !isValidRoomCode(roomCode)) return;
+/**
+ * Запоминает активный звонок (и комнату, и 1-на-1), чтобы после F5
+ * вернуться в него, а не в лобби.
+ */
+export function saveActiveCall(
+  callId: string,
+  roomCode: string | null = null,
+): void {
+  if (!callId) return;
+
+  const normalizedCode =
+    roomCode && isValidRoomCode(roomCode)
+      ? normalizeRoomCode(roomCode)
+      : null;
 
   try {
     sessionStorage.setItem(
-      ACTIVE_ROOM_KEY,
+      ACTIVE_CALL_KEY,
       JSON.stringify({
         callId,
-        roomCode: normalizeRoomCode(roomCode),
+        roomCode: normalizedCode,
       }),
     );
   } catch {
@@ -24,36 +36,39 @@ export function saveActiveRoom(callId: string, roomCode: string): void {
   }
 }
 
-/** Возвращает комнату, в которой вкладка была до перезагрузки */
-export function readActiveRoom(): ActiveRoom | null {
+/** Возвращает звонок, в котором вкладка была до перезагрузки */
+export function readActiveCall(): ActiveCall | null {
   try {
-    const raw = sessionStorage.getItem(ACTIVE_ROOM_KEY);
+    const raw = sessionStorage.getItem(ACTIVE_CALL_KEY);
     if (!raw) return null;
 
-    const parsed = JSON.parse(raw) as Partial<ActiveRoom> | null;
+    const parsed = JSON.parse(raw) as Partial<ActiveCall> | null;
     if (
       !parsed ||
       typeof parsed.callId !== "string" ||
-      !parsed.callId ||
-      typeof parsed.roomCode !== "string" ||
-      !isValidRoomCode(parsed.roomCode)
+      !parsed.callId
     ) {
       return null;
     }
 
+    const roomCode =
+      typeof parsed.roomCode === "string" && isValidRoomCode(parsed.roomCode)
+        ? normalizeRoomCode(parsed.roomCode)
+        : null;
+
     return {
       callId: parsed.callId,
-      roomCode: normalizeRoomCode(parsed.roomCode),
+      roomCode,
     };
   } catch {
     return null;
   }
 }
 
-/** Забывает комнату после выхода, завершения звонка или ошибки входа */
-export function clearActiveRoom(): void {
+/** Забывает звонок после выхода, завершения или ошибки входа */
+export function clearActiveCall(): void {
   try {
-    sessionStorage.removeItem(ACTIVE_ROOM_KEY);
+    sessionStorage.removeItem(ACTIVE_CALL_KEY);
   } catch {
     // ignore
   }

@@ -12,6 +12,7 @@ type RouterParams = {
   // Звонок
   setCallOfferNull: VoidFunction;
   handleCallStarted: (data: ServerMessage) => void;
+  handleCallRoomCreated: (data: ServerMessage) => void;
   handleRoomJoined: (data: ServerMessage) => void;
   handleMemberJoined: (data: ServerMessage) => void;
   handleMemberLeft: (data: ServerMessage) => void;
@@ -63,13 +64,18 @@ export function useChatMessageRouter(params: RouterParams) {
           params.handleCallStarted(data);
           break;
         }
-        case "me::room-joined": {
+        case "me::room-joined":
+        case "me::call-rejoined": {
           params.handleRoomJoined(data);
           break;
         }
         case "all::call::started": {
           params.setCallOfferNull();
           params.handleCallStarted(data);
+          break;
+        }
+        case "all::call::room-created": {
+          params.handleCallRoomCreated(data);
           break;
         }
         case "all::call::member-joined": {

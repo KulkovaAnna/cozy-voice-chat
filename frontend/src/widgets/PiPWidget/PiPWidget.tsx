@@ -60,16 +60,10 @@ export const PiPWidget = () => {
           onClick={() => changeMuteStatus(!isMyUserMuted)}
         />
         <IconButton
-          title={
-            callInfo?.type === "group"
-              ? "Покинуть комнату"
-              : "Завершить звонок"
-          }
+          title={callInfo.roomCode ? "Покинуть комнату" : "Завершить звонок"}
           icon={<EndCallIcon />}
           variant="error"
-          onClick={() =>
-            callInfo?.type === "group" ? leaveCall() : endCall()
-          }
+          onClick={() => (callInfo.roomCode ? leaveCall() : endCall())}
         />
       </Styles.Controls>
     </Styles.Window>,

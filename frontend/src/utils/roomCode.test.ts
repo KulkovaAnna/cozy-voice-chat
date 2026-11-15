@@ -1,6 +1,10 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
-import { isValidRoomCode, normalizeRoomCode } from "./roomCode";
+import { buildRoomLink, isValidRoomCode, normalizeRoomCode } from "./roomCode";
+
+afterEach(() => {
+  vi.unstubAllGlobals();
+});
 
 describe("normalizeRoomCode", () => {
   it("убирает пробелы и приводит к верхнему регистру", () => {
@@ -11,6 +15,40 @@ describe("normalizeRoomCode", () => {
     expect(normalizeRoomCode("https://192.168.1.2:5173/join/ab12cd")).toBe(
       "AB12CD",
     );
+  });
+});
+
+describe("buildRoomLink", () => {
+  it("собирает ссылку из кода в нижнем регистре", () => {
+    vi.stubGlobal("window", {
+      location: {
+        protocol: "https:",
+        hostname: "192.168.1.2",
+        port: "5173",
+        origin: "https://192.168.1.2:5173",
+      },
+    });
+
+    expect(buildRoomLink("ab12cd")).toBe("https://192.168.1.2:5173/join/AB12CD");
+
+    vi.unstubAllGlobals();
+  });
+
+  it("нормализует полную ссылку перед сборкой", () => {
+    vi.stubGlobal("window", {
+      location: {
+        protocol: "https:",
+        hostname: "192.168.1.2",
+        port: "5173",
+        origin: "https://192.168.1.2:5173",
+      },
+    });
+
+    expect(
+      buildRoomLink("https://192.168.1.2:5173/join/ab12cd"),
+    ).toBe("https://192.168.1.2:5173/join/AB12CD");
+
+    vi.unstubAllGlobals();
   });
 });
 

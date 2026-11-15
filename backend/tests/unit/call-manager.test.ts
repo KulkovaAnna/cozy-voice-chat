@@ -435,7 +435,7 @@ describe('CallManager', () => {
       const room = callManager.createRoom(alice);
       callManager.joinRoom(room.id, bob);
 
-      const isEmpty = callManager.leaveRoom(room.id, bob.id);
+      const isEmpty = callManager.leaveCall(room.id, bob.id);
 
       expect(isEmpty).toBe(false);
       expect(room.members).toHaveLength(1);
@@ -448,11 +448,111 @@ describe('CallManager', () => {
       const room = callManager.createRoom(alice);
       const code = room.roomCode!;
 
-      const isEmpty = callManager.leaveRoom(room.id, alice.id);
+      const isEmpty = callManager.leaveCall(room.id, alice.id);
 
       expect(isEmpty).toBe(true);
       expect(callManager.getCallById(room.id)).toBeUndefined();
       expect(callManager.getRoomByCode(code)).toBeUndefined();
+    });
+
+    it('should keep a direct call when one of two members leaves', () => {
+      const [alice, bob] = createClients(2);
+      const call = callManager.startCall(lobby.createCallOffer(alice, bob));
+
+      const isEmpty = callManager.leaveCall(call.id, bob.id);
+
+      expect(isEmpty).toBe(false);
+      expect(call.members).toHaveLength(1);
+      expect(call.members[0].client.id).toBe(alice.id);
+      expect(callManager.getCallById(call.id)).toBe(call);
+    });
+
+    it('should convert a direct call into a group room', () => {
+      const [alice, bob] = createClients(2);
+      const call = callManager.startCall(lobby.createCallOffer(alice, bob));
+
+      const updated = callManager.convertToRoom(call.id);
+
+      expect(updated).toBe(call);
+      expect(call.type).toBe('group');
+      expect(call.roomCode).toMatch(/^[A-Z0-9]{6}$/);
+      expect(call.receiver).toBeNull();
+      expect(callManager.getRoomByCode(call.roomCode!)).toBe(call);
+      expect(call.members).toHaveLength(2);
+    });
+
+    it('should not convert the same call twice', () => {
+      const [alice, bob] = createClients(2);
+      const call = callManager.startCall(lobby.createCallOffer(alice, bob));
+      callManager.convertToRoom(call.id);
+
+      expect(() => callManager.convertToRoom(call.id)).toThrow(
+        'Комната уже создана',
+      );
+    });
+
+    it('should enforce the room limit when converting', () => {
+      const limited = new CallManager(6, 1);
+      const [alice, bob, charlie] = createClients(3);
+
+      limited.createRoom(alice);
+      const call = limited.startCall(lobby.createCallOffer(bob, charlie));
+
+      expect(() => limited.convertToRoom(call.id)).toThrow(
+        'Достигнут лимит активных комнат',
+      );
+    });
+
+    it('should let a former member rejoin a call by id', () => {
+      const [alice, bob] = createClients(2);
+      const call = callManager.startCall(lobby.createCallOffer(alice, bob));
+
+      callManager.leaveCall(call.id, alice.id);
+      expect(call.members).toHaveLength(1);
+
+      // Новое подключение того же пользователя (после F5): старый
+      // клиент уже удалён из лобби, поэтому preferredId свободен.
+      lobby.removeMember(alice.ws);
+      const reconnected = lobby.addClient(
+        mockWs(),
+        '10.9.0.1',
+        undefined,
+        alice.id,
+      )!;
+      const member = callManager.rejoinCall(call.id, reconnected);
+
+      expect(member.client.id).toBe(alice.id);
+      expect(call.members).toHaveLength(2);
+      expect(callManager.getClientCall(alice.id)).toBe(call);
+    });
+
+    it('should reject rejoin for an unknown call', () => {
+      const [alice] = createClients(1);
+
+      expect(() => callManager.rejoinCall('no-such-call', alice)).toThrow(
+        'Звонок не найден',
+      );
+    });
+
+    it('should reject rejoin for a client that was not a member', () => {
+      const [alice, bob, charlie] = createClients(3);
+      const call = callManager.startCall(lobby.createCallOffer(alice, bob));
+
+      expect(() => callManager.rejoinCall(call.id, charlie)).toThrow(
+        'Вы не участник этого звонка',
+      );
+    });
+
+    it('should reject rejoin when the call is full', () => {
+      const limited = new CallManager(2);
+      const [alice, bob, charlie] = createClients(3);
+      const room = limited.createRoom(alice);
+      limited.joinRoom(room.id, bob);
+
+      limited.leaveCall(room.id, bob.id);
+      limited.joinRoom(room.id, charlie);
+
+      expect(() => limited.rejoinCall(room.id, bob)).toThrow('Комната заполнена');
     });
   });
 });
