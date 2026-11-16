@@ -12,6 +12,7 @@ import musicPlayerService from '../app/modules/music-player/music-player.service
 import type LobbyManager from './LobbyManager';
 import CallManager from './CallManager';
 import type Call from '../models/Call';
+import type CallOffer from '../models/CallOffer';
 import type FileManagerService from '../app/modules/file-manager/file-manager.service';
 import type {
   FileAttachment,
@@ -95,10 +96,11 @@ export default class SignalingServer {
 
         const clientData = this.lobbyManager.getMemberByWs(ws);
         if (!clientData) return;
-        const offer = this.lobbyManager.getOfferByMemberId(clientData.id);
         const memberCall = this.callManager.getClientCall(clientData.id);
-        if (offer && !memberCall) {
-          this.handleDeclineCallOffer(ws, offer.id);
+        if (!memberCall) {
+          // Ушедший мог быть инициатором или получателем висящих офферов:
+          // вторые стороны должны закрыть модалки ожидания/входящего.
+          this.declineOffersFor(clientData.id);
         }
         this.lobbyManager.removeMember(ws);
 
@@ -214,6 +216,14 @@ export default class SignalingServer {
 
       [MESSAGE_TYPES.RECEIVE.LOBBY.JOIN_ROOM]: (ws, _ip, data) => {
         this.handleJoinRoom(ws, String(data.code ?? ''));
+      },
+
+      [MESSAGE_TYPES.RECEIVE.LOBBY.INVITE_TO_ROOM]: (ws, _ip, data) => {
+        this.handleInviteToRoom(
+          ws,
+          String(data.callId),
+          String(data.receiverId),
+        );
       },
 
       [MESSAGE_TYPES.RECEIVE.CALL.END_CALL]: (ws, _ip, data) => {
@@ -402,17 +412,10 @@ export default class SignalingServer {
     }
   }
 
-  /**
-   * Отклоняет активный оффер участника: уведомляет вторую сторону и удаляет оффер.
-   * Используется для защиты от дублирования — у одного участника не может
-   * быть одновременно несколько висящих офферов.
-   */
-  private declineMemberOffer(memberId: string): void {
-    const offer = this.lobbyManager.getOfferByMemberId(memberId);
-    if (!offer) return;
-
+  /** Уведомляет вторую сторону оффера, что он больше неактуален */
+  private notifyOfferDeclined(offer: CallOffer, declinedById: string): void {
     const peer =
-      offer.initiator.id === memberId ? offer.receiver : offer.initiator;
+      offer.initiator.id === declinedById ? offer.receiver : offer.initiator;
 
     this.sendToClient(peer.ws, {
       type: MESSAGE_TYPES.SEND.ME.CALL_OFFER_DECLINED,
@@ -421,25 +424,63 @@ export default class SignalingServer {
         timestamp: new Date().toISOString(),
       },
     });
-
-    this.lobbyManager.callOffers.delete(offer.id);
   }
 
   /**
-   * Сбрасывает висящий 1-на-1 оффер у клиента, который создаёт/входит
+   * Отклоняет все висящие офферы участника: каждая вторая сторона получает
+   * уведомление, сами офферы удаляются. Используется для защиты от
+   * дублирования — у одного участника не может быть нескольких офферов.
+   */
+  private declineOffersFor(memberId: string): void {
+    this.lobbyManager.getOffersByMemberId(memberId).forEach((offer) => {
+      this.notifyOfferDeclined(offer, memberId);
+      this.lobbyManager.callOffers.delete(offer.id);
+    });
+  }
+
+  /**
+   * Отзывает приглашения, созданные участником (он вышел из комнаты или
+   * отключился): у приглашённых должна закрыться модалка входящего.
+   */
+  private declineInitiatorOffers(initiatorId: string): void {
+    this.lobbyManager
+      .getOffersByMemberId(initiatorId)
+      .filter((offer) => offer.initiator.id === initiatorId)
+      .forEach((offer) => {
+        this.notifyOfferDeclined(offer, initiatorId);
+        this.lobbyManager.callOffers.delete(offer.id);
+      });
+  }
+
+  /** Отзывает все приглашения в завершённый звонок */
+  private declineOffersForCall(callId: string): void {
+    this.lobbyManager.getOffersByCallId(callId).forEach((offer) => {
+      this.sendToClient(offer.receiver.ws, {
+        type: MESSAGE_TYPES.SEND.ME.CALL_OFFER_DECLINED,
+        data: {
+          callOffer: offer,
+          timestamp: new Date().toISOString(),
+        },
+      });
+      this.lobbyManager.callOffers.delete(offer.id);
+    });
+  }
+
+  /**
+   * Сбрасывает висящие офферы у клиента, который создаёт/входит
    * в комнату: обе стороны должны закрыть модалку ожидания/входящего.
    */
   private declinePendingOfferFor(clientId: string, ws: WebSocket): void {
-    const offer = this.lobbyManager.getOfferByMemberId(clientId);
-    if (!offer) return;
-
-    this.declineMemberOffer(clientId);
-    this.sendToClient(ws, {
-      type: MESSAGE_TYPES.SEND.ME.CALL_OFFER_DECLINED,
-      data: {
-        callOffer: offer,
-        timestamp: new Date().toISOString(),
-      },
+    this.lobbyManager.getOffersByMemberId(clientId).forEach((offer) => {
+      this.notifyOfferDeclined(offer, clientId);
+      this.sendToClient(ws, {
+        type: MESSAGE_TYPES.SEND.ME.CALL_OFFER_DECLINED,
+        data: {
+          callOffer: offer,
+          timestamp: new Date().toISOString(),
+        },
+      });
+      this.lobbyManager.callOffers.delete(offer.id);
     });
   }
 
@@ -468,11 +509,11 @@ export default class SignalingServer {
     }
 
     // Защита от дублирования: отклонить предыдущий активный оффер инициатора
-    this.declineMemberOffer(initiator.id);
+    this.declineOffersFor(initiator.id);
 
     // Если получателя уже кто-то зовёт — отклоняем тот оффер, иначе у получателя
     // окажется два висящих вызова и первый потеряется.
-    this.declineMemberOffer(receiver.id);
+    this.declineOffersFor(receiver.id);
 
     const offer = this.lobbyManager.createCallOffer(initiator, receiver);
 
@@ -493,6 +534,114 @@ export default class SignalingServer {
     });
   }
 
+  /**
+   * Приглашение участника лобби в групповую комнату.
+   * В отличие от 1-на-1, приглашать можно сразу нескольких человек — оффер
+   * создаётся на каждого получателя, а принятие входит в существующий звонок.
+   */
+  private handleInviteToRoom(
+    ws: WebSocket,
+    callId: string,
+    receiverId: string,
+  ): void {
+    const initiator = this.lobbyManager.getMemberByWs(ws);
+    if (!initiator) {
+      this.failRoomInvite(ws, receiverId, 'Вы не в лобби');
+      return;
+    }
+
+    const receiver = this.lobbyManager.getMemberById(receiverId);
+    if (!receiver) {
+      this.failRoomInvite(
+        ws,
+        receiverId,
+        'Пользователя с таким ID не существует',
+      );
+      return;
+    }
+    if (receiver.id === initiator.id) {
+      this.failRoomInvite(ws, receiverId, 'Вы не можете пригласить сами себя');
+      return;
+    }
+
+    const call = this.callManager.getCallById(callId);
+    if (!call || !call.hasMember(initiator.id)) {
+      this.failRoomInvite(ws, receiverId, 'Вы не участник этого звонка');
+      return;
+    }
+    if (call.type !== 'group' || !call.roomCode) {
+      this.failRoomInvite(
+        ws,
+        receiverId,
+        'Приглашать можно только в групповой чат',
+      );
+      return;
+    }
+
+    const receiverName = receiver.personalInfo?.name?.trim() || 'Пользователь';
+
+    if (call.hasMember(receiver.id)) {
+      this.failRoomInvite(ws, receiverId, `${receiverName} уже в этом звонке`);
+      return;
+    }
+    if (this.callManager.getClientCall(receiver.id)) {
+      this.failRoomInvite(
+        ws,
+        receiverId,
+        `${receiverName} сейчас в другом звонке`,
+      );
+      return;
+    }
+    if (call.members.length >= this.callManager.getMaxMembers()) {
+      this.failRoomInvite(ws, receiverId, 'Комната заполнена');
+      return;
+    }
+
+    // У получателя не должно быть нескольких висящих офферов
+    this.declineOffersFor(receiver.id);
+
+    const offer = this.lobbyManager.createCallOffer(initiator, receiver, {
+      kind: 'room',
+      callId: call.id,
+      roomCode: call.roomCode,
+    });
+
+    this.sendToClient(ws, {
+      type: MESSAGE_TYPES.SEND.ME.CALL_INITIATED,
+      data: {
+        callOffer: offer,
+        timestamp: new Date().toISOString(),
+      },
+    });
+
+    this.sendToClient(receiver.ws, {
+      type: MESSAGE_TYPES.SEND.ME.CALL_OFFER,
+      data: {
+        callOffer: offer,
+        timestamp: new Date().toISOString(),
+      },
+    });
+  }
+
+  /**
+   * Сообщает приглашающему, что приглашение не создано. Отдельный тип нужен,
+   * чтобы клиент снял блокировку с кнопки конкретного участника.
+   */
+  private failRoomInvite(
+    ws: WebSocket,
+    receiverId: string,
+    message: string,
+  ): void {
+    this.sendToClient(ws, {
+      type: MESSAGE_TYPES.SEND.ME.ROOM_INVITE_FAILED,
+      data: {
+        receiverId,
+        message,
+        timestamp: new Date().toISOString(),
+      },
+    });
+  }
+
   private handleAcceptCallOffer(ws: WebSocket, offerId: string): void {
     const receiver = this.lobbyManager.getMemberByWs(ws);
     const currentOffer = this.lobbyManager.getOfferById(offerId);
@@ -502,6 +651,12 @@ export default class SignalingServer {
       receiver.id !== currentOffer.receiver.id
     ) {
       throw new Error('Вы не можете начать этот звонок');
+    }
+
+    // Приглашение в комнату: входим в существующий звонок, а не создаём новый
+    if (currentOffer.kind === 'room') {
+      this.acceptRoomInvite(ws, currentOffer);
+      return;
     }
 
     this.sendToClient(currentOffer.initiator.ws, {
@@ -524,6 +679,73 @@ export default class SignalingServer {
         timestamp: new Date().toISOString(),
       },
     });
+  }
+
+  /**
+   * Принятие приглашения в комнату: участник входит в существующий звонок,
+   * получает историю чата и актуальный состав.
+   */
+  private acceptRoomInvite(ws: WebSocket, offer: CallOffer): void {
+    const receiver = offer.receiver;
+    const call = offer.callId
+      ? this.callManager.getCallById(offer.callId)
+      : undefined;
+
+    if (!call || !call.roomCode) {
+      this.lobbyManager.callOffers.delete(offer.id);
+      this.notifyOfferDeclined(offer, receiver.id);
+      throw new Error('Комната больше не существует');
+    }
+
+    const wasMember = call.hasMember(receiver.id);
+
+    try {
+      if (!wasMember) {
+        this.callManager.joinRoom(call.id, receiver);
+      }
+    } catch (error) {
+      this.lobbyManager.callOffers.delete(offer.id);
+      this.notifyOfferDeclined(offer, receiver.id);
+      throw error;
+    }
+
+    this.lobbyManager.callOffers.delete(offer.id);
+
+    this.sendToClient(offer.initiator.ws, {
+      type: MESSAGE_TYPES.SEND.ME.CALL_OFFER_ACCEPTED,
+      data: {
+        callOffer: offer,
+        timestamp: new Date().toISOString(),
+      },
+    });
+
+    const updated = this.callManager.getCallById(call.id);
+    if (!updated) {
+      throw new Error('Комната не найдена');
+    }
+
+    // Вошедшему — история сообщений и состав, остальным — новый участник
+    this.sendCallSnapshot(ws, updated);
+
+    if (!wasMember) {
+      this.broadcastToCall(
+        updated.id,
+        {
+          type: MESSAGE_TYPES.SEND.ALL.CALL.MEMBER_JOINED,
+          data: {
+            callInfo: updated,
+            client: receiver,
+            timestamp: new Date().toISOString(),
+          },
+        },
+        receiver.id,
+      );
+    }
+
+    const player = musicPlayerService.get(updated.id);
+    if (player?.isPlaying()) {
+      this.broadcastMusicState(updated.id);
+    }
   }
 
   private handleDeclineCallOffer(ws: WebSocket, offerId: string): void {
@@ -661,6 +883,10 @@ export default class SignalingServer {
 
     const isEmpty = this.callManager.leaveCall(callId, clientId);
 
+    // Вышедший мог кого-то приглашать — приглашения отзываем, иначе у
+    // приглашённых останется модалка входящего без звонка.
+    this.declineInitiatorOffers(clientId);
+
     if (isEmpty) {
       this.cleanupCallResources(callId);
       return;
@@ -775,6 +1001,8 @@ export default class SignalingServer {
 
   /** Освобождает ресурсы завершённого звонка */
   private cleanupCallResources(callId: string): void {
+    // Приглашения в уже несуществующую комнату больше неактуальны
+    this.declineOffersForCall(callId);
     // У каждого звонка своя очередь и свои файлы: удаляем только его
     musicPlayerService.destroy(callId);
     this.fileManager.cleanCallFiles(callId).catch(console.error);

@@ -21,6 +21,7 @@ export * from "./MoonIcon";
 export * from "./PauseIcon";
 export * from "./PictureInPictureIcon";
 export * from "./PlayIcon";
+export * from "./PlusIcon";
 export * from "./SaveIcon";
 export * from "./SendIcon";
 export * from "./ShareScreenIcon";

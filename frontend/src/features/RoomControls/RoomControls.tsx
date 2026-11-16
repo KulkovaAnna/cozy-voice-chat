@@ -1,19 +1,24 @@
+import { useState } from "react";
+
 import { toast } from "react-toastify";
 
-import { CopyLinkIcon, IconButton } from "@cvc/components";
+import { CopyLinkIcon, IconButton, PlusIcon } from "@cvc/components";
 import { useChatNetwork } from "@cvc/providers";
 import { buildRoomLink } from "@cvc/utils";
 
 import * as Styles from "./RoomControls.styles";
+import { InviteMembersModal } from "./ui/InviteMembersModal";
 
 /**
  * Управление комнатой в лобби и в звонке:
  * - в лобби создаёт комнату;
  * - в 1-на-1 предлагает преобразовать звонок в комнату;
- * - в комнате показывает код и кнопку копирования ссылки.
+ * - в комнате показывает код, кнопку копирования ссылки и приглашение
+ *   участников лобби.
  */
 export function RoomControls() {
   const { callInfo, createRoom, convertToRoom } = useChatNetwork();
+  const [isInviteOpen, setIsInviteOpen] = useState(false);
 
   const handleCopyLink = () => {
     if (!callInfo?.roomCode) return;
@@ -34,16 +39,28 @@ export function RoomControls() {
   if (callInfo) {
     if (callInfo.roomCode) {
       return (
-        <Styles.RoomPanel>
-          <Styles.RoomLabel>Комната</Styles.RoomLabel>
-          <Styles.RoomCode>{callInfo.roomCode}</Styles.RoomCode>
-          <IconButton
-            title="Скопировать ссылку на комнату"
-            aria-label="Скопировать ссылку на комнату"
-            onClick={handleCopyLink}
-            icon={<CopyLinkIcon />}
+        <>
+          <Styles.RoomPanel>
+            <Styles.RoomLabel>Комната</Styles.RoomLabel>
+            <Styles.RoomCode>{callInfo.roomCode}</Styles.RoomCode>
+            <IconButton
+              title="Скопировать ссылку на комнату"
+              aria-label="Скопировать ссылку на комнату"
+              onClick={handleCopyLink}
+              icon={<CopyLinkIcon />}
+            />
+            <IconButton
+              title="Пригласить участников"
+              aria-label="Пригласить участников"
+              onClick={() => setIsInviteOpen(true)}
+              icon={<PlusIcon />}
+            />
+          </Styles.RoomPanel>
+          <InviteMembersModal
+            isOpen={isInviteOpen}
+            onClose={() => setIsInviteOpen(false)}
           />
-        </Styles.RoomPanel>
+        </>
       );
     }
 

@@ -1,5 +1,11 @@
 import { createContext } from "react";
-import type { CallInfo, CallOffer, TextMessage, UserProfile } from "@cvc/types";
+import type {
+  CallInfo,
+  CallOffer,
+  PendingRoomInvite,
+  TextMessage,
+  UserProfile,
+} from "@cvc/types";
 import type { CommandStatus } from "@cvc/types";
 import type { ProfilePayload } from "./hooks/useChatLobby";
 
@@ -43,6 +49,10 @@ export type ChatNetworkContextType = {
   createRoom: VoidFunction;
   /** Войти в комнату по коду */
   joinRoomByCode: (code: string) => void;
+  /** Пригласить участника лобби в текущую комнату */
+  inviteToRoom: (receiverId: string) => void;
+  /** Приглашения в комнату, ожидающие ответа получателей */
+  pendingInvites: PendingRoomInvite[];
   /** Превратить текущий 1-на-1 в групповую комнату */
   convertToRoom: VoidFunction;
   /** Вернуться в активный звонок по callId после F5 */
@@ -96,6 +106,8 @@ export const ChatNetworkContext = createContext<ChatNetworkContextType>({
   updateProfile: () => {},
   createRoom: () => {},
   joinRoomByCode: () => {},
+  inviteToRoom: () => {},
+  pendingInvites: [],
   convertToRoom: () => {},
   restoreCall: () => {},
   callRestoreState: "idle",

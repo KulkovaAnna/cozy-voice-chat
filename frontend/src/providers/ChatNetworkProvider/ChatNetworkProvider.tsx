@@ -15,6 +15,7 @@ import {
   isValidRoomCode,
   lobbyRetryDelay,
   normalizeRoomCode,
+  playJoinSound,
   saveActiveCall,
   textMessageAdapter,
 } from "@cvc/utils";
@@ -210,6 +211,18 @@ export function ChatNetworkProvider(props: PropsWithChildren) {
     send("call::convert-to-room", { callId: call.id });
   }, [callHook.callInfoRef, send]);
 
+  /** Приглашает участника лобби в текущую комнату */
+  const inviteToRoom = useCallback(
+    (receiverId: string) => {
+      const call = callHook.callInfoRef.current;
+      if (!call?.roomCode) return;
+      // Блокируем кнопку сразу: повторный клик не отправит второй оффер
+      lobby.startPendingInvite(receiverId);
+      send("lobby::invite-to-room", { callId: call.id, receiverId });
+    },
+    [callHook.callInfoRef, lobby, send],
+  );
+
   /** Запоминаем звонок для восстановления после F5 */
   useEffect(() => {
     const call = callHook.callInfo;
@@ -378,9 +391,10 @@ export function ChatNetworkProvider(props: PropsWithChildren) {
     setRoomJoinError(null);
     replaceTextMessages([]);
     setCommandStatus(null);
+    lobby.clearPendingInvites();
     unreadCount.current = 0;
     clearAppBadge();
-  }, [callHook, clearActiveCallState, replaceTextMessages]);
+  }, [callHook, clearActiveCallState, lobby, replaceTextMessages]);
 
   /**
    * Стадия выполнения моей слэш-команды. Приходит только инициатору,
@@ -462,7 +476,8 @@ export function ChatNetworkProvider(props: PropsWithChildren) {
     setRoomJoinError(null);
     replaceTextMessages([]);
     setCommandStatus(null);
-  }, [callHook, clearActiveCallState, replaceTextMessages]);
+    lobby.clearPendingInvites();
+  }, [callHook, clearActiveCallState, lobby, replaceTextMessages]);
 
   const profileSettings = useProfileSettings();
 
@@ -520,11 +535,73 @@ export function ChatNetworkProvider(props: PropsWithChildren) {
 
       void requestNotificationPermission().then((permission) => {
         if (permission !== "granted") return;
-        const initiator = data.data.callOffer?.initiator;
-        notifyIncomingCall(initiator?.name ?? "Собеседник");
+        const offer = data.data.callOffer;
+        notifyIncomingCall(
+          offer?.initiator?.personalInfo?.name ?? "Собеседник",
+          {
+            roomCode: offer?.kind === "room" ? (offer.roomCode ?? null) : null,
+          },
+        );
       });
     },
     [lobby],
+  );
+
+  /** Приглашение отклонено: снимаем ожидание и показываем тост */
+  const handleCallOfferDeclined = useCallback(
+    (data: ServerMessage) => {
+      const declinedName = lobby.handleCallOfferDeclined(data);
+      if (declinedName) {
+        toast(`${declinedName} отклонил приглашение`, { type: "info" });
+      }
+    },
+    [lobby],
+  );
+
+  /** Приглашение принято: участник уже в звонке */
+  const handleCallOfferAccepted = useCallback(
+    (data: ServerMessage) => {
+      lobby.handleCallOfferAccepted(data);
+    },
+    [lobby],
+  );
+
+  /** Приглашение не создано: сервер объяснил причину */
+  const handleRoomInviteFailed = useCallback(
+    (data: ServerMessage) => {
+      const message = lobby.handleInviteFailed(data);
+      if (message) {
+        toast(message, { type: "error" });
+      }
+    },
+    [lobby],
+  );
+
+  /**
+   * Новый участник звонка: обновляем состав, снимаем ожидание приглашения
+   * и показываем тост со звуком для групповых комнат.
+   */
+  const handleMemberJoined = useCallback(
+    (data: ServerMessage) => {
+      callHook.handleMemberJoined(data);
+
+      const clientId = data.data?.client?.id;
+      if (typeof clientId !== "string") return;
+
+      lobby.removePendingInvite(clientId);
+
+      if (!data.data?.callInfo) return;
+      const info = callInfoAdapter(data.data.callInfo);
+      if (info.type !== "group" || clientId === user.id) return;
+
+      const name =
+        typeof data.data.client?.personalInfo?.name === "string"
+          ? data.data.client.personalInfo.name
+          : "Участник";
+      toast(`${name} присоединился к звонку`, { type: "info" });
+      playJoinSound();
+    },
+    [callHook, lobby, user.id],
   );
 
   /** Сообщения, пришедшие в фоновую вкладку, считаем непрочитанными. */
@@ -605,12 +682,14 @@ export function ChatNetworkProvider(props: PropsWithChildren) {
     onMeLobbyJoined,
     handleLobbyJoinRejected,
     handleCallOffer,
-    handleCallOfferDeclined: lobby.handleCallOfferDeclined,
+    handleCallOfferDeclined,
+    handleCallOfferAccepted,
+    handleRoomInviteFailed,
     setCallOfferNull: lobby.clearCallOffer,
     handleCallStarted,
     handleCallRoomCreated,
     handleRoomJoined,
-    handleMemberJoined: callHook.handleMemberJoined,
+    handleMemberJoined,
     handleMemberLeft: callHook.handleMemberLeft,
     handleCallEnded,
     handleOnlineChanged: callHook.handleOnlineChanged,
@@ -662,6 +741,8 @@ export function ChatNetworkProvider(props: PropsWithChildren) {
         updateProfile: lobby.updateProfile,
         createRoom,
         joinRoomByCode,
+        inviteToRoom,
+        pendingInvites: lobby.pendingInvites,
         convertToRoom,
         restoreCall,
         callRestoreState,

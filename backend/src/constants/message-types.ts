@@ -8,6 +8,7 @@ export const MESSAGE_TYPES = Object.freeze({
       UPDATE_PROFILE: 'lobby::update-profile',
       CREATE_ROOM: 'lobby::create-room',
       JOIN_ROOM: 'lobby::join-room',
+      INVITE_TO_ROOM: 'lobby::invite-to-room',
     },
     CALL: {
       END_CALL: 'call::end',
@@ -59,6 +60,7 @@ export const MESSAGE_TYPES = Object.freeze({
       CALL_OFFER: 'me::call-offer',
       CALL_OFFER_ACCEPTED: 'me::call-offer-accepted',
       CALL_OFFER_DECLINED: 'me::call-offer-declined',
+      ROOM_INVITE_FAILED: 'me::room-invite-failed',
       ROOM_CREATED: 'me::room-created',
       ROOM_JOINED: 'me::room-joined',
       CALL_REJOINED: 'me::call-rejoined',

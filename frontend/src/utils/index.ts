@@ -12,7 +12,9 @@ export * from "./lobbyRetry";
 export * from "./mesh";
 export * from "./microphones";
 export * from "./roomCode";
+export * from "./roomInvites";
 export * from "./SpeechDetection";
+export * from "./sounds";
 export {
   getUnsavedChangesNames,
   hasUnsavedChanges,

@@ -2,6 +2,7 @@ import { useEffect, useRef } from "react";
 import { Navigate, useLocation, useNavigate, useParams } from "react-router";
 
 import { Button, Card, Column } from "@cvc/components";
+import { AcceptCallModal } from "@cvc/features";
 import { useAuth, useChatNetwork } from "@cvc/providers";
 
 const PENDING_JOIN_KEY = "cvc:join-room";
@@ -65,6 +66,7 @@ export const JoinRoom = () => {
           Вернуться в лобби
         </Button>
       </Column>
+      <AcceptCallModal />
     </Card>
   );
 };

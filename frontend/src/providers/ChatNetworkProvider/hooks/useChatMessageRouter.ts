@@ -8,7 +8,9 @@ type RouterParams = {
   onMeLobbyJoined: (meId: string) => void;
   handleLobbyJoinRejected: (data: ServerMessage) => void;
   handleCallOffer: (data: ServerMessage) => void;
-  handleCallOfferDeclined: VoidFunction;
+  handleCallOfferDeclined: (data: ServerMessage) => void;
+  handleCallOfferAccepted: (data: ServerMessage) => void;
+  handleRoomInviteFailed: (data: ServerMessage) => void;
   // Звонок
   setCallOfferNull: VoidFunction;
   handleCallStarted: (data: ServerMessage) => void;
@@ -57,7 +59,15 @@ export function useChatMessageRouter(params: RouterParams) {
           break;
         }
         case "me::call-offer-declined": {
-          params.handleCallOfferDeclined();
+          params.handleCallOfferDeclined(data);
+          break;
+        }
+        case "me::call-offer-accepted": {
+          params.handleCallOfferAccepted(data);
+          break;
+        }
+        case "me::room-invite-failed": {
+          params.handleRoomInviteFailed(data);
           break;
         }
         case "me::room-created": {
@@ -66,6 +76,8 @@ export function useChatMessageRouter(params: RouterParams) {
         }
         case "me::room-joined":
         case "me::call-rejoined": {
+          // Модалка принятия могла остаться открытой после accept
+          params.setCallOfferNull();
           params.handleRoomJoined(data);
           break;
         }

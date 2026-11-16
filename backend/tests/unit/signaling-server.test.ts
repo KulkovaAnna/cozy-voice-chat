@@ -1739,6 +1739,240 @@ describe('SignalingServer', () => {
     });
   });
 
+  // ─── Приглашение в комнату из лобби ───────────────────────────
+  describe('lobby::invite-to-room', () => {
+    async function createRoomFor(ip: string, name: string) {
+      const ws = await simulateConnection(ip);
+      await sendMessage(ws, 'lobby::join', { personalInfo: { name } });
+      await sendMessage(ws, 'lobby::create-room');
+
+      const created = getSent(ws).find(
+        (m: any) => m.type === 'me::room-created',
+      );
+      return { ws, call: callMgr.getCallById(created.data.callInfo.id) };
+    }
+
+    async function joinLobby(ip: string, name: string): Promise<MockWS> {
+      const ws = await simulateConnection(ip);
+      await sendMessage(ws, 'lobby::join', { personalInfo: { name } });
+      return ws;
+    }
+
+    it('should invite a lobby member and let them join the room', async () => {
+      const { ws: hostWs, call } = await createRoomFor('10.3.0.1', 'Alice');
+      const bobWs = await joinLobby('10.3.0.2', 'Bob');
+      const bob = lobby.getMemberByIp('10.3.0.2')!;
+
+      await sendMessage(hostWs, 'lobby::invite-to-room', {
+        callId: call.id,
+        receiverId: bob.id,
+      });
+
+      const initiated = getSent(hostWs).find(
+        (m: any) => m.type === 'me::call-initiated',
+      );
+      expect(initiated).toBeDefined();
+      expect(initiated.data.callOffer.kind).toBe('room');
+      expect(initiated.data.callOffer.callId).toBe(call.id);
+      expect(initiated.data.callOffer.roomCode).toBe(call.roomCode);
+
+      const incoming = getSent(bobWs).find(
+        (m: any) => m.type === 'me::call-offer',
+      );
+      expect(incoming).toBeDefined();
+      expect(incoming.data.callOffer.kind).toBe('room');
+      expect(incoming.data.callOffer.roomCode).toBe(call.roomCode);
+
+      await sendMessage(bobWs, 'lobby::accept-offer', {
+        offerId: incoming.data.callOffer.id,
+      });
+
+      const joined = getSent(bobWs).find(
+        (m: any) => m.type === 'me::room-joined',
+      );
+      expect(joined).toBeDefined();
+      expect(joined.data.callInfo.id).toBe(call.id);
+      expect(joined.data.callInfo.members).toHaveLength(2);
+
+      const memberJoined = getSent(hostWs).find(
+        (m: any) => m.type === 'all::call::member-joined',
+      );
+      expect(memberJoined).toBeDefined();
+      expect(memberJoined.data.client.id).toBe(bob.id);
+
+      expect(call.members).toHaveLength(2);
+      expect(lobby.getOfferById(incoming.data.callOffer.id)).toBeUndefined();
+    });
+
+    it('should notify the inviter when the invite is declined', async () => {
+      const { ws: hostWs, call } = await createRoomFor('10.3.0.1', 'Alice');
+      const bobWs = await joinLobby('10.3.0.2', 'Bob');
+      const bob = lobby.getMemberByIp('10.3.0.2')!;
+
+      await sendMessage(hostWs, 'lobby::invite-to-room', {
+        callId: call.id,
+        receiverId: bob.id,
+      });
+      const offer = lobby.getOfferByMemberId(bob.id)!;
+
+      await sendMessage(bobWs, 'lobby::decline-offer', { offerId: offer.id });
+
+      expect(
+        getSent(hostWs).find((m: any) => m.type === 'me::call-offer-declined'),
+      ).toBeDefined();
+      expect(lobby.getOfferById(offer.id)).toBeUndefined();
+      expect(call.members).toHaveLength(1);
+    });
+    it('should allow inviting several members at once', async () => {
+      const { ws: hostWs, call } = await createRoomFor('10.3.0.1', 'Alice');
+      const host = lobby.getMemberByIp('10.3.0.1')!;
+
+      await joinLobby('10.3.0.2', 'Bob');
+      await joinLobby('10.3.0.3', 'Charlie');
+      const bob = lobby.getMemberByIp('10.3.0.2')!;
+      const charlie = lobby.getMemberByIp('10.3.0.3')!;
+
+      await sendMessage(hostWs, 'lobby::invite-to-room', {
+        callId: call.id,
+        receiverId: bob.id,
+      });
+      await sendMessage(hostWs, 'lobby::invite-to-room', {
+        callId: call.id,
+        receiverId: charlie.id,
+      });
+
+      const offers = lobby.getOffersByMemberId(host.id);
+      expect(offers).toHaveLength(2);
+      expect(offers.every((offer) => offer.kind === 'room')).toBe(true);
+    });
+
+    it('should report a failed invite when the inviter is not in the room', async () => {
+      const { call } = await createRoomFor('10.3.0.1', 'Alice');
+      const charlieWs = await joinLobby('10.3.0.2', 'Charlie');
+      await joinLobby('10.3.0.3', 'Bob');
+      const bob = lobby.getMemberByIp('10.3.0.3')!;
+
+      await sendMessage(charlieWs, 'lobby::invite-to-room', {
+        callId: call.id,
+        receiverId: bob.id,
+      });
+
+      const failed = getSent(charlieWs).find(
+        (m: any) => m.type === 'me::room-invite-failed',
+      );
+      expect(failed).toBeDefined();
+      expect(failed.data.receiverId).toBe(bob.id);
+      expect(failed.data.message).toContain('Вы не участник этого звонка');
+    });
+
+    it('should reject an invite to a member already in another call', async () => {
+      const { ws: hostWs, call } = await createRoomFor('10.3.0.1', 'Alice');
+
+      // Bob создаёт свою комнату и оказывается занят
+      await createRoomFor('10.3.0.2', 'Bob');
+      const bob = lobby.getMemberByIp('10.3.0.2')!;
+
+      await sendMessage(hostWs, 'lobby::invite-to-room', {
+        callId: call.id,
+        receiverId: bob.id,
+      });
+
+      const failed = getSent(hostWs).find(
+        (m: any) => m.type === 'me::room-invite-failed',
+      );
+      expect(failed).toBeDefined();
+      expect(failed.data.message).toContain('сейчас в другом звонке');
+      expect(lobby.getOffersByMemberId(bob.id)).toHaveLength(0);
+    });
+
+    it('should reject an invite to a member already in the same room', async () => {
+      const { ws: hostWs, call } = await createRoomFor('10.3.0.1', 'Alice');
+      const bobWs = await joinLobby('10.3.0.2', 'Bob');
+      const bob = lobby.getMemberByIp('10.3.0.2')!;
+
+      await sendMessage(bobWs, 'lobby::join-room', { code: call.roomCode });
+
+      await sendMessage(hostWs, 'lobby::invite-to-room', {
+        callId: call.id,
+        receiverId: bob.id,
+      });
+
+      const failed = getSent(hostWs).find(
+        (m: any) => m.type === 'me::room-invite-failed',
+      );
+      expect(failed).toBeDefined();
+      expect(failed.data.message).toContain('уже в этом звонке');
+    });
+
+    it('should revoke pending invites when the room ends', async () => {
+      const { ws: hostWs, call } = await createRoomFor('10.3.0.1', 'Alice');
+      const bobWs = await joinLobby('10.3.0.2', 'Bob');
+      const bob = lobby.getMemberByIp('10.3.0.2')!;
+
+      await sendMessage(hostWs, 'lobby::invite-to-room', {
+        callId: call.id,
+        receiverId: bob.id,
+      });
+      const offer = lobby.getOfferByMemberId(bob.id)!;
+
+      await sendMessage(hostWs, 'call::end', { callId: call.id });
+
+      expect(
+        getSent(bobWs).find((m: any) => m.type === 'me::call-offer-declined'),
+      ).toBeDefined();
+      expect(lobby.getOfferById(offer.id)).toBeUndefined();
+    });
+    it('should revoke pending invites when the inviter leaves', async () => {
+      const { ws: hostWs, call } = await createRoomFor('10.3.0.1', 'Alice');
+      const bobWs = await joinLobby('10.3.0.2', 'Bob');
+      const bob = lobby.getMemberByIp('10.3.0.2')!;
+
+      // В комнате ещё один участник, чтобы она не закончилась после выхода
+      const guestWs = await joinLobby('10.3.0.3', 'Charlie');
+      await sendMessage(guestWs, 'lobby::join-room', { code: call.roomCode });
+
+      await sendMessage(hostWs, 'lobby::invite-to-room', {
+        callId: call.id,
+        receiverId: bob.id,
+      });
+      const offer = lobby.getOfferByMemberId(bob.id)!;
+
+      await sendMessage(hostWs, 'call::leave', { callId: call.id });
+
+      expect(
+        getSent(bobWs).find((m: any) => m.type === 'me::call-offer-declined'),
+      ).toBeDefined();
+      expect(lobby.getOfferById(offer.id)).toBeUndefined();
+    });
+
+    it('should reject an invite when the room is full', async () => {
+      const { ws: hostWs, call } = await createRoomFor('10.3.0.1', 'Alice');
+
+      // Заполняем комнату до лимита напрямую через менеджер
+      for (let i = 0; i < callMgr.getMaxMembers() - 1; i += 1) {
+        const member = lobby.addClient(createMockWs(), `10.9.0.${i + 1}`)!;
+        callMgr.joinRoom(call.id, member);
+      }
+
+      await joinLobby('10.3.0.2', 'Bob');
+      const bob = lobby.getMemberByIp('10.3.0.2')!;
+
+      await sendMessage(hostWs, 'lobby::invite-to-room', {
+        callId: call.id,
+        receiverId: bob.id,
+      });
+
+      const failed = getSent(hostWs).find(
+        (m: any) => m.type === 'me::room-invite-failed',
+      );
+      expect(failed).toBeDefined();
+      expect(failed.data.message).toContain('Комната заполнена');
+    });
+
+
+
+  });
+
 });
 
 /** callId активного звонка участника, подключённого к mock-сокету */

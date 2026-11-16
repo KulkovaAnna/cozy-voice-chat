@@ -240,6 +240,11 @@ export default class CallManager {
     throw new Error('Не удалось создать комнату. Попробуйте ещё раз');
   }
 
+  /** Максимальное число участников звонка (для предварительных проверок) */
+  getMaxMembers(): number {
+    return this.#maxMembers;
+  }
+
   getCallMembers(callId: string): Member[] {
     const memberCall = this.#calls.get(callId);
     if (!memberCall) {

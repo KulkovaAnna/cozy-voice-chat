@@ -42,7 +42,14 @@ export function AcceptCallModal() {
       isOpen={!!callOffer && callOffer?.initiator.id !== user.id}
       style={customStyles}
     >
-      <h2>{callOffer?.initiator.name} выходит на связь</h2>
+      <h2>
+        {callOffer?.kind === "room"
+          ? `${callOffer?.initiator.name} приглашает вас в групповой чат`
+          : `${callOffer?.initiator.name} выходит на связь`}
+      </h2>
+      {callOffer?.kind === "room" && callOffer.roomCode && (
+        <Styles.RoomHint>Комната {callOffer.roomCode}</Styles.RoomHint>
+      )}
       <Styles.ButtonsPanel>
         <Button onClick={acceptCallOffer} variant="primary">
           Принять
