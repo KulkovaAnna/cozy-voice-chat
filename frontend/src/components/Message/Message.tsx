@@ -2,7 +2,7 @@ import { useState } from "react";
 
 import { API_URLS } from "@cvc/api/config";
 import type { TextMessage } from "@cvc/types";
-import { isImageFile } from "@cvc/utils";
+import { getAttachmentKind } from "@cvc/utils";
 
 import { Avatar } from "../Avatar";
 import { Carousel, type CarouselItem } from "../Carousel";
@@ -28,11 +28,17 @@ export function Message(props: MessageProps) {
       }
     : props.message;
 
-  const images = attachments.filter((attachment) =>
-    isImageFile(attachment.fileName),
+  const images = attachments.filter(
+    (attachment) => getAttachmentKind(attachment.fileName) === "image",
+  );
+  const videos = attachments.filter(
+    (attachment) => getAttachmentKind(attachment.fileName) === "video",
+  );
+  const audios = attachments.filter(
+    (attachment) => getAttachmentKind(attachment.fileName) === "audio",
   );
   const files = attachments.filter(
-    (attachment) => !isImageFile(attachment.fileName),
+    (attachment) => getAttachmentKind(attachment.fileName) === "file",
   );
 
   const galleryItems: CarouselItem[] = images.map((image) => ({
@@ -88,6 +94,27 @@ export function Message(props: MessageProps) {
                   ))}
                 </Styles.ImageGrid>
               )}
+              {videos.map((attachment) => (
+                <Styles.VideoPlayer
+                  key={attachment.id}
+                  src={`${attachmentUrl}/view/${attachment.id}`}
+                  title={attachment.fileName}
+                  aria-label={`Видео ${attachment.fileName}`}
+                  controls
+                  preload="metadata"
+                  playsInline
+                />
+              ))}
+              {audios.map((attachment) => (
+                <Styles.AudioPlayer
+                  key={attachment.id}
+                  src={`${attachmentUrl}/view/${attachment.id}`}
+                  title={attachment.fileName}
+                  aria-label={`Аудио ${attachment.fileName}`}
+                  controls
+                  preload="metadata"
+                />
+              ))}
               {files.map((attachment) => (
                 <Styles.StyledFileInfo
                   key={attachment.id}

@@ -408,6 +408,63 @@ describe('FileManagerService', () => {
       expect(result.meta.callId).toBe('call-1');
       expect(result.meta.size).toBe(5000);
       expect(result.stream).toBeDefined();
+      expect(result.range).toBeNull();
+    });
+
+    it('should stream only the requested byte range', async () => {
+      mockHappyPath();
+      await service.uploadAttachments(
+        [makeFile('video.mp4', 5000)],
+        '10.0.0.1',
+        'call-1',
+        'client-1',
+      );
+
+      const result = await service.getFileStream(
+        'mocked-uuid-1234',
+        'bytes=0-99',
+      );
+
+      expect(result.range).toEqual({ start: 0, end: 99 });
+      expect(fs.createReadStream).toHaveBeenLastCalledWith(
+        expect.stringContaining('mocked-uuid-1234'),
+        { start: 0, end: 99 },
+      );
+    });
+
+    it('should open the whole file when the range header is not supported', async () => {
+      mockHappyPath();
+      await service.uploadAttachments(
+        [makeFile('video.mp4', 5000)],
+        '10.0.0.1',
+        'call-1',
+        'client-1',
+      );
+
+      const result = await service.getFileStream(
+        'mocked-uuid-1234',
+        'bytes=0-1,5-6',
+      );
+
+      expect(result.range).toBeNull();
+      expect(fs.createReadStream).toHaveBeenLastCalledWith(
+        expect.stringContaining('mocked-uuid-1234'),
+        undefined,
+      );
+    });
+
+    it('should throw 416 for a range outside the file', async () => {
+      mockHappyPath();
+      await service.uploadAttachments(
+        [makeFile('video.mp4', 5000)],
+        '10.0.0.1',
+        'call-1',
+        'client-1',
+      );
+
+      await expect(
+        service.getFileStream('mocked-uuid-1234', 'bytes=10000-'),
+      ).rejects.toMatchObject({ status: 416 });
     });
   });
 

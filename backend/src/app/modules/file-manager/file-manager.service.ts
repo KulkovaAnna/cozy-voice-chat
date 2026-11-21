@@ -14,6 +14,7 @@ import type {
 } from './file-manager.types';
 import { MAX_ATTACHMENTS } from './file-manager.types';
 import type { FileAttachment, HttpError } from '../../../types';
+import { parseRangeHeader } from '../../../utils/range';
 
 type MulterFile = NonNullable<Request['file']>;
 
@@ -369,8 +370,13 @@ export default class FileManagerService {
 
   /**
    * Возвращает поток для чтения файла без удаления.
+   * При заголовке `Range` читает только запрошенный диапазон байт —
+   * это нужно для перемотки видео и аудио в браузере.
    */
-  async getFileStream(fileId: string): Promise<ViewResult> {
+  async getFileStream(
+    fileId: string,
+    rangeHeader?: string,
+  ): Promise<ViewResult> {
     const meta = this.#fileMetadata.get(fileId);
     if (!meta) {
       const err: HttpError = new Error('Файл не найден или удалён');
@@ -378,8 +384,16 @@ export default class FileManagerService {
       throw err;
     }
 
-    const stream = fs.createReadStream(meta.path);
-    return { stream, meta };
+    const parsed = parseRangeHeader(rangeHeader, meta.size);
+    if (parsed.type === 'unsatisfiable') {
+      const err: HttpError = new Error('Запрошенный диапазон недоступен');
+      err.status = 416;
+      throw err;
+    }
+
+    const range = parsed.type === 'satisfiable' ? parsed.range : null;
+    const stream = fs.createReadStream(meta.path, range ?? undefined);
+    return { stream, meta, range };
   }
 
   /**

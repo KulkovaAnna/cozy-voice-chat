@@ -2,6 +2,7 @@ import type PersonalInfo from '../../../models/PersonalInfo';
 import type Call from '../../../models/Call';
 import type CallOffer from '../../../models/CallOffer';
 import type Client from '../../../models/Client';
+import type { ByteRange } from '../../../utils/range';
 import type { WebSocket } from 'ws';
 
 /** Максимальное число файлов, прикрепляемых к одному сообщению */
@@ -56,6 +57,8 @@ export interface DownloadResult {
 export interface ViewResult {
   stream: import('fs').ReadStream;
   meta: FileMetadata;
+  /** Запрошенный клиентом диапазон байт (null — файл отдаётся целиком) */
+  range: ByteRange | null;
 }
 
 /** Абстракция менеджера лобби (для разрыва циклических зависимостей) */

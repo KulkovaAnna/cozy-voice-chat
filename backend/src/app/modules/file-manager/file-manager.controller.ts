@@ -89,8 +89,8 @@ export default class FileManagerController {
   }
 
   /**
-   * Просмотр файла
-   * GET /files/view
+   * Просмотр файла (картинки и медиа) с поддержкой `Range`.
+   * GET /files/view/:fileId
    */
   async viewFile(
     req: Request,
@@ -99,13 +99,28 @@ export default class FileManagerController {
   ): Promise<void> {
     try {
       const fileId = String(req.params.fileId);
+      const rangeHeader = req.headers?.range;
 
-      const { stream, meta } =
-        await this.fileManagerService.getFileStream(fileId);
+      const { stream, meta, range } =
+        await this.fileManagerService.getFileStream(fileId, rangeHeader);
 
       const contentType =
         mime.lookup(meta.originalName) || 'application/octet-stream';
       res.setHeader('Content-Type', contentType);
+      // Без Accept-Ranges браузер не даёт перематывать видео и аудио
+      res.setHeader('Accept-Ranges', 'bytes');
+
+      if (range) {
+        res.status(206);
+        res.setHeader(
+          'Content-Range',
+          `bytes ${range.start}-${range.end}/${meta.size}`,
+        );
+        res.setHeader(
+          'Content-Length',
+          String(range.end - range.start + 1),
+        );
+      }
 
       // Отправляем поток
       stream.pipe(res);

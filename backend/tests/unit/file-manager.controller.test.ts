@@ -264,10 +264,47 @@ describe('FileManagerController', () => {
 
       await controller.viewFile(req, res, next);
 
-      expect(mockService.getFileStream).toHaveBeenCalledWith('view-1');
+      expect(mockService.getFileStream).toHaveBeenCalledWith('view-1', undefined);
       expect(res.headers['Content-Type']).toBe('image/png');
+      expect(res.headers['Accept-Ranges']).toBe('bytes');
       expect(mockStream.pipe).toHaveBeenCalledWith(res);
       expect(next).not.toHaveBeenCalled();
+    });
+
+    it('should respond 206 and set Content-Range for range requests', async () => {
+      const mockStream = { pipe: vi.fn(), on: vi.fn() };
+      mockService.getFileStream.mockResolvedValue({
+        stream: mockStream,
+        meta: {
+          originalName: 'clip.mp4',
+          path: '/tmp/clip.mp4',
+          senderId: 'u1',
+          callId: 'c1',
+          createdAt: Date.now(),
+          size: 5000,
+        },
+        range: { start: 100, end: 199 },
+      });
+
+      const req = createMockRequest({
+        params: { fileId: 'view-range' },
+        headers: { range: 'bytes=100-199' },
+      });
+      const res = createMockResponse();
+      const next = vi.fn() as unknown as NextFunction;
+
+      await controller.viewFile(req, res, next);
+
+      expect(mockService.getFileStream).toHaveBeenCalledWith(
+        'view-range',
+        'bytes=100-199',
+      );
+      expect(res._statusCode).toBe(206);
+      expect(res.headers['Content-Type']).toBe('video/mp4');
+      expect(res.headers['Accept-Ranges']).toBe('bytes');
+      expect(res.headers['Content-Range']).toBe('bytes 100-199/5000');
+      expect(res.headers['Content-Length']).toBe('100');
+      expect(mockStream.pipe).toHaveBeenCalledWith(res);
     });
 
     it('should fallback to application/octet-stream for unknown extension', async () => {

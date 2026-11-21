@@ -202,6 +202,49 @@ describe('FileManagerRoutes (integration)', () => {
       expect((res.body as Buffer).toString()).toBe('fake png data');
     });
 
+    it('should return 206 with Content-Range for range requests', async () => {
+      const { Readable } = require('stream');
+      const fakeStream = new Readable({
+        read() {
+          this.push(Buffer.from('01234'));
+          this.push(null);
+        },
+      });
+
+      mockService.getFileStream.mockResolvedValue({
+        stream: fakeStream,
+        meta: {
+          originalName: 'clip.mp4',
+          path: '/tmp/clip.mp4',
+          senderId: 'u1',
+          callId: 'c1',
+          createdAt: Date.now(),
+          size: 5000,
+        },
+        range: { start: 0, end: 4 },
+      });
+
+      const res = await request(app)
+        .get('/files/view/video-1')
+        .set('Range', 'bytes=0-4')
+        .buffer(true)
+        .parse((res, cb) => {
+          const chunks: Buffer[] = [];
+          res.on('data', (chunk) => chunks.push(chunk));
+          res.on('end', () => cb(null, Buffer.concat(chunks)));
+        });
+
+      expect(mockService.getFileStream).toHaveBeenCalledWith(
+        'video-1',
+        'bytes=0-4',
+      );
+      expect(res.status).toBe(206);
+      expect(res.headers['content-type']).toBe('video/mp4');
+      expect(res.headers['accept-ranges']).toBe('bytes');
+      expect(res.headers['content-range']).toBe('bytes 0-4/5000');
+      expect((res.body as Buffer).toString()).toBe('01234');
+    });
+
     it('should fallback to application/octet-stream', async () => {
       const { Readable } = require('stream');
       const fakeStream = new Readable({

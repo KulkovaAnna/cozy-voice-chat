@@ -123,3 +123,20 @@ export const PreviewImage = styled.img({
   objectFit: "cover",
   userSelect: "none",
 });
+
+/** Видео проигрывается прямо в сообщении, как обычное вложение */
+export const VideoPlayer = styled.video(({ theme }) => ({
+  display: "block",
+  maxWidth: "100%",
+  maxHeight: 240,
+  borderRadius: theme.borderRadius.small,
+  backgroundColor: "#000",
+}));
+
+/** Аудио занимает ширину пузыря, но не растягивается больше стандартного плеера */
+export const AudioPlayer = styled.audio(({ theme }) => ({
+  display: "block",
+  width: 300,
+  maxWidth: "100%",
+  borderRadius: theme.borderRadius.small,
+}));

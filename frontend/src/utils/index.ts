@@ -4,6 +4,7 @@ export * from "./attachments";
 export * from "./cardAppearance";
 export * from "./carousel";
 export * from "./emoji";
+export * from "./fileKind";
 export * from "./fileToBase64";
 export * from "./formatters";
 export * from "./isImageFile";
