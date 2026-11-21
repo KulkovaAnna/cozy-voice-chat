@@ -7,4 +7,5 @@ export * from "./EmojiPicker";
 export * from "./EnterUserNameForm";
 export * from "./MusicPlayer";
 export * from "./PwaInstall";
+export * from "./RoomControls";
 export * from "./WaitCallModal";

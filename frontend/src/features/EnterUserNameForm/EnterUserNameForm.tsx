@@ -3,7 +3,12 @@ import { useAuth } from "@cvc/providers";
 import { useForm } from "react-hook-form";
 import { useNavigate } from "react-router";
 
-export const EnterUserNameForm = () => {
+interface EnterUserNameFormProps {
+  /** Куда вернуться после ввода имени (например, /join/ABC123) */
+  redirectTo?: string;
+}
+
+export const EnterUserNameForm = (props: EnterUserNameFormProps) => {
   const { updateUser } = useAuth();
   const navigate = useNavigate();
   const {
@@ -15,7 +20,7 @@ export const EnterUserNameForm = () => {
     <Form
       onSubmit={handleSubmit((data) => {
         updateUser({ name: data.userName });
-        navigate("/");
+        navigate(props.redirectTo ?? "/");
       })}
     >
       <Column align="center">

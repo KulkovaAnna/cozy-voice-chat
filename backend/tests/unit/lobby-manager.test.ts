@@ -262,7 +262,70 @@ describe('LobbyManager', () => {
       expect(offer.id).toBeTruthy();
       expect(offer.initiator.id).toBe(alice.id);
       expect(offer.receiver.id).toBe(bob.id);
+      expect(offer.kind).toBe('direct');
+      expect(offer.callId).toBeNull();
+      expect(offer.roomCode).toBeNull();
       expect(lobby.getOfferById(offer.id)).toBe(offer);
+    });
+
+    it('should create a room invite offer with call info', () => {
+      const alice = lobby.addClient(mockWs(), '10.0.0.1')!;
+      const bob = lobby.addClient(mockWs(), '10.0.0.2')!;
+
+      const offer = lobby.createCallOffer(alice, bob, {
+        kind: 'room',
+        callId: 'call-1',
+        roomCode: 'ABC123',
+      });
+
+      expect(offer.kind).toBe('room');
+      expect(offer.callId).toBe('call-1');
+      expect(offer.roomCode).toBe('ABC123');
+      expect(offer.initiator.id).toBe(alice.id);
+      expect(offer.receiver.id).toBe(bob.id);
+    });
+  });
+
+  // ─── getOffersByMemberId / getOffersByCallId ──────────────────
+  describe('getOffersByMemberId', () => {
+    it('should return all offers of the member as initiator', () => {
+      const alice = lobby.addClient(mockWs(), '10.0.0.1')!;
+      const bob = lobby.addClient(mockWs(), '10.0.0.2')!;
+      const charlie = lobby.addClient(mockWs(), '10.0.0.3')!;
+
+      const offer1 = lobby.createCallOffer(alice, bob, {
+        kind: 'room',
+        callId: 'call-1',
+        roomCode: 'ABC123',
+      });
+      const offer2 = lobby.createCallOffer(alice, charlie, {
+        kind: 'room',
+        callId: 'call-1',
+        roomCode: 'ABC123',
+      });
+
+      const offers = lobby.getOffersByMemberId(alice.id);
+      expect(offers).toHaveLength(2);
+      expect(offers.map((offer) => offer.id).sort()).toEqual(
+        [offer1.id, offer2.id].sort(),
+      );
+      // getOfferByMemberId остаётся совместимым и возвращает первый оффер
+      expect(lobby.getOfferByMemberId(alice.id)).toBe(offer1);
+    });
+
+    it('should return all invitations for a call', () => {
+      const alice = lobby.addClient(mockWs(), '10.0.0.1')!;
+      const bob = lobby.addClient(mockWs(), '10.0.0.2')!;
+      const charlie = lobby.addClient(mockWs(), '10.0.0.3')!;
+
+      const roomOffer = lobby.createCallOffer(alice, bob, {
+        kind: 'room',
+        callId: 'call-1',
+        roomCode: 'ABC123',
+      });
+      lobby.createCallOffer(alice, charlie);
+
+      expect(lobby.getOffersByCallId('call-1')).toEqual([roomOffer]);
     });
   });
 

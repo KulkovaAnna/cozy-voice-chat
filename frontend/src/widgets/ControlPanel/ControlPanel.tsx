@@ -17,7 +17,9 @@ export interface ControlPanelProps {
 
 export const ControlPanel = (props: ControlPanelProps) => {
   const {
+    callInfo,
     endCall,
+    leaveCall,
     changeMuteStatus,
     isMyUserMuted,
     beginScreenShare,
@@ -25,9 +27,22 @@ export const ControlPanel = (props: ControlPanelProps) => {
     isMyUserScreenSharing,
     remoteScreenStream,
   } = useChatNetwork();
-  const { hasNewMessages, switchTextChatIsOpen } = useTextChat();
+  const { textChatIsOpen, hasNewMessages, switchTextChatIsOpen } =
+    useTextChat();
+
+  /** Комната (есть код) — можно выйти, сохранив звонок для остальных */
+  const isRoom = !!callInfo?.roomCode;
+  const anotherMemberSharing =
+    !isMyUserScreenSharing &&
+    !!callInfo?.members.some((member) => member.isScreenSharing);
 
   const handleExit = () => {
+    // В 1-на-1 красная кнопка завершает звонок для обоих, в комнате —
+    // только выводит из неё.
+    if (isRoom) {
+      leaveCall();
+      return;
+    }
     endCall();
   };
 
@@ -40,24 +55,31 @@ export const ControlPanel = (props: ControlPanelProps) => {
       <IconButton
         icon={isMyUserMuted ? <MicOffIcon /> : <MicOnIcon />}
         onClick={handleMicState}
+        title={isMyUserMuted ? "Включить звук" : "Выключить звук"}
       />
       <IconButton
         icon={hasNewMessages ? <UnreadMessageIcon /> : <ChatIcon />}
         onClick={switchTextChatIsOpen}
+        title={textChatIsOpen ? "Закрыть чат" : "Открыть чат"}
       />
       <IconButton
         title={
-          remoteScreenStream
+          remoteScreenStream || anotherMemberSharing
             ? "Другой участник сейчас демонстрирует экран"
-            : undefined
+            : "Поделиться экраном"
         }
-        disabled={!!remoteScreenStream}
+        disabled={!!remoteScreenStream || anotherMemberSharing}
         onClick={isMyUserScreenSharing ? endScreenShare : beginScreenShare}
         icon={
           isMyUserScreenSharing ? <StopShareScreenIcon /> : <ShareScreenIcon />
         }
       />
-      <IconButton icon={<EndCallIcon />} variant="error" onClick={handleExit} />
+      <IconButton
+        icon={<EndCallIcon />}
+        variant="error"
+        title={isRoom ? "Покинуть комнату" : "Завершить звонок"}
+        onClick={handleExit}
+      />
     </Styles.ControlPanel>
   );
 };

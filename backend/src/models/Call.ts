@@ -1,8 +1,16 @@
 import { v4 } from 'uuid';
 import type Client from './Client';
-import type CallOffer from './CallOffer';
 import Message from './Message';
 import type { FileAttachment } from '../types';
+
+export type CallType = 'direct' | 'group';
+
+export interface CallOptions {
+  /** Тип звонка: личный (1-на-1) или групповая комната */
+  type?: CallType;
+  /** Код комнаты — есть только у групповых звонков */
+  roomCode?: string | null;
+}
 
 export class Member {
   public client: Client;
@@ -22,20 +30,69 @@ export class Member {
 
 export default class Call {
   public id: string;
+  public type: CallType;
+  public roomCode: string | null;
   public members: Member[];
   public initiator: Client;
-  public receiver: Client;
+  public receiver: Client | null;
   public messages: Message[];
 
-  constructor(callOffer: CallOffer) {
+  #knownClientIds: Set<string> = new Set();
+
+  constructor(initiator: Client, members: Client[], options: CallOptions = {}) {
     this.id = v4();
-    this.members = [
-      new Member(callOffer.initiator),
-      new Member(callOffer.receiver),
-    ];
-    this.initiator = callOffer.initiator;
-    this.receiver = callOffer.receiver;
+    this.type = options.type ?? (options.roomCode ? 'group' : 'direct');
+    this.roomCode = options.roomCode ?? null;
+    this.members = members.map((client) => new Member(client));
+    this.initiator = initiator;
+    // Для личного звонка сохраняем второго участника отдельным полем:
+    // фронтенд и часть протокола по-прежнему ожидают receiver.
+    this.receiver =
+      this.type === 'direct'
+        ? (members.find((client) => client.id !== initiator.id) ?? null)
+        : null;
     this.messages = [];
+
+    members.forEach((client) => this.#knownClientIds.add(client.id));
+  }
+
+  /** Запоминает участника, чтобы он мог вернуться в звонок по callId */
+  registerParticipant(clientId: string): void {
+    if (!clientId) return;
+    this.#knownClientIds.add(clientId);
+  }
+
+  /** Проверяет, был ли клиент участником этого звонка */
+  isKnownParticipant(clientId: string): boolean {
+    return this.#knownClientIds.has(clientId);
+  }
+
+  /** Проверяет, состоит ли клиент в звонке */
+  hasMember(clientId: string): boolean {
+    return this.members.some((member) => member.client.id === clientId);
+  }
+
+  /** Добавляет участника, если его ещё нет в звонке */
+  addMember(client: Client): Member {
+    const existing = this.members.find(
+      (member) => member.client.id === client.id,
+    );
+    if (existing) return existing;
+
+    const member = new Member(client);
+    this.members.push(member);
+    this.registerParticipant(client.id);
+    return member;
+  }
+
+  /** Удаляет участника из звонка */
+  removeMember(clientId: string): Member | null {
+    const index = this.members.findIndex(
+      (member) => member.client.id === clientId,
+    );
+    if (index === -1) return null;
+
+    return this.members.splice(index, 1)[0];
   }
 
   /**

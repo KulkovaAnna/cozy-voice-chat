@@ -2,7 +2,7 @@ import WebSocket from 'ws';
 import type { WebSocket as WebSocketType } from 'ws';
 import PersonalInfo, { normalizeCardAppearance } from '../models/PersonalInfo';
 import Client from '../models/Client';
-import CallOffer from '../models/CallOffer';
+import CallOffer, { type CallOfferOptions } from '../models/CallOffer';
 import type { PersonalInfoData } from '../types';
 
 export default class LobbyManager {
@@ -86,8 +86,12 @@ export default class LobbyManager {
     return client;
   }
 
-  createCallOffer(initiator: Client, receiver: Client): CallOffer {
-    const offer = new CallOffer(initiator, receiver);
+  createCallOffer(
+    initiator: Client,
+    receiver: Client,
+    options: CallOfferOptions = {},
+  ): CallOffer {
+    const offer = new CallOffer(initiator, receiver, options);
     this.callOffers.set(offer.id, offer);
     return offer;
   }
@@ -96,12 +100,23 @@ export default class LobbyManager {
     return this.callOffers.get(id);
   }
 
-  getOfferByMemberId(memberId: string): CallOffer | undefined {
-    const offers = Array.from(this.callOffers.values());
-    return offers.find(
+  /** Все висящие офферы, где участник — инициатор или получатель */
+  getOffersByMemberId(memberId: string): CallOffer[] {
+    return Array.from(this.callOffers.values()).filter(
       (offer) =>
         offer.initiator.id === memberId || offer.receiver.id === memberId,
     );
+  }
+
+  /** Все висящие приглашения в конкретный звонок */
+  getOffersByCallId(callId: string): CallOffer[] {
+    return Array.from(this.callOffers.values()).filter(
+      (offer) => offer.callId === callId,
+    );
+  }
+
+  getOfferByMemberId(memberId: string): CallOffer | undefined {
+    return this.getOffersByMemberId(memberId)[0];
   }
 
   getLobbyMembers(): Client[] {

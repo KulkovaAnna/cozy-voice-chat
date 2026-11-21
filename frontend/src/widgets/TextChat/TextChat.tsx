@@ -300,7 +300,11 @@ export function TextChat() {
   }, [hasNewMessages, messages]);
 
   return (
-    <SidePanel isOpen={textChatIsOpen} onClose={switchTextChatIsOpen}>
+    <SidePanel
+      isOpen={textChatIsOpen}
+      onClose={switchTextChatIsOpen}
+      zIndex={9}
+    >
       <Styles.Container
         onDragEnter={handleDragEnter}
         onDragOver={handleDragOver}

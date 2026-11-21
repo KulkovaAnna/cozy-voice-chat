@@ -1,3 +1,4 @@
+export * from "./activeRoom";
 export * from "./adapters";
 export * from "./attachments";
 export * from "./cardAppearance";
@@ -7,8 +8,13 @@ export * from "./fileToBase64";
 export * from "./formatters";
 export * from "./isImageFile";
 export * from "./isURL";
+export * from "./lobbyRetry";
+export * from "./mesh";
 export * from "./microphones";
+export * from "./roomCode";
+export * from "./roomInvites";
 export * from "./SpeechDetection";
+export * from "./sounds";
 export {
   getUnsavedChangesNames,
   hasUnsavedChanges,
@@ -17,3 +23,4 @@ export {
   unregisterUnsavedChanges,
 } from "./unsavedChangesStore";
 export type { UnsavedChangesGuard } from "./unsavedChangesStore";
+export * from "./userCardsLayout";

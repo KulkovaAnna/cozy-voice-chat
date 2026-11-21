@@ -20,6 +20,8 @@ interface UserCardProps {
   isSpeaking?: boolean;
   isMuted?: boolean;
   variant?: UserCardVariant;
+  /** Растянуть карточку на всю ширину ячейки (в сетке участников) */
+  stretch?: boolean;
   /** Одиночная эмодзи из сообщения: показывается поверх аватара и исчезает вместе с реакцией. */
   emojiReaction?: string | null;
 }
@@ -31,6 +33,7 @@ export const UserCard = (props: UserCardProps) => {
     isMuted,
     volume,
     emojiReaction,
+    stretch,
     variant = "standard",
   } = props;
   const menuContent = (
@@ -57,6 +60,7 @@ export const UserCard = (props: UserCardProps) => {
       <ContextMenu menu={menuContent} isShow={volume != null}>
         <Styles.UserCard
           variant={variant}
+          stretch={stretch}
           isSpeaking={showSpeaking}
           style={backgroundToCss(background)}
         >

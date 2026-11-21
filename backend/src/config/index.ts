@@ -25,6 +25,12 @@ export interface AppConfig {
     heartbeatInterval: number;
     maxClients: number;
   };
+  calls: {
+    /** Максимум участников групповой комнаты (mesh WebRTC) */
+    maxMembers: number;
+    /** Максимум одновременных групповых комнат */
+    maxRooms: number;
+  };
 }
 
 const config: AppConfig = {
@@ -37,7 +43,17 @@ const config: AppConfig = {
   security: {
     allowedOrigins: process.env.ALLOWED_ORIGINS
       ? process.env.ALLOWED_ORIGINS.split(',')
-      : ['http://localhost:*', 'http://192.168.*', 'https://192.168.*'],
+      : [
+          'http://localhost:*',
+          'http://192.168.*',
+          'https://192.168.*',
+          // VPN поверх интернета: Radmin VPN выдаёт адреса 26.x.x.x,
+          // Hamachi — 25.x.x.x. Для клиентов это обычная локальная сеть.
+          'http://26.*',
+          'https://26.*',
+          'http://25.*',
+          'https://25.*',
+        ],
 
     requireAuth: process.env.REQUIRE_AUTH === 'true',
     authToken: process.env.AUTH_TOKEN || 'local_default_token',
@@ -51,6 +67,11 @@ const config: AppConfig = {
     maxMessageSize: toInt(process.env.MAX_MESSAGE_SIZE) ?? 16384,
     heartbeatInterval: toInt(process.env.HEARTBEAT_INTERVAL) ?? 30000,
     maxClients: toInt(process.env.MAX_CLIENTS) ?? 100,
+  },
+
+  calls: {
+    maxMembers: toInt(process.env.MAX_CALL_MEMBERS) ?? 6,
+    maxRooms: toInt(process.env.MAX_ROOMS) ?? 20,
   },
 };
 

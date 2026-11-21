@@ -33,7 +33,7 @@ function readMuted(): boolean {
 }
 
 export function useMusicPlayer() {
-  const { playMusic, pauseMusic, stopMusic, nextMusic, prevMusic } =
+  const { callInfo, playMusic, pauseMusic, stopMusic, nextMusic, prevMusic } =
     useChatNetwork();
 
   // Callback-ref: полоска размонтирует <audio> в idle, поэтому эффекты
@@ -55,6 +55,28 @@ export function useMusicPlayer() {
   useEffect(() => {
     stateRef.current = state;
   }, [state]);
+
+  // Входим в комнату, где музыка уже играет: событие могло прийти
+  // до монтирования плеера, поэтому подтягиваем состояние по HTTP.
+  useEffect(() => {
+    const callId = callInfo?.id;
+    if (!callId) return;
+
+    let cancelled = false;
+
+    fetch(
+      `${API_URLS.BASE_URL}/music/state?callId=${encodeURIComponent(callId)}`,
+    )
+      .then((response) => (response.ok ? response.json() : IDLE_STATE))
+      .then((data: MusicState) => {
+        if (!cancelled) setState(data);
+      })
+      .catch(() => undefined);
+
+    return () => {
+      cancelled = true;
+    };
+  }, [callInfo?.id]);
 
   // Флаг «уже отправили skipToNext на этот трек»
   const skipSentRef = useRef(false);
@@ -220,7 +242,10 @@ export function useMusicPlayer() {
         lastLoadedKey.current = loadKey;
         skipSentRef.current = false;
         retryRef.current = 0;
-        audio.src = `${API_URLS.BASE_URL}/music/stream?track=${state.queueIndex}`;
+        const callId = callInfo?.id
+          ? `&callId=${encodeURIComponent(callInfo.id)}`
+          : "";
+        audio.src = `${API_URLS.BASE_URL}/music/stream?track=${state.queueIndex}${callId}`;
         audio.load();
       }
 
@@ -234,6 +259,7 @@ export function useMusicPlayer() {
     }
   }, [
     audioEl,
+    callInfo?.id,
     state.status,
     state.track?.url,
     state.track?.title,

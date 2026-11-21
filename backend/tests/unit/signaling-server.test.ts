@@ -173,6 +173,7 @@ describe('SignalingServer', () => {
     callMgr = new CallManager();
     fileMgr = {
       cleanDownloads: vi.fn().mockResolvedValue(undefined),
+      cleanCallFiles: vi.fn().mockResolvedValue(undefined),
       claimAttachments: vi.fn().mockReturnValue([]),
     };
 
@@ -268,6 +269,58 @@ describe('SignalingServer', () => {
       );
       expect(joinedForBob).toBeDefined();
       expect(joinedForBob.data.client.ip).toBe('10.0.0.2');
+    });
+
+    it('should reject a second client from the same IP with me::join-rejected', async () => {
+      const ws1 = await simulateConnection('10.0.0.5');
+      await sendMessage(ws1, 'lobby::join', {
+        personalInfo: { name: 'Alice' },
+      });
+
+      const ws2 = await simulateConnection('10.0.0.5');
+      await sendMessage(ws2, 'lobby::join', {
+        personalInfo: { name: 'Alice' },
+      });
+
+      const sent = getSent(ws2);
+      const rejected = sent.find((m: any) => m.type === 'me::join-rejected');
+
+      expect(rejected).toBeDefined();
+      expect(rejected.data.errorCode).toBe('ALREADY_IN_LOBBY');
+      expect(rejected.data.code).toBe(409);
+      expect(rejected.data.existingClientName).toBe('Alice');
+      // Второй клиент в лобби не попадает и не получает me::lobby-joined
+      expect(sent.some((m: any) => m.type === 'me::lobby-joined')).toBe(false);
+      expect(lobby.getStats().totalClients).toBe(1);
+    });
+
+    it('should allow retry to join after the previous client disconnects', async () => {
+      const ws1 = await simulateConnection('10.0.0.6');
+      await sendMessage(ws1, 'lobby::join', {
+        personalInfo: { name: 'Alice' },
+      });
+
+      const ws2 = await simulateConnection('10.0.0.6');
+      await sendMessage(ws2, 'lobby::join', {
+        personalInfo: { name: 'Alice' },
+      });
+      expect(
+        getSent(ws2).some((m: any) => m.type === 'me::lobby-joined'),
+      ).toBe(false);
+
+      // Закрылась «другая вкладка» — IP освобождается
+      ws1._emit('close');
+
+      // Клиент повторяет join по тому же сокету
+      await sendMessage(ws2, 'lobby::join', {
+        personalInfo: { name: 'Alice' },
+      });
+
+      const joined = getSent(ws2).find(
+        (m: any) => m.type === 'me::lobby-joined',
+      );
+      expect(joined).toBeDefined();
+      expect(joined.data.client.ip).toBe('10.0.0.6');
     });
   });
 
@@ -586,13 +639,13 @@ describe('SignalingServer', () => {
       expect(callMgr.getCallById(call.id)).toBeUndefined();
     });
 
-    it('should call fileManager.cleanDownloads', async () => {
+    it('should clean files only for the ended call', async () => {
       const { ws1, call } = await setupCall();
-      const spy = fileMgr.cleanDownloads;
+      const spy = fileMgr.cleanCallFiles;
 
       await sendMessage(ws1, 'call::end', { callId: call.id });
 
-      expect(spy).toHaveBeenCalled();
+      expect(spy).toHaveBeenCalledWith(call.id);
     });
   });
 
@@ -1065,7 +1118,6 @@ describe('SignalingServer', () => {
       music = (
         await import('../../src/app/modules/music-player/music-player.service.js')
       ).default;
-      music.stop();
     });
 
     function lastMusicState(ws: MockWS) {
@@ -1077,7 +1129,7 @@ describe('SignalingServer', () => {
 
     it('should move to the next track and broadcast the queue', async () => {
       const { ws1, ws2, call } = await setupCall();
-      music.startQueue([
+      music.forCall(call.id).startQueue([
         { url: 'https://y/1', title: 'One' },
         { url: 'https://y/2', title: 'Two' },
         { url: 'https://y/3', title: 'Three' },
@@ -1088,7 +1140,7 @@ describe('SignalingServer', () => {
         expectedIndex: 0,
       });
 
-      expect(music.queueIndex).toBe(1);
+      expect(music.forCall(call.id).queueIndex).toBe(1);
       expect(lastMusicState(ws1).data.queueIndex).toBe(1);
       expect(lastMusicState(ws2).data.queueIndex).toBe(1);
       expect(lastMusicState(ws1).data.track.url).toBe('https://y/2');
@@ -1096,7 +1148,7 @@ describe('SignalingServer', () => {
 
     it('should broadcast the whole queue to every participant', async () => {
       const { ws1, ws2, call } = await setupCall();
-      music.startQueue([
+      music.forCall(call.id).startQueue([
         { url: 'https://y/1', title: 'One' },
         { url: 'https://y/2', title: 'Two' },
       ]);
@@ -1113,24 +1165,24 @@ describe('SignalingServer', () => {
 
     it('should move back to the previous track', async () => {
       const { ws1, call } = await setupCall();
-      music.startQueue([
+      music.forCall(call.id).startQueue([
         { url: 'https://y/1', title: 'One' },
         { url: 'https://y/2', title: 'Two' },
       ]);
-      music.next();
+      music.forCall(call.id).next();
 
       await sendMessage(ws1, 'call::music-prev', {
         callId: call.id,
         expectedIndex: 1,
       });
 
-      expect(music.queueIndex).toBe(0);
+      expect(music.forCall(call.id).queueIndex).toBe(0);
       expect(lastMusicState(ws1).data.queueIndex).toBe(0);
     });
 
     it('should ignore a skip when the client index is stale', async () => {
       const { ws1, call } = await setupCall();
-      music.startQueue([
+      music.forCall(call.id).startQueue([
         { url: 'https://y/1', title: 'One' },
         { url: 'https://y/2', title: 'Two' },
         { url: 'https://y/3', title: 'Three' },
@@ -1146,14 +1198,14 @@ describe('SignalingServer', () => {
         expectedIndex: 0,
       });
 
-      expect(music.queueIndex).toBe(1);
+      expect(music.forCall(call.id).queueIndex).toBe(1);
       // Устаревший запрос лишь вернул актуальное состояние
       expect(lastMusicState(ws1).data.queueIndex).toBe(1);
     });
 
     it('should keep the first track when going back from it', async () => {
       const { ws1, call } = await setupCall();
-      music.startQueue([
+      music.forCall(call.id).startQueue([
         { url: 'https://y/1', title: 'One' },
         { url: 'https://y/2', title: 'Two' },
       ]);
@@ -1163,13 +1215,13 @@ describe('SignalingServer', () => {
         expectedIndex: 0,
       });
 
-      expect(music.queueIndex).toBe(0);
+      expect(music.forCall(call.id).queueIndex).toBe(0);
       expect(lastMusicState(ws1).data.queueIndex).toBe(0);
     });
 
     it('should stop the player after the last track', async () => {
       const { ws1, call } = await setupCall();
-      music.startQueue([
+      music.forCall(call.id).startQueue([
         { url: 'https://y/1', title: 'One' },
         { url: 'https://y/2', title: 'Two' },
       ]);
@@ -1183,7 +1235,7 @@ describe('SignalingServer', () => {
         expectedIndex: 1,
       });
 
-      expect(music.status).toBe('idle');
+      expect(music.forCall(call.id).status).toBe('idle');
       expect(lastMusicState(ws1).data.status).toBe('idle');
       expect(lastMusicState(ws1).data.queue).toEqual([]);
     });
@@ -1205,15 +1257,15 @@ describe('SignalingServer', () => {
 
     it('should reset the player when the call ends', async () => {
       const { ws1, call } = await setupCall();
-      music.startQueue([
+      music.forCall(call.id).startQueue([
         { url: 'https://y/1', title: 'One' },
         { url: 'https://y/2', title: 'Two' },
       ]);
 
       await sendMessage(ws1, 'call::end', { callId: call.id });
 
-      expect(music.status).toBe('idle');
-      expect(music.queue).toEqual([]);
+      // Плеер завершённого звонка удаляется из реестра целиком
+      expect(music.get(call.id)).toBeUndefined();
     });
   });
 
@@ -1226,6 +1278,7 @@ describe('SignalingServer', () => {
         handler: async (
           args: string,
           _id: string,
+          _callId: string,
           report: (t: string) => void,
         ) => {
           report('Читаю плейлист…');
@@ -1317,6 +1370,609 @@ describe('SignalingServer', () => {
       expect(error.data.text).toContain('сбой yt-dlp');
     });
   });
+  // ─── Единый жизненный цикл звонка ─────────────────────────────
+  describe('call lifecycle', () => {
+    it('should keep a direct call alive when a member disconnects', async () => {
+      const { ws1, ws2, call, alice } = await setupCall();
+
+      ws1._emit('close');
+
+      expect(callMgr.getCallById(call.id)).toBe(call);
+      expect(call.members).toHaveLength(1);
+      expect(call.members[0].client.id).not.toBe(alice.id);
+
+      const left = getSent(ws2).find(
+        (m: any) => m.type === 'all::call::member-left',
+      );
+      expect(left).toBeDefined();
+      expect(left.data.clientId).toBe(alice.id);
+    });
+
+    it('should let one member leave a direct call without ending it', async () => {
+      const { ws1, ws2, call, bob } = await setupCall();
+
+      await sendMessage(ws1, 'call::leave', { callId: call.id });
+
+      expect(callMgr.getCallById(call.id)).toBe(call);
+      expect(call.members).toHaveLength(1);
+      expect(call.members[0].client.id).toBe(bob.id);
+      expect(
+        getSent(ws2).find((m: any) => m.type === 'all::call::member-left'),
+      ).toBeDefined();
+    });
+
+    it('should let a member rejoin after reconnect and restore history', async () => {
+      const { ws1, ws2, call, alice } = await setupCall();
+
+      await sendMessage(ws1, 'call::send-message', {
+        callId: call.id,
+        text: 'hello after reload',
+      });
+
+      ws1._emit('close');
+
+      const reconnectedWs = await simulateConnection('10.0.0.1');
+      await sendMessage(reconnectedWs, 'lobby::join', {
+        clientId: alice.id,
+        personalInfo: { name: 'Alice' },
+      });
+      await sendMessage(reconnectedWs, 'call::rejoin', { callId: call.id });
+
+      const rejoined = getSent(reconnectedWs).find(
+        (m: any) => m.type === 'me::call-rejoined',
+      );
+      expect(rejoined).toBeDefined();
+      expect(rejoined.data.callInfo.members).toHaveLength(2);
+      expect(rejoined.data.messages.map((m: any) => m.text)).toContain(
+        'hello after reload',
+      );
+
+      const joined = getSent(ws2).find(
+        (m: any) => m.type === 'all::call::member-joined',
+      );
+      expect(joined).toBeDefined();
+      expect(joined.data.client.id).toBe(alice.id);
+    });
+
+    it('should reject rejoin for a client that was not in the call', async () => {
+      const { call } = await setupCall();
+
+      const outsiderWs = await simulateConnection('10.0.0.3');
+      await sendMessage(outsiderWs, 'lobby::join', {
+        personalInfo: { name: 'Charlie' },
+      });
+      await sendMessage(outsiderWs, 'call::rejoin', { callId: call.id });
+
+      const error = getSent(outsiderWs).find((m: any) => m.type === 'error');
+      expect(error).toBeDefined();
+      expect(error.data.message).toContain('Вы не участник этого звонка');
+    });
+
+    it('should convert a direct call into a room and let a third client join', async () => {
+      const { ws1, ws2, call, alice } = await setupCall();
+
+      await sendMessage(ws1, 'call::convert-to-room', { callId: call.id });
+
+      const converted = getSent(ws2).find(
+        (m: any) => m.type === 'all::call::room-created',
+      );
+      expect(converted).toBeDefined();
+      expect(converted.data.callInfo.roomCode).toMatch(/^[A-Z0-9]{6}$/);
+      expect(converted.data.createdBy).toBe(alice.id);
+      expect(call.type).toBe('group');
+      expect(callMgr.getRoomByCode(call.roomCode)).toBe(call);
+
+      const guestWs = await simulateConnection('10.0.0.3');
+      await sendMessage(guestWs, 'lobby::join', {
+        personalInfo: { name: 'Charlie' },
+      });
+      await sendMessage(guestWs, 'lobby::join-room', { code: call.roomCode });
+
+      const joined = getSent(guestWs).find(
+        (m: any) => m.type === 'me::room-joined',
+      );
+      expect(joined).toBeDefined();
+      expect(joined.data.callInfo.members).toHaveLength(3);
+    });
+
+    it('should give the history of a converted call to a late joiner', async () => {
+      const { ws1, call } = await setupCall();
+      await sendMessage(ws1, 'call::send-message', {
+        callId: call.id,
+        text: 'message before conversion',
+      });
+
+      await sendMessage(ws1, 'call::convert-to-room', { callId: call.id });
+
+      const guestWs = await simulateConnection('10.0.0.3');
+      await sendMessage(guestWs, 'lobby::join', {
+        personalInfo: { name: 'Charlie' },
+      });
+      await sendMessage(guestWs, 'lobby::join-room', { code: call.roomCode });
+
+      const joined = getSent(guestWs).find(
+        (m: any) => m.type === 'me::room-joined',
+      );
+      expect(joined).toBeDefined();
+      expect(joined.data.messages.map((m: any) => m.text)).toContain(
+        'message before conversion',
+      );
+    });
+
+    it('should not convert the same call twice', async () => {
+      const { ws1, call } = await setupCall();
+      await sendMessage(ws1, 'call::convert-to-room', { callId: call.id });
+      await sendMessage(ws1, 'call::convert-to-room', { callId: call.id });
+
+      const error = getSent(ws1).find((m: any) => m.type === 'error');
+      expect(error).toBeDefined();
+      expect(error.data.message).toContain('Комната уже создана');
+    });
+  });
+
+  // ─── Групповые комнаты ────────────────────────────────────────
+  describe('rooms', () => {
+    async function createRoom(
+      ip = '10.2.0.1',
+      name = 'Alice',
+    ): Promise<{ ws: MockWS; call: any }> {
+      const ws = await simulateConnection(ip);
+      await sendMessage(ws, 'lobby::join', { personalInfo: { name } });
+      await sendMessage(ws, 'lobby::create-room');
+
+      const created = getSent(ws).find(
+        (m: any) => m.type === 'me::room-created',
+      );
+      const call = callMgr.getCallById(created.data.callInfo.id);
+
+      return { ws, call };
+    }
+
+    it('should create a room and send me::room-created', async () => {
+      const { ws, call } = await createRoom();
+
+      const created = getSent(ws).find(
+        (m: any) => m.type === 'me::room-created',
+      );
+
+      expect(created).toBeDefined();
+      expect(created.data.callInfo.type).toBe('group');
+      expect(created.data.callInfo.roomCode).toBe(call.roomCode);
+      expect(callMgr.getRoomByCode(call.roomCode)).toBe(call);
+    });
+
+    it('should let a second client join by code', async () => {
+      const { ws: hostWs, call } = await createRoom();
+
+      const guestWs = await simulateConnection('10.2.0.2');
+      await sendMessage(guestWs, 'lobby::join', {
+        personalInfo: { name: 'Bob' },
+      });
+      await sendMessage(guestWs, 'lobby::join-room', {
+        code: call.roomCode.toLowerCase(),
+      });
+
+      const joined = getSent(guestWs).find(
+        (m: any) => m.type === 'me::room-joined',
+      );
+      expect(joined).toBeDefined();
+      expect(joined.data.callInfo.members).toHaveLength(2);
+      expect(call.members).toHaveLength(2);
+
+      const memberJoined = getSent(hostWs).find(
+        (m: any) => m.type === 'all::call::member-joined',
+      );
+      expect(memberJoined).toBeDefined();
+      expect(memberJoined.data.client.id).toBe(
+        lobby.getMemberByIp('10.2.0.2')!.id,
+      );
+    });
+
+    it('should decline a pending direct offer when creating a room', async () => {
+      const ws1 = await simulateConnection('10.2.0.1');
+      await sendMessage(ws1, 'lobby::join', {
+        personalInfo: { name: 'Alice' },
+      });
+
+      const ws2 = await simulateConnection('10.2.0.2');
+      await sendMessage(ws2, 'lobby::join', {
+        personalInfo: { name: 'Bob' },
+      });
+      const bob = lobby.getMemberByIp('10.2.0.2')!;
+
+      await sendMessage(ws1, 'lobby::initiate-call', {
+        receiverId: bob.id,
+      });
+      const offer = lobby.getOfferByMemberId(bob.id)!;
+      expect(offer).toBeDefined();
+
+      await sendMessage(ws2, 'lobby::create-room');
+
+      expect(lobby.getOfferById(offer.id)).toBeUndefined();
+      expect(
+        getSent(ws1).find(
+          (m: any) => m.type === 'me::call-offer-declined',
+        ),
+      ).toBeDefined();
+      expect(
+        getSent(ws2).find(
+          (m: any) => m.type === 'me::call-offer-declined',
+        ),
+      ).toBeDefined();
+    });
+
+    it('should send an error for an unknown room code', async () => {
+      const ws = await simulateConnection('10.2.0.1');
+      await sendMessage(ws, 'lobby::join', {
+        personalInfo: { name: 'Alice' },
+      });
+      await sendMessage(ws, 'lobby::join-room', { code: 'ZZZZZZ' });
+
+      const error = getSent(ws).find((m: any) => m.type === 'error');
+      expect(error).toBeDefined();
+      expect(error.data.message).toContain('Комната не найдена');
+    });
+
+    it('should include chat history when joining a room', async () => {
+      const { ws: hostWs, call } = await createRoom();
+
+      await sendMessage(hostWs, 'call::send-message', {
+        callId: call.id,
+        text: 'Привет, комната!',
+      });
+
+      const guestWs = await simulateConnection('10.2.0.2');
+      await sendMessage(guestWs, 'lobby::join', {
+        personalInfo: { name: 'Bob' },
+      });
+      await sendMessage(guestWs, 'lobby::join-room', {
+        code: call.roomCode,
+      });
+
+      const joined = getSent(guestWs).find(
+        (m: any) => m.type === 'me::room-joined',
+      );
+      expect(joined.data.messages).toHaveLength(1);
+      expect(joined.data.messages[0].text).toBe('Привет, комната!');
+    });
+
+    it('should send the current music state to a late joiner', async () => {
+      const { call } = await createRoom();
+
+      const music = (
+        await import('../../src/app/modules/music-player/music-player.service.js')
+      ).default;
+      music.forCall(call.id).startQueue([
+        { url: 'https://y/1', title: 'Room track' },
+      ]);
+
+      const guestWs = await simulateConnection('10.2.0.2');
+      await sendMessage(guestWs, 'lobby::join', {
+        personalInfo: { name: 'Bob' },
+      });
+      await sendMessage(guestWs, 'lobby::join-room', {
+        code: call.roomCode,
+      });
+
+      const state = getSent(guestWs).find(
+        (m: any) => m.type === 'all::call::music-state-changed',
+      );
+      expect(state).toBeDefined();
+      expect(state.data.track.title).toBe('Room track');
+
+      music.destroy(call.id);
+    });
+
+    it('should let one member leave without ending the room', async () => {
+      const { ws: hostWs, call } = await createRoom();
+
+      const guestWs = await simulateConnection('10.2.0.2');
+      await sendMessage(guestWs, 'lobby::join', {
+        personalInfo: { name: 'Bob' },
+      });
+      await sendMessage(guestWs, 'lobby::join-room', {
+        code: call.roomCode,
+      });
+
+      await sendMessage(guestWs, 'call::leave', { callId: call.id });
+
+      const memberLeft = getSent(hostWs).find(
+        (m: any) => m.type === 'all::call::member-left',
+      );
+      expect(memberLeft).toBeDefined();
+      expect(call.members).toHaveLength(1);
+      expect(call.members[0].client.id).toBe(
+        lobby.getMemberByIp('10.2.0.1')!.id,
+      );
+    });
+
+    it('should delete the room when the last member leaves', async () => {
+      const { ws, call } = await createRoom();
+
+      await sendMessage(ws, 'call::leave', { callId: call.id });
+
+      expect(callMgr.getCallById(call.id)).toBeUndefined();
+      expect(callMgr.getRoomByCode(call.roomCode)).toBeUndefined();
+    });
+
+    it('should remove a disconnected member from the room', async () => {
+      const { ws: hostWs, call } = await createRoom();
+
+      const guestWs = await simulateConnection('10.2.0.2');
+      await sendMessage(guestWs, 'lobby::join', {
+        personalInfo: { name: 'Bob' },
+      });
+      await sendMessage(guestWs, 'lobby::join-room', {
+        code: call.roomCode,
+      });
+
+      guestWs._emit('close');
+
+      const memberLeft = getSent(hostWs).find(
+        (m: any) => m.type === 'all::call::member-left',
+      );
+      expect(memberLeft).toBeDefined();
+      expect(call.members).toHaveLength(1);
+    });
+
+    it('should allow only one screen sharer in a room', async () => {
+      const { ws: hostWs, call } = await createRoom();
+
+      const guestWs = await simulateConnection('10.2.0.2');
+      await sendMessage(guestWs, 'lobby::join', {
+        personalInfo: { name: 'Bob' },
+      });
+      await sendMessage(guestWs, 'lobby::join-room', {
+        code: call.roomCode,
+      });
+
+      await sendMessage(hostWs, 'call::start-screen-sharing', {
+        callId: call.id,
+      });
+      await sendMessage(guestWs, 'call::start-screen-sharing', {
+        callId: call.id,
+      });
+
+      const error = getSent(guestWs).find((m: any) => m.type === 'error');
+      expect(error).toBeDefined();
+      expect(error.data.message).toContain('Кто-то уже демонстрирует экран');
+    });
+  });
+
+  // ─── Приглашение в комнату из лобби ───────────────────────────
+  describe('lobby::invite-to-room', () => {
+    async function createRoomFor(ip: string, name: string) {
+      const ws = await simulateConnection(ip);
+      await sendMessage(ws, 'lobby::join', { personalInfo: { name } });
+      await sendMessage(ws, 'lobby::create-room');
+
+      const created = getSent(ws).find(
+        (m: any) => m.type === 'me::room-created',
+      );
+      return { ws, call: callMgr.getCallById(created.data.callInfo.id) };
+    }
+
+    async function joinLobby(ip: string, name: string): Promise<MockWS> {
+      const ws = await simulateConnection(ip);
+      await sendMessage(ws, 'lobby::join', { personalInfo: { name } });
+      return ws;
+    }
+
+    it('should invite a lobby member and let them join the room', async () => {
+      const { ws: hostWs, call } = await createRoomFor('10.3.0.1', 'Alice');
+      const bobWs = await joinLobby('10.3.0.2', 'Bob');
+      const bob = lobby.getMemberByIp('10.3.0.2')!;
+
+      await sendMessage(hostWs, 'lobby::invite-to-room', {
+        callId: call.id,
+        receiverId: bob.id,
+      });
+
+      const initiated = getSent(hostWs).find(
+        (m: any) => m.type === 'me::call-initiated',
+      );
+      expect(initiated).toBeDefined();
+      expect(initiated.data.callOffer.kind).toBe('room');
+      expect(initiated.data.callOffer.callId).toBe(call.id);
+      expect(initiated.data.callOffer.roomCode).toBe(call.roomCode);
+
+      const incoming = getSent(bobWs).find(
+        (m: any) => m.type === 'me::call-offer',
+      );
+      expect(incoming).toBeDefined();
+      expect(incoming.data.callOffer.kind).toBe('room');
+      expect(incoming.data.callOffer.roomCode).toBe(call.roomCode);
+
+      await sendMessage(bobWs, 'lobby::accept-offer', {
+        offerId: incoming.data.callOffer.id,
+      });
+
+      const joined = getSent(bobWs).find(
+        (m: any) => m.type === 'me::room-joined',
+      );
+      expect(joined).toBeDefined();
+      expect(joined.data.callInfo.id).toBe(call.id);
+      expect(joined.data.callInfo.members).toHaveLength(2);
+
+      const memberJoined = getSent(hostWs).find(
+        (m: any) => m.type === 'all::call::member-joined',
+      );
+      expect(memberJoined).toBeDefined();
+      expect(memberJoined.data.client.id).toBe(bob.id);
+
+      expect(call.members).toHaveLength(2);
+      expect(lobby.getOfferById(incoming.data.callOffer.id)).toBeUndefined();
+    });
+
+    it('should notify the inviter when the invite is declined', async () => {
+      const { ws: hostWs, call } = await createRoomFor('10.3.0.1', 'Alice');
+      const bobWs = await joinLobby('10.3.0.2', 'Bob');
+      const bob = lobby.getMemberByIp('10.3.0.2')!;
+
+      await sendMessage(hostWs, 'lobby::invite-to-room', {
+        callId: call.id,
+        receiverId: bob.id,
+      });
+      const offer = lobby.getOfferByMemberId(bob.id)!;
+
+      await sendMessage(bobWs, 'lobby::decline-offer', { offerId: offer.id });
+
+      expect(
+        getSent(hostWs).find((m: any) => m.type === 'me::call-offer-declined'),
+      ).toBeDefined();
+      expect(lobby.getOfferById(offer.id)).toBeUndefined();
+      expect(call.members).toHaveLength(1);
+    });
+    it('should allow inviting several members at once', async () => {
+      const { ws: hostWs, call } = await createRoomFor('10.3.0.1', 'Alice');
+      const host = lobby.getMemberByIp('10.3.0.1')!;
+
+      await joinLobby('10.3.0.2', 'Bob');
+      await joinLobby('10.3.0.3', 'Charlie');
+      const bob = lobby.getMemberByIp('10.3.0.2')!;
+      const charlie = lobby.getMemberByIp('10.3.0.3')!;
+
+      await sendMessage(hostWs, 'lobby::invite-to-room', {
+        callId: call.id,
+        receiverId: bob.id,
+      });
+      await sendMessage(hostWs, 'lobby::invite-to-room', {
+        callId: call.id,
+        receiverId: charlie.id,
+      });
+
+      const offers = lobby.getOffersByMemberId(host.id);
+      expect(offers).toHaveLength(2);
+      expect(offers.every((offer) => offer.kind === 'room')).toBe(true);
+    });
+
+    it('should report a failed invite when the inviter is not in the room', async () => {
+      const { call } = await createRoomFor('10.3.0.1', 'Alice');
+      const charlieWs = await joinLobby('10.3.0.2', 'Charlie');
+      await joinLobby('10.3.0.3', 'Bob');
+      const bob = lobby.getMemberByIp('10.3.0.3')!;
+
+      await sendMessage(charlieWs, 'lobby::invite-to-room', {
+        callId: call.id,
+        receiverId: bob.id,
+      });
+
+      const failed = getSent(charlieWs).find(
+        (m: any) => m.type === 'me::room-invite-failed',
+      );
+      expect(failed).toBeDefined();
+      expect(failed.data.receiverId).toBe(bob.id);
+      expect(failed.data.message).toContain('Вы не участник этого звонка');
+    });
+
+    it('should reject an invite to a member already in another call', async () => {
+      const { ws: hostWs, call } = await createRoomFor('10.3.0.1', 'Alice');
+
+      // Bob создаёт свою комнату и оказывается занят
+      await createRoomFor('10.3.0.2', 'Bob');
+      const bob = lobby.getMemberByIp('10.3.0.2')!;
+
+      await sendMessage(hostWs, 'lobby::invite-to-room', {
+        callId: call.id,
+        receiverId: bob.id,
+      });
+
+      const failed = getSent(hostWs).find(
+        (m: any) => m.type === 'me::room-invite-failed',
+      );
+      expect(failed).toBeDefined();
+      expect(failed.data.message).toContain('сейчас в другом звонке');
+      expect(lobby.getOffersByMemberId(bob.id)).toHaveLength(0);
+    });
+
+    it('should reject an invite to a member already in the same room', async () => {
+      const { ws: hostWs, call } = await createRoomFor('10.3.0.1', 'Alice');
+      const bobWs = await joinLobby('10.3.0.2', 'Bob');
+      const bob = lobby.getMemberByIp('10.3.0.2')!;
+
+      await sendMessage(bobWs, 'lobby::join-room', { code: call.roomCode });
+
+      await sendMessage(hostWs, 'lobby::invite-to-room', {
+        callId: call.id,
+        receiverId: bob.id,
+      });
+
+      const failed = getSent(hostWs).find(
+        (m: any) => m.type === 'me::room-invite-failed',
+      );
+      expect(failed).toBeDefined();
+      expect(failed.data.message).toContain('уже в этом звонке');
+    });
+
+    it('should revoke pending invites when the room ends', async () => {
+      const { ws: hostWs, call } = await createRoomFor('10.3.0.1', 'Alice');
+      const bobWs = await joinLobby('10.3.0.2', 'Bob');
+      const bob = lobby.getMemberByIp('10.3.0.2')!;
+
+      await sendMessage(hostWs, 'lobby::invite-to-room', {
+        callId: call.id,
+        receiverId: bob.id,
+      });
+      const offer = lobby.getOfferByMemberId(bob.id)!;
+
+      await sendMessage(hostWs, 'call::end', { callId: call.id });
+
+      expect(
+        getSent(bobWs).find((m: any) => m.type === 'me::call-offer-declined'),
+      ).toBeDefined();
+      expect(lobby.getOfferById(offer.id)).toBeUndefined();
+    });
+    it('should revoke pending invites when the inviter leaves', async () => {
+      const { ws: hostWs, call } = await createRoomFor('10.3.0.1', 'Alice');
+      const bobWs = await joinLobby('10.3.0.2', 'Bob');
+      const bob = lobby.getMemberByIp('10.3.0.2')!;
+
+      // В комнате ещё один участник, чтобы она не закончилась после выхода
+      const guestWs = await joinLobby('10.3.0.3', 'Charlie');
+      await sendMessage(guestWs, 'lobby::join-room', { code: call.roomCode });
+
+      await sendMessage(hostWs, 'lobby::invite-to-room', {
+        callId: call.id,
+        receiverId: bob.id,
+      });
+      const offer = lobby.getOfferByMemberId(bob.id)!;
+
+      await sendMessage(hostWs, 'call::leave', { callId: call.id });
+
+      expect(
+        getSent(bobWs).find((m: any) => m.type === 'me::call-offer-declined'),
+      ).toBeDefined();
+      expect(lobby.getOfferById(offer.id)).toBeUndefined();
+    });
+
+    it('should reject an invite when the room is full', async () => {
+      const { ws: hostWs, call } = await createRoomFor('10.3.0.1', 'Alice');
+
+      // Заполняем комнату до лимита напрямую через менеджер
+      for (let i = 0; i < callMgr.getMaxMembers() - 1; i += 1) {
+        const member = lobby.addClient(createMockWs(), `10.9.0.${i + 1}`)!;
+        callMgr.joinRoom(call.id, member);
+      }
+
+      await joinLobby('10.3.0.2', 'Bob');
+      const bob = lobby.getMemberByIp('10.3.0.2')!;
+
+      await sendMessage(hostWs, 'lobby::invite-to-room', {
+        callId: call.id,
+        receiverId: bob.id,
+      });
+
+      const failed = getSent(hostWs).find(
+        (m: any) => m.type === 'me::room-invite-failed',
+      );
+      expect(failed).toBeDefined();
+      expect(failed.data.message).toContain('Комната заполнена');
+    });
+
+
+
+  });
+
 });
 
 /** callId активного звонка участника, подключённого к mock-сокету */

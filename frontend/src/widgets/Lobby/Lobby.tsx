@@ -1,14 +1,22 @@
 import { useMemo } from "react";
+import { Navigate } from "react-router";
 
-import { Card, Column } from "@cvc/components";
-import { AcceptCallModal, WaitCallModal } from "@cvc/features";
+import { Card, Column, Row, TopRightCorner, Button } from "@cvc/components";
+import { AcceptCallModal, RoomControls, WaitCallModal } from "@cvc/features";
 import { useAuth, useChatNetwork } from "@cvc/providers";
 import type { UserProfile } from "@cvc/types";
-import { Navigate } from "react-router";
+
+import * as Styles from "./Lobby.styles";
 import { LobbyRow } from "./ui/LobbyRow";
 
 export function Lobby() {
-  const { lobbyMembers, callInfo } = useChatNetwork();
+  const {
+    lobbyMembers,
+    callInfo,
+    lobbyJoinError,
+    retryJoinLobby,
+    dismissLobbyJoinError,
+  } = useChatNetwork();
   const { user } = useAuth();
 
   const currentLobbyMembers = useMemo(
@@ -27,11 +35,36 @@ export function Lobby() {
   if (callInfo) return <Navigate to={`/call/${callInfo.id}`} />;
 
   return (
-    <Card direction="column">
-      <h2>Лобби</h2>
-      <Column>{currentLobbyMembers}</Column>
-      <AcceptCallModal />
-      <WaitCallModal />
-    </Card>
+    <>
+      <TopRightCorner>
+        <RoomControls />
+      </TopRightCorner>
+      <Card direction="column">
+        <Styles.Title>Лобби</Styles.Title>
+        {lobbyJoinError && (
+          <Styles.ErrorBlock role="alert">
+            <Styles.ErrorMessage>{lobbyJoinError.message}</Styles.ErrorMessage>
+            {lobbyJoinError.existingClientName && (
+              <Styles.ErrorHint>
+                В лобби уже: {lobbyJoinError.existingClientName}
+              </Styles.ErrorHint>
+            )}
+            <Styles.ErrorHint>
+              Пробуем снова автоматически: как только место освободится, вы
+              войдёте.
+            </Styles.ErrorHint>
+            <Row>
+              <Button variant="primary" onClick={retryJoinLobby}>
+                Повторить
+              </Button>
+              <Button onClick={dismissLobbyJoinError}>Скрыть</Button>
+            </Row>
+          </Styles.ErrorBlock>
+        )}
+        <Column>{currentLobbyMembers}</Column>
+        <AcceptCallModal />
+        <WaitCallModal />
+      </Card>
+    </>
   );
 }

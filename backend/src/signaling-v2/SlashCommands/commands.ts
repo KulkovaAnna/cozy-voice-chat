@@ -59,7 +59,7 @@ export const COMMANDS: SlashCommand[] = [
   {
     name: 'play',
     description: 'Подготовить трек или плейлист по ссылке YouTube/SoundCloud',
-    handler: async (args, _senderId, report) => {
+    handler: async (args, _senderId, callId, report) => {
       const url = args.trim();
 
       if (!url) {
@@ -76,9 +76,9 @@ export const COMMANDS: SlashCommand[] = [
 
       try {
         if (isPlaylistUrl(url)) {
-          return await playPlaylist(url, report);
+          return await playPlaylist(url, callId, report);
         }
-        return await playSingleTrack(url, report);
+        return await playSingleTrack(url, callId, report);
       } catch (error) {
         const msg = error instanceof Error ? error.message : String(error);
         return { text: `Ошибка при загрузке: ${msg}` };
@@ -93,13 +93,14 @@ export const COMMANDS: SlashCommand[] = [
  */
 async function playPlaylist(
   url: string,
+  callId: string,
   report: (text: string) => void,
 ): Promise<{ text: string }> {
   report('Читаю плейлист…');
   const playlist = await fetchPlaylistTracks(url, MAX_QUEUE_SIZE);
 
   report('Ставлю треки в очередь…');
-  if (!musicPlayerService.startQueue(playlist.tracks, 0)) {
+  if (!musicPlayerService.forCall(callId).startQueue(playlist.tracks, 0)) {
     return { text: 'В плейлисте не нашлось доступных треков.' };
   }
 
@@ -131,6 +132,7 @@ async function playPlaylist(
 /** Одиночное видео: метаданные и прямая ссылка получаются сразу */
 async function playSingleTrack(
   url: string,
+  callId: string,
   report: (text: string) => void,
 ): Promise<{ text: string }> {
   report('Разбираю ссылку…');
@@ -143,7 +145,7 @@ async function playSingleTrack(
   }
 
   report('Готовлю трек…');
-  musicPlayerService.startTrack({
+  musicPlayerService.forCall(callId).startTrack({
     url,
     title: info.title,
     uploader: info.uploader,

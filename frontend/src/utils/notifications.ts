@@ -21,16 +21,33 @@ export async function requestNotificationPermission(): Promise<
   return current;
 }
 
-/** Показывает системное уведомление о входящем звонке. */
-export function notifyIncomingCall(name: string): void {
+/** Параметры уведомления о входящем звонке */
+export type IncomingCallNotificationOptions = {
+  /** Код комнаты: приглашение в групповой чат вместо личного звонка */
+  roomCode?: string | null;
+};
+
+/** Показывает системное уведомление о входящем звонке или приглашении. */
+export function notifyIncomingCall(
+  name: string,
+  options: IncomingCallNotificationOptions = {},
+): void {
   if (Notification.permission !== "granted") return;
+
+  const isRoomInvite = !!options.roomCode;
+
   try {
-    new Notification("Входящий звонок", {
-      body: `${name} вызывает вас`,
-      icon: "/icons/icon-512.png",
-      tag: "incoming-call",
-      requireInteraction: true, // остаётся на экране до нажатия
-    });
+    new Notification(
+      isRoomInvite ? "Приглашение в комнату" : "Входящий звонок",
+      {
+        body: isRoomInvite
+          ? `${name} приглашает вас в групповой чат`
+          : `${name} вызывает вас`,
+        icon: "/icons/icon-512.png",
+        tag: "incoming-call",
+        requireInteraction: true, // остаётся на экране до нажатия
+      },
+    );
   } catch {
     // Браузер отклонил показ (например, не-secure context).
   }

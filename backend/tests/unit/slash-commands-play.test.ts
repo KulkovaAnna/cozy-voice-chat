@@ -15,11 +15,19 @@ import musicPlayerService, {
   MAX_QUEUE_SIZE,
 } from '../../src/app/modules/music-player/music-player.service';
 
+const TEST_CALL_ID = 'call-1';
+
 type Handler = (
   args: string,
   senderId: string,
+  callId: string,
   report: (text: string) => void,
 ) => Promise<{ text: string }>;
+
+/** Плеер тестового звонка (у каждого звонка своя очередь) */
+function player() {
+  return musicPlayerService.forCall(TEST_CALL_ID);
+}
 
 function playHandler(): Handler {
   const command = COMMANDS.find((c) => c.name === 'play');
@@ -29,7 +37,9 @@ function playHandler(): Handler {
 
 async function runPlay(args: string): Promise<{ text: string; stages: string[] }> {
   const stages: string[] = [];
-  const result = await playHandler()(args, 'user-1', (text) => stages.push(text));
+  const result = await playHandler()(args, 'user-1', TEST_CALL_ID, (text) =>
+    stages.push(text),
+  );
   return { text: result.text, stages };
 }
 
@@ -45,7 +55,7 @@ function makeTracks(count: number) {
 describe('/play command', () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    musicPlayerService.stop();
+    musicPlayerService.destroy(TEST_CALL_ID);
   });
 
   // ─── одиночный трек ──────────────────────────────────────────
@@ -68,8 +78,8 @@ describe('/play command', () => {
       expect(text).toContain('Нажмите ▶');
       expect(stages).toEqual(['Разбираю ссылку…', 'Готовлю трек…']);
 
-      expect(musicPlayerService.queue).toHaveLength(1);
-      expect(musicPlayerService.directUrl).toBe('https://stream');
+      expect(player().queue).toHaveLength(1);
+      expect(player().directUrl).toBe('https://stream');
     });
 
     it('should report an error when the stream url is missing', async () => {
@@ -84,7 +94,7 @@ describe('/play command', () => {
       const { text } = await runPlay('https://www.youtube.com/watch?v=bad');
 
       expect(text).toContain('Не удалось получить аудио-поток');
-      expect(musicPlayerService.isPlaying()).toBe(false);
+      expect(player().isPlaying()).toBe(false);
     });
   });
 
@@ -109,9 +119,9 @@ describe('/play command', () => {
       );
       expect(stages).toContain('Читаю плейлист…');
 
-      expect(musicPlayerService.queue).toHaveLength(42);
-      expect(musicPlayerService.queueIndex).toBe(0);
-      expect(musicPlayerService.status).toBe('paused');
+      expect(player().queue).toHaveLength(42);
+      expect(player().queueIndex).toBe(0);
+      expect(player().status).toBe('paused');
 
       expect(text).toContain('Chill Mix');
       expect(text).toContain('42 трека');
@@ -131,7 +141,7 @@ describe('/play command', () => {
 
       expect(text).toContain('50 треков из 137');
       expect(text).not.toContain('Ошибка');
-      expect(musicPlayerService.queue).toHaveLength(MAX_QUEUE_SIZE);
+      expect(player().queue).toHaveLength(MAX_QUEUE_SIZE);
     });
 
     it('should format total duration over an hour as hh:mm:ss', async () => {
@@ -179,7 +189,7 @@ describe('/play command', () => {
       const { text } = await runPlay(playlistUrl);
 
       expect(text).toContain('Ошибка при загрузке');
-      expect(musicPlayerService.isPlaying()).toBe(false);
+      expect(player().isPlaying()).toBe(false);
     });
   });
 
@@ -202,7 +212,12 @@ describe('/play command', () => {
   describe('/help', () => {
     it('should list the play command', async () => {
       const help = COMMANDS.find((c) => c.name === 'help')!;
-      const result = await (help.handler as Handler)('', 'user-1', () => {});
+      const result = await (help.handler as Handler)(
+        '',
+        'user-1',
+        TEST_CALL_ID,
+        () => {},
+      );
 
       expect(result.text).toContain('/play');
     });

@@ -9,6 +9,16 @@ import {
 import { toast } from "react-toastify";
 
 import { usePeer, useProfileSettings } from "@cvc/hooks";
+import {
+  callInfoAdapter,
+  clearActiveCall,
+  isValidRoomCode,
+  lobbyRetryDelay,
+  normalizeRoomCode,
+  playJoinSound,
+  saveActiveCall,
+  textMessageAdapter,
+} from "@cvc/utils";
 
 import {
   clearAppBadge,
@@ -20,11 +30,16 @@ import {
 import type {
   CardAppearance,
   CommandStatus,
+  MessageDto,
   ServerMessage,
   TextMessage,
 } from "@cvc/types";
 import { useAuth } from "../AuthProvider";
-import { ChatNetworkContext } from "./ChatNetworkContext";
+import {
+  ChatNetworkContext,
+  type CallRestoreState,
+  type LobbyJoinError,
+} from "./ChatNetworkContext";
 import {
   useChatCall,
   useChatLobby,
@@ -37,20 +52,51 @@ import {
 
 export function ChatNetworkProvider(props: PropsWithChildren) {
   const socketRef = useRef<WebSocket | null>(null);
+  /** Готовность WS-лобби: до неё create-room/join-room нужно придержать */
+  const lobbyReadyRef = useRef(false);
+  const pendingJoinCodeRef = useRef<string | null>(null);
+  const pendingCreateRoomRef = useRef(false);
+  const pendingRejoinCallRef = useRef<string | null>(null);
+  const [callRestoreState, setCallRestoreState] =
+    useState<CallRestoreState>("idle");
+  /** Ключ последнего сохранённого в sessionStorage звонка */
+  const savedCallKeyRef = useRef<string | null>(null);
   const [textMessages, setTextMessages] = useState<Array<TextMessage>>([]);
+  /** Растёт при подмене списка сообщений (история комнаты или очистка) */
+  const [textMessagesEpoch, setTextMessagesEpoch] = useState(0);
   const [commandStatus, setCommandStatus] = useState<CommandStatus | null>(
     null,
   );
+  const [roomJoinError, setRoomJoinError] = useState<string | null>(null);
+  const clearRoomJoinError = useCallback(() => setRoomJoinError(null), []);
+  const [lobbyJoinError, setLobbyJoinError] = useState<LobbyJoinError | null>(
+    null,
+  );
+  const lobbyJoinErrorShownRef = useRef(false);
+  const lobbyRetryAttemptRef = useRef(0);
+
+  /**
+   * Заменяет список сообщений целиком (история комнаты или очистка). Эпоха
+   * помогает потребителям понять, что это не новые сообщения: реакции не
+   * проигрываются, счётчик непрочитанных не растёт.
+   */
+  const replaceTextMessages = useCallback((next: Array<TextMessage>) => {
+    setTextMessages(next);
+    setTextMessagesEpoch((prev) => prev + 1);
+  }, []);
 
   const { user, updateUser } = useAuth();
 
   const {
-    call,
+    isCallActive,
     localAudioStream,
+    remoteStreams,
     localScreenStream,
     remoteScreenStream,
     initialize,
-    callToUser: peerCallToUser,
+    connectToMembers,
+    disconnectMembers,
+    addScreenShareTarget,
     endCall: peerEndCall,
     switchMicState,
     startScreenShare,
@@ -60,25 +106,192 @@ export function ChatNetworkProvider(props: PropsWithChildren) {
   } = usePeer();
 
   const send = useCallback((type: string, data: Record<string, unknown>) => {
-    socketRef.current?.send(JSON.stringify({ type, data }));
+    const socket = socketRef.current;
+    if (!socket || socket.readyState !== WebSocket.OPEN) return;
+
+    socket.send(JSON.stringify({ type, data }));
   }, []);
 
+  /** Забывает активный звонок и сбрасывает сохранённый ключ */
+  const clearActiveCallState = useCallback(() => {
+    savedCallKeyRef.current = null;
+    clearActiveCall();
+  }, []);
+
+  /** Создаёт комнату; если WS ещё не готов, запрос ждёт lobby::joined */
+  const createRoom = useCallback(() => {
+    pendingJoinCodeRef.current = null;
+    pendingRejoinCallRef.current = null;
+    setRoomJoinError(null);
+
+    if (lobbyReadyRef.current) {
+      send("lobby::create-room", {});
+      return;
+    }
+    pendingCreateRoomRef.current = true;
+  }, [send]);
+
+  /** Вход в комнату по коду/ссылке с ожиданием готовности WS */
+  const joinRoomByCode = useCallback(
+    (code: string) => {
+      const normalized = normalizeRoomCode(code);
+
+      if (!isValidRoomCode(normalized)) {
+        toast("Код комнаты должен состоять из 6 символов: A-Z и 0-9", {
+          type: "error",
+        });
+        return;
+      }
+
+      pendingCreateRoomRef.current = false;
+      pendingRejoinCallRef.current = null;
+      setRoomJoinError(null);
+
+      if (lobbyReadyRef.current) {
+        send("lobby::join-room", { code: normalized });
+        return;
+      }
+
+      pendingJoinCodeRef.current = normalized;
+    },
+    [send],
+  );
+
   const peerRef = useRef({
-    callToUser: peerCallToUser,
+    connectToMembers,
+    disconnectMembers,
+    addScreenShareTarget,
     endCall: peerEndCall,
     switchMicState,
   });
 
   useEffect(() => {
     peerRef.current = {
-      callToUser: peerCallToUser,
+      connectToMembers,
+      disconnectMembers,
+      addScreenShareTarget,
       endCall: peerEndCall,
       switchMicState,
     };
-  }, [peerCallToUser, peerEndCall, switchMicState]);
+  }, [
+    connectToMembers,
+    disconnectMembers,
+    addScreenShareTarget,
+    peerEndCall,
+    switchMicState,
+  ]);
 
   const lobby = useChatLobby({ user, send });
   const callHook = useChatCall({ user, send, peerRef });
+
+  /**
+   * Возврат в звонок после F5. Запрос отправляется, когда WS-лобби готов,
+   * иначе ждёт me::lobby-joined.
+   */
+  const restoreCall = useCallback(
+    (callId: string) => {
+      if (!callId) return;
+
+      pendingJoinCodeRef.current = null;
+      pendingCreateRoomRef.current = false;
+      pendingRejoinCallRef.current = callId;
+      setCallRestoreState("pending");
+
+      if (lobbyReadyRef.current) {
+        send("call::rejoin", { callId });
+      }
+    },
+    [send],
+  );
+
+  /** Превращает текущий 1-на-1 в групповую комнату (необратимо) */
+  const convertToRoom = useCallback(() => {
+    const call = callHook.callInfoRef.current;
+    if (!call || call.roomCode) return;
+    send("call::convert-to-room", { callId: call.id });
+  }, [callHook.callInfoRef, send]);
+
+  /** Приглашает участника лобби в текущую комнату */
+  const inviteToRoom = useCallback(
+    (receiverId: string) => {
+      const call = callHook.callInfoRef.current;
+      if (!call?.roomCode) return;
+      // Блокируем кнопку сразу: повторный клик не отправит второй оффер
+      lobby.startPendingInvite(receiverId);
+      send("lobby::invite-to-room", { callId: call.id, receiverId });
+    },
+    [callHook.callInfoRef, lobby, send],
+  );
+
+  /** Запоминаем звонок для восстановления после F5 */
+  useEffect(() => {
+    const call = callHook.callInfo;
+    if (!call) return;
+
+    const key = `${call.id}:${call.roomCode ?? ""}`;
+    if (savedCallKeyRef.current === key) return;
+
+    savedCallKeyRef.current = key;
+    saveActiveCall(call.id, call.roomCode);
+  }, [callHook.callInfo]);
+
+  const handleLobbyJoinRejected = useCallback((data: ServerMessage) => {
+    const message =
+      typeof data.data?.message === "string"
+        ? data.data.message
+        : "С этого устройства уже есть участник в лобби";
+
+    // Авто-повторы приносят тот же отказ — не спамим тостами
+    if (!lobbyJoinErrorShownRef.current) {
+      lobbyJoinErrorShownRef.current = true;
+      toast(message, { type: "error" });
+    }
+
+    setLobbyJoinError((prev) =>
+      prev?.message === message
+        ? prev
+        : {
+            message,
+            existingClientName:
+              typeof data.data?.existingClientName === "string"
+                ? data.data.existingClientName
+                : null,
+          },
+    );
+  }, []);
+
+  const joinToLobby = lobby.joinToLobby;
+
+  const retryJoinLobby = useCallback(() => {
+    lobbyRetryAttemptRef.current = 0;
+    joinToLobby();
+  }, [joinToLobby]);
+
+  const dismissLobbyJoinError = useCallback(() => {
+    lobbyJoinErrorShownRef.current = false;
+    lobbyRetryAttemptRef.current = 0;
+    setLobbyJoinError(null);
+  }, []);
+
+  useEffect(() => {
+    if (!lobbyJoinError) return;
+
+    let timer: ReturnType<typeof setTimeout> | undefined;
+
+    const scheduleRetry = () => {
+      timer = setTimeout(() => {
+        if (socketRef.current?.readyState !== WebSocket.OPEN) return;
+        joinToLobby();
+        lobbyRetryAttemptRef.current += 1;
+        scheduleRetry();
+      }, lobbyRetryDelay(lobbyRetryAttemptRef.current));
+    };
+
+    scheduleRetry();
+    return () => {
+      if (timer) clearTimeout(timer);
+    };
+  }, [joinToLobby, lobbyJoinError]);
 
   const playMusic = useCallback(() => {
     const call = callHook.callInfoRef.current;
@@ -137,7 +350,7 @@ export function ChatNetworkProvider(props: PropsWithChildren) {
   });
 
   useSpeechDetection({
-    call,
+    isCallActive,
     localAudioStream,
     onSpeakingChange: callHook.changeIsSpeakingState,
   });
@@ -146,8 +359,25 @@ export function ChatNetworkProvider(props: PropsWithChildren) {
     (meId: string) => {
       updateUser({ id: meId });
       initialize(meId);
+      lobbyReadyRef.current = true;
+
+      lobbyJoinErrorShownRef.current = false;
+      lobbyRetryAttemptRef.current = 0;
+      setLobbyJoinError(null);
+
+      // Запросы, сделанные до открытия WS (например, по ссылке /join/CODE)
+      if (pendingJoinCodeRef.current) {
+        send("lobby::join-room", { code: pendingJoinCodeRef.current });
+        pendingJoinCodeRef.current = null;
+      } else if (pendingCreateRoomRef.current) {
+        send("lobby::create-room", {});
+        pendingCreateRoomRef.current = false;
+      } else if (pendingRejoinCallRef.current) {
+        // F5 в активном звонке: возвращаемся по callId
+        send("call::rejoin", { callId: pendingRejoinCallRef.current });
+      }
     },
-    [initialize, updateUser],
+    [initialize, send, updateUser],
   );
 
   // Счётчик сообщений, пришедших, пока вкладка была скрыта.
@@ -155,11 +385,16 @@ export function ChatNetworkProvider(props: PropsWithChildren) {
 
   const handleCallEnded = useCallback(() => {
     callHook.handleCallEnded();
-    setTextMessages([]);
+    pendingRejoinCallRef.current = null;
+    setCallRestoreState("idle");
+    clearActiveCallState();
+    setRoomJoinError(null);
+    replaceTextMessages([]);
     setCommandStatus(null);
+    lobby.clearPendingInvites();
     unreadCount.current = 0;
     clearAppBadge();
-  }, [callHook]);
+  }, [callHook, clearActiveCallState, lobby, replaceTextMessages]);
 
   /**
    * Стадия выполнения моей слэш-команды. Приходит только инициатору,
@@ -179,6 +414,70 @@ export function ChatNetworkProvider(props: PropsWithChildren) {
       new CustomEvent("music::state-changed", { detail: data }),
     );
   }, []);
+
+  /** Любой запуск звонка: callInfo обновляется, звонок сохранит эффект выше */
+  const handleCallStarted = useCallback(
+    (data: ServerMessage) => {
+      callHook.handleCallStarted(data);
+      setCallRestoreState("idle");
+      pendingRejoinCallRef.current = null;
+      setRoomJoinError(null);
+    },
+    [callHook],
+  );
+
+  /**
+   * Звонок превращён в групповую комнату. Код приходит всем участникам;
+   * инициатору показываем тост, чтобы он сразу мог поделиться ссылкой.
+   */
+  const handleCallRoomCreated = useCallback(
+    (data: ServerMessage) => {
+      callHook.handleCallStateChanged(data);
+
+      const info = callInfoAdapter(data.data.callInfo);
+      if (info.roomCode) {
+        saveActiveCall(info.id, info.roomCode);
+        savedCallKeyRef.current = `${info.id}:${info.roomCode}`;
+      }
+
+      if (data.data.createdBy === user.id) {
+        toast(`Теперь это комната ${info.roomCode}`, {
+          type: "success",
+        });
+      }
+    },
+    [callHook, user.id],
+  );
+
+  /** Вход в комнату: поднимаем callInfo и восстанавливаем историю чата */
+  const handleRoomJoined = useCallback(
+    (data: ServerMessage) => {
+      handleCallStarted(data);
+
+      const rawMessages = Array.isArray(data.data.messages)
+        ? (data.data.messages as MessageDto[])
+        : [];
+
+      // История — не новые сообщения: эпоха списка растёт, реакции и счётчик
+      // непрочитанных на ней не срабатывают.
+      replaceTextMessages(
+        rawMessages.map((message) => textMessageAdapter(message)),
+      );
+    },
+    [handleCallStarted, replaceTextMessages],
+  );
+
+  /** Выход из комнаты по кнопке: сразу чистим локальное состояние */
+  const leaveCall = useCallback(() => {
+    callHook.leaveCall();
+    pendingRejoinCallRef.current = null;
+    setCallRestoreState("idle");
+    clearActiveCallState();
+    setRoomJoinError(null);
+    replaceTextMessages([]);
+    setCommandStatus(null);
+    lobby.clearPendingInvites();
+  }, [callHook, clearActiveCallState, lobby, replaceTextMessages]);
 
   const profileSettings = useProfileSettings();
 
@@ -236,11 +535,73 @@ export function ChatNetworkProvider(props: PropsWithChildren) {
 
       void requestNotificationPermission().then((permission) => {
         if (permission !== "granted") return;
-        const initiator = data.data.callOffer?.initiator;
-        notifyIncomingCall(initiator?.name ?? "Собеседник");
+        const offer = data.data.callOffer;
+        notifyIncomingCall(
+          offer?.initiator?.personalInfo?.name ?? "Собеседник",
+          {
+            roomCode: offer?.kind === "room" ? (offer.roomCode ?? null) : null,
+          },
+        );
       });
     },
     [lobby],
+  );
+
+  /** Приглашение отклонено: снимаем ожидание и показываем тост */
+  const handleCallOfferDeclined = useCallback(
+    (data: ServerMessage) => {
+      const declinedName = lobby.handleCallOfferDeclined(data);
+      if (declinedName) {
+        toast(`${declinedName} отклонил приглашение`, { type: "info" });
+      }
+    },
+    [lobby],
+  );
+
+  /** Приглашение принято: участник уже в звонке */
+  const handleCallOfferAccepted = useCallback(
+    (data: ServerMessage) => {
+      lobby.handleCallOfferAccepted(data);
+    },
+    [lobby],
+  );
+
+  /** Приглашение не создано: сервер объяснил причину */
+  const handleRoomInviteFailed = useCallback(
+    (data: ServerMessage) => {
+      const message = lobby.handleInviteFailed(data);
+      if (message) {
+        toast(message, { type: "error" });
+      }
+    },
+    [lobby],
+  );
+
+  /**
+   * Новый участник звонка: обновляем состав, снимаем ожидание приглашения
+   * и показываем тост со звуком для групповых комнат.
+   */
+  const handleMemberJoined = useCallback(
+    (data: ServerMessage) => {
+      callHook.handleMemberJoined(data);
+
+      const clientId = data.data?.client?.id;
+      if (typeof clientId !== "string") return;
+
+      lobby.removePendingInvite(clientId);
+
+      if (!data.data?.callInfo) return;
+      const info = callInfoAdapter(data.data.callInfo);
+      if (info.type !== "group" || clientId === user.id) return;
+
+      const name =
+        typeof data.data.client?.personalInfo?.name === "string"
+          ? data.data.client.personalInfo.name
+          : "Участник";
+      toast(`${name} присоединился к звонку`, { type: "info" });
+      playJoinSound();
+    },
+    [callHook, lobby, user.id],
   );
 
   /** Сообщения, пришедшие в фоновую вкладку, считаем непрочитанными. */
@@ -258,13 +619,51 @@ export function ChatNetworkProvider(props: PropsWithChildren) {
    * Ошибки от сервера (занят, не найден, rate limit) — показываем как toast.
    * Сервер шлёт type="error" с data.message — текст уже на русском.
    */
-  const handleError = useCallback((data: ServerMessage) => {
-    const message =
-      typeof data.data?.message === "string"
-        ? data.data.message
-        : "Что-то пошло не так";
-    toast(message, { type: "error" });
-  }, []);
+  const handleError = useCallback(
+    (data: ServerMessage) => {
+      const message =
+        typeof data.data?.message === "string"
+          ? data.data.message
+          : "Что-то пошло не так";
+      toast(message, { type: "error" });
+
+      // Возврат в звонок не удался: показываем ошибку на странице звонка
+      const isRejoinError = [
+        "Звонок не найден",
+        "Вы не участник этого звонка",
+        "Комната заполнена",
+        "Вы не в лобби",
+        "Вы уже в звонке",
+      ].some((fragment) => message.includes(fragment));
+
+      if (pendingRejoinCallRef.current && isRejoinError) {
+        pendingRejoinCallRef.current = null;
+        setCallRestoreState("failed");
+        clearActiveCallState();
+        return;
+      }
+
+      const isRoomError = [
+        "Комната не найдена",
+        "Некорректный код комнаты",
+        "Комната заполнена",
+        "Вы уже в звонке",
+      ].some((fragment) => message.includes(fragment));
+
+      if (isRoomError) {
+        setRoomJoinError(message);
+      }
+
+      if (
+        message.includes("Комната не найдена") ||
+        message.includes("Некорректный код комнаты") ||
+        message.includes("Комната заполнена")
+      ) {
+        clearActiveCallState();
+      }
+    },
+    [clearActiveCallState],
+  );
 
   // Вернулись во вкладку — значок больше не нужен.
   useEffect(() => {
@@ -281,10 +680,17 @@ export function ChatNetworkProvider(props: PropsWithChildren) {
   const { route } = useChatMessageRouter({
     handleLobbyJoined: lobby.handleLobbyJoined,
     onMeLobbyJoined,
+    handleLobbyJoinRejected,
     handleCallOffer,
-    handleCallOfferDeclined: lobby.handleCallOfferDeclined,
+    handleCallOfferDeclined,
+    handleCallOfferAccepted,
+    handleRoomInviteFailed,
     setCallOfferNull: lobby.clearCallOffer,
-    handleCallStarted: callHook.handleCallStarted,
+    handleCallStarted,
+    handleCallRoomCreated,
+    handleRoomJoined,
+    handleMemberJoined,
+    handleMemberLeft: callHook.handleMemberLeft,
     handleCallEnded,
     handleOnlineChanged: callHook.handleOnlineChanged,
     handleCallStateChanged: callHook.handleCallStateChanged,
@@ -310,10 +716,17 @@ export function ChatNetworkProvider(props: PropsWithChildren) {
         callOffer: lobby.callOffer,
         isMyUserMuted: callHook.isMyUserMuted,
         textMessages,
+        textMessagesEpoch,
         isMyUserScreenSharing: callHook.isMyUserScreenSharing,
         localScreenStream,
         remoteScreenStream,
+        remoteStreams,
         commandStatus,
+        roomJoinError,
+        clearRoomJoinError,
+        lobbyJoinError,
+        retryJoinLobby,
+        dismissLobbyJoinError,
         beginScreenShare,
         endScreenShare,
         playMusic,
@@ -326,7 +739,15 @@ export function ChatNetworkProvider(props: PropsWithChildren) {
         acceptCallOffer: lobby.acceptCallOffer,
         declineCallOffer: lobby.declineCallOffer,
         updateProfile: lobby.updateProfile,
+        createRoom,
+        joinRoomByCode,
+        inviteToRoom,
+        pendingInvites: lobby.pendingInvites,
+        convertToRoom,
+        restoreCall,
+        callRestoreState,
         endCall: callHook.endCall,
+        leaveCall,
         changeMuteStatus: callHook.changeMuteStatus,
         sendTextMessage: messages.sendTextMessage,
       }}

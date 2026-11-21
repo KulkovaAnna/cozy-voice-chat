@@ -1,17 +1,16 @@
 import { useEffect, useRef } from "react";
 
-import type { MediaConnection } from "peerjs";
-
 import { SpeechDetection } from "@cvc/utils";
 
 type UseSpeechDetectionParams = {
-  call: MediaConnection | null;
+  /** Идёт ли звонок (в комнате соединений может быть ещё ноль) */
+  isCallActive: boolean;
   localAudioStream: MediaStream | null;
   onSpeakingChange: (isSpeaking: boolean) => void;
 };
 
 export function useSpeechDetection({
-  call,
+  isCallActive,
   localAudioStream,
   onSpeakingChange,
 }: UseSpeechDetectionParams) {
@@ -24,9 +23,9 @@ export function useSpeechDetection({
   }, [onSpeakingChange]);
 
   useEffect(() => {
-    const stream = localAudioStream ?? call?.localStream ?? null;
+    const stream = localAudioStream;
 
-    if (!call || !stream) {
+    if (!isCallActive || !stream) {
       if (speechDetection.current) {
         speechDetection.current.stop();
         speechDetection.current = null;
@@ -47,5 +46,5 @@ export function useSpeechDetection({
       speechDetection.current?.stop();
       speechDetection.current = null;
     };
-  }, [call, localAudioStream]);
+  }, [isCallActive, localAudioStream]);
 }

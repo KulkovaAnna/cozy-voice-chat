@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 
 import type { TextMessage } from "@cvc/types";
-import { extractSingleEmoji } from "@cvc/utils";
+import { findLastSingleEmoji } from "@cvc/utils";
 
 export type EmojiReaction = {
   /** ID отправителя сообщения-эмодзи */
@@ -17,15 +17,33 @@ const REACTION_LIFETIME_MS = 3000;
  * Отслеживает новые текстовые сообщения и возвращает реакцию для последнего
  * сообщения, состоящего ровно из одной эмодзи. Реакция автоматически сбрасывается
  * через REACTION_LIFETIME_MS секунд.
+ *
+ * `messagesEpoch` увеличивается, когда список сообщений подменяется целиком:
+ * загрузка истории комнаты или очистка после звонка. Такие сообщения не новые,
+ * поэтому история не должна проигрывать эмодзи у тех, кто только подключился.
  */
-export function useChatEmojiReaction(messages: TextMessage[]) {
+export function useChatEmojiReaction(
+  messages: TextMessage[],
+  messagesEpoch = 0,
+) {
   const [reaction, setReaction] = useState<EmojiReaction | null>(null);
 
-  const processedCount = useRef(0);
+  const processedCount = useRef(messages.length);
+  const processedEpoch = useRef(messagesEpoch);
   const nonce = useRef(0);
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
+    // Список заменили целиком (история комнаты или очистка) — синхронизируем
+    // счётчик без показа реакции: это не новые сообщения.
+    if (processedEpoch.current !== messagesEpoch) {
+      processedEpoch.current = messagesEpoch;
+      processedCount.current = messages.length;
+      if (timer.current) clearTimeout(timer.current);
+      setReaction(null);
+      return;
+    }
+
     // Сообщения очистились (завершение звонка) — просто синхронизируем счётчик.
     if (messages.length < processedCount.current) {
       processedCount.current = messages.length;
@@ -34,26 +52,21 @@ export function useChatEmojiReaction(messages: TextMessage[]) {
 
     if (messages.length === processedCount.current) return;
 
-    let emoji: string | null = null;
-    let senderId = "";
-
-    for (let i = processedCount.current; i < messages.length; i += 1) {
-      const single = extractSingleEmoji(messages[i].message);
-      if (single) {
-        emoji = single;
-        senderId = messages[i].senderId;
-      }
-    }
+    const single = findLastSingleEmoji(messages, processedCount.current);
     processedCount.current = messages.length;
 
-    if (!emoji) return;
+    if (!single) return;
 
     nonce.current += 1;
-    setReaction({ senderId, emoji, nonce: nonce.current });
+    setReaction({
+      senderId: single.senderId,
+      emoji: single.emoji,
+      nonce: nonce.current,
+    });
 
     if (timer.current) clearTimeout(timer.current);
     timer.current = setTimeout(() => setReaction(null), REACTION_LIFETIME_MS);
-  }, [messages]);
+  }, [messages, messagesEpoch]);
 
   useEffect(
     () => () => {

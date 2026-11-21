@@ -37,7 +37,11 @@ export function WaitCallModal() {
   return (
     <Modal
       style={customStyles}
-      isOpen={!!callOffer && callOffer.initiator.id === user.id}
+      isOpen={
+        !!callOffer &&
+        callOffer.kind === "direct" &&
+        callOffer.initiator.id === user.id
+      }
     >
       <h2>Идёт звонок</h2>
       <img src="/gif/coza.gif" width={128} height={128} />

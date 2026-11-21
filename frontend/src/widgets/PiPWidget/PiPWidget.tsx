@@ -14,7 +14,7 @@ import * as Styles from "./PiPWidget.styles";
 
 export const PiPWidget = () => {
   const { isOpen, pipWindow, close } = usePiP();
-  const { callInfo, isMyUserMuted, changeMuteStatus, endCall } =
+  const { callInfo, isMyUserMuted, changeMuteStatus, endCall, leaveCall } =
     useChatNetwork();
   const { user } = useAuth();
 
@@ -60,10 +60,10 @@ export const PiPWidget = () => {
           onClick={() => changeMuteStatus(!isMyUserMuted)}
         />
         <IconButton
-          title="Завершить звонок"
+          title={callInfo.roomCode ? "Покинуть комнату" : "Завершить звонок"}
           icon={<EndCallIcon />}
           variant="error"
-          onClick={() => endCall()}
+          onClick={() => (callInfo.roomCode ? leaveCall() : endCall())}
         />
       </Styles.Controls>
     </Styles.Window>,

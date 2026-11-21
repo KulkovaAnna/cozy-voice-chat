@@ -90,9 +90,9 @@ export type SettingsSection = "audio" | "pip" | "profile";
 export const DEFAULT_SETTINGS: AppSettings = {
   audio: {
     inputDeviceId: null,
-    noiseSuppression: false,
+    noiseSuppression: true,
     echoCancellation: true,
-    autoGainControl: false,
+    autoGainControl: true,
   },
   pip: {
     autoOpen: true,

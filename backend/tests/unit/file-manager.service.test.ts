@@ -411,6 +411,28 @@ describe('FileManagerService', () => {
     });
   });
 
+  // ─── cleanCallFiles ───────────────────────────────────────────
+  describe('cleanCallFiles', () => {
+    it('should unlink files of the specified call and drop metadata', async () => {
+      mockHappyPath();
+      await service.uploadAttachments(
+        [makeFile('doc.pdf')],
+        '10.0.0.1',
+        'call-1',
+        'client-1',
+      );
+
+      await service.cleanCallFiles('call-1');
+
+      expect(fs.promises.unlink).toHaveBeenCalledWith(
+        expect.stringContaining('mocked-uuid-1234'),
+      );
+      await expect(
+        service.getFileStream('mocked-uuid-1234'),
+      ).rejects.toMatchObject({ status: 404 });
+    });
+  });
+
   // ─── cleanDownloads ───────────────────────────────────────────
   describe('cleanDownloads', () => {
     it('should unlink files and clear metadata', async () => {
